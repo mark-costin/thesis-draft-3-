@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+*.dump
+all_tables.sql
+.web/
+backend/uploads/*
+!backend/uploads/.gitkeep
