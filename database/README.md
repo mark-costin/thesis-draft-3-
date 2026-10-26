@@ -28,6 +28,30 @@ folder in alphabetical order the first time the database volume is created.
 | `18_patient_goals.sql` | `patient_goals` | Patient's own preventive goals |
 | `99_security.sql` | RLS policies, grants | Zero Trust enforcement (runs last) |
 
+## Windows setup (no Docker)
+
+`00_roles.sh` only runs inside Docker. On Windows, use `windows_setup.sql`, which creates the
+`med_app` role and runs every script in the right order.
+
+1. In DBeaver, connected as `postgres`, create an empty database named `med_db`.
+2. Open `database/windows_setup.sql`, set the active database to `med_db` (toolbar shows `public@med_db`),
+   and run the whole script (Alt+X).
+3. Refresh `med_db`: Schemas -> public -> Tables should list 17 tables.
+4. Copy `.env.example` to `.env` (the dev password `CHANGE_ME` already matches the script).
+5. Check the connection:
+
+   ```
+   uv run python backend/check_db.py
+   ```
+
+   Expected: `connected as: ('med_db', 'med_app')`, `tables: 17`, `patients visible: 0`
+   (0 is correct: RLS hides every patient row until a patient id is set).
+
+If step 5 fails with `password authentication failed for user "med_app"`, the role already existed
+with another password. Run `ALTER ROLE med_app WITH LOGIN PASSWORD 'CHANGE_ME';` as `postgres`.
+
+When a script in this folder is added or changed, update `windows_setup.sql` in the same pull request.
+
 ## Zero Trust principles applied
 
 - **Least privilege:** the app connects as `med_app`, which cannot bypass RLS, create tables,
