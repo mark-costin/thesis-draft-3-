@@ -8,6 +8,11 @@
 --     SET LOCAL app.user_id    = '<user_id from JWT>';
 --     SET LOCAL app.patient_id = '<patient_id from JWT>';
 -- SET LOCAL ends with the transaction, so one request's identity never leaks into the next.
+--
+-- Safe to run again: policies are dropped and recreated, and grants/revokes repeat cleanly.
+-- After adding a new table script, rerun this whole file on the existing database.
+
+SET client_min_messages = warning;  -- hide "policy does not exist, skipping" notices
 
 -- ---------------------------------------------------------------------------
 -- 1. Row-Level Security on every patient-owned table
@@ -20,9 +25,10 @@ BEGIN
         'documents', 'vitals_records', 'lab_results', 'lifestyle_records',
         'patient_health_history', 'questionnaire_responses', 'patient_family_history',
         'patient_fhrs_stratification', 'risk_assessments', 'risk_results',
-        'shap_explanations', 'patient_goals'
+        'shap_explanations', 'patient_goals', 'health_reports'
     ] LOOP
         EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS patient_isolation ON public.%I', t);
         EXECUTE format(
             'CREATE POLICY patient_isolation ON public.%I
                  USING (patient_id = public.current_patient_id())
@@ -34,6 +40,7 @@ $$;
 -- patients: visible to its own patient id, or to its own user during registration/login
 -- (before the app knows the patient id)
 ALTER TABLE public.patients ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS patient_self ON public.patients;
 CREATE POLICY patient_self ON public.patients
     USING (patient_id = public.current_patient_id()
            OR user_id = public.current_app_user_id())
@@ -52,8 +59,14 @@ REVOKE ALL ON public.audit_ledger FROM med_app;
 -- Model registry: read-only for the app
 REVOKE INSERT, UPDATE, DELETE ON public.model_versions FROM med_app;
 
--- Assessment results are immutable (they may only be deleted, e.g. on account deletion)
-REVOKE UPDATE ON public.risk_assessments, public.risk_results, public.shap_explanations FROM med_app;
+-- Care plan templates: read-only for the app (loaded and approved by the owner only).
+-- Not patient-owned, so no RLS; every patient may read the active templates.
+REVOKE INSERT, UPDATE, DELETE ON public.care_plan_templates FROM med_app;
+
+-- Assessment results and saved reports are immutable
+-- (they may only be deleted, e.g. on account deletion)
+REVOKE UPDATE ON public.risk_assessments, public.risk_results, public.shap_explanations,
+                 public.health_reports FROM med_app;
 
 -- Reset tokens are never edited except to mark them used
 REVOKE UPDATE ON public.password_reset_tokens FROM med_app;
@@ -74,3 +87,5 @@ GRANT EXECUTE ON FUNCTION public.prevent_modification() TO med_app;
 GRANT EXECUTE ON FUNCTION public.log_audit(text, integer, integer, jsonb) TO med_app;
 
 -- verify_audit_chain() and audit_seal_input() stay owner-only (admin checks).
+-- protect_reviewed_template() (19_care_plan_templates.sql) stays owner-only: it only fires
+-- on UPDATE or DELETE of templates, which med_app is not allowed to do.
