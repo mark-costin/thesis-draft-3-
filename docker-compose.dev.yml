@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:18
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: kram # Local development only
+      POSTGRES_DB: med_db
+    volumes:
+      # Mounts your SQL scripts to initialize the 19 tables and RLS on first run
+      - ./database:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
