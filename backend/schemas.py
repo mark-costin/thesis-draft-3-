@@ -76,3 +76,28 @@ class RegisterRequest(BaseModel):
 class RegisterResponse(BaseModel):
     email: str
     consent_version: str
+
+
+class LoginRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: str = Field(max_length=254)
+    password: str = Field(min_length=1, max_length=128)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value):
+        return value.strip().lower() if isinstance(value, str) else value
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int  # seconds
+
+
+class MeResponse(BaseModel):
+    email: str
+    first_name: str
+    last_name: str
+    consent_version: str
