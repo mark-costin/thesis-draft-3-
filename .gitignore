@@ -7,3 +7,4 @@ all_tables.sql
 .web/
 backend/uploads/*
 !backend/uploads/.gitkeep
+.pytest_cache/
