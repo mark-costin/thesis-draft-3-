@@ -19,5 +19,9 @@ class Settings(BaseSettings):
     test_database_url: str | None = None
     redis_url: str = "redis://localhost:6379/0"
 
+    # Version of the privacy notice (RA 10173) shown on the registration screen.
+    # Raise it whenever the notice text changes; registration only accepts the current one.
+    privacy_notice_version: str = "1.0"
+
 
 settings = Settings()
