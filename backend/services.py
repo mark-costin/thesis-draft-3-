@@ -1,13 +1,16 @@
 """Business logic used by the routes. Routes handle HTTP; these functions handle the database."""
 
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import set_request_identity
-from backend.models import Patient, User
+from backend import mailer
+from backend.models import PasswordResetToken, Patient, User
 from backend.schemas import RegisterRequest
 from backend.security import (
     burn_dummy_check,
@@ -20,6 +23,9 @@ from backend.security import (
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 
+# Reset tokens: single use, valid for 1 hour (also enforced by reset_tokens_expiry_check)
+RESET_TOKEN_LIFETIME = timedelta(hours=1)
+
 
 class EmailAlreadyRegistered(Exception):
     pass
@@ -27,6 +33,10 @@ class EmailAlreadyRegistered(Exception):
 
 class InvalidCredentials(Exception):
     """Wrong email or wrong password. One error for both, so emails cannot be probed."""
+
+
+class InvalidResetToken(Exception):
+    """Unknown, already used, or expired. One error for all three."""
 
 
 class AccountLocked(Exception):
@@ -123,4 +133,58 @@ def revoke_all_tokens(db: Session, user_id: int) -> None:
     """Logout everywhere: every token issued before this call stops working."""
     db.execute(update(User).where(User.user_id == user_id)
                .values(token_version=User.token_version + 1))
+    db.commit()
+
+
+def _hash_reset_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def request_password_reset(db: Session, email: str) -> None:
+    """Creates a reset token and sends the link. Does nothing visible if the email is unknown,
+    so the response is the same whether or not an account exists."""
+    user = db.scalars(select(User).where(func.lower(User.email) == email)).one_or_none()
+    if user is None:
+        db.rollback()
+        return
+
+    # Only the newest link works: drop this user's unused older tokens
+    db.execute(delete(PasswordResetToken).where(
+        PasswordResetToken.user_id == user.user_id,
+        PasswordResetToken.used_at.is_(None),
+    ))
+
+    token = secrets.token_urlsafe(32)  # 256 bits; only its SHA-256 hash is stored
+    db.add(PasswordResetToken(
+        user_id=user.user_id,
+        token_hash=_hash_reset_token(token),
+        # Database time, so it matches created_at exactly and passes the 1-hour CHECK
+        expires_at=func.now() + RESET_TOKEN_LIFETIME,
+    ))
+    db.commit()
+    mailer.send_password_reset(user.email, token)
+
+
+def confirm_password_reset(db: Session, token: str, new_password: str) -> None:
+    """Uses the token once, sets the new password, unlocks the account and logs out
+    every existing session."""
+    row = db.scalars(
+        select(PasswordResetToken).where(
+            PasswordResetToken.token_hash == _hash_reset_token(token),
+            PasswordResetToken.used_at.is_(None),
+            PasswordResetToken.expires_at > func.now(),
+        ).with_for_update()
+    ).one_or_none()
+    if row is None:
+        db.rollback()
+        raise InvalidResetToken
+
+    row.used_at = func.now()  # med_app may update only this column
+    db.execute(update(User).where(User.user_id == row.user_id).values(
+        password_hash=hash_password(new_password),
+        password_changed_at=func.now(),
+        token_version=User.token_version + 1,
+        failed_attempts=0,
+        locked_until=None,
+    ))
     db.commit()
