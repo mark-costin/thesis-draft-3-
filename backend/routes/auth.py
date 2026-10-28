@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from math import ceil
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -11,6 +11,7 @@ from backend import services
 from backend.config import settings
 from backend.database import get_db
 from backend.dependencies import CurrentUser, get_current_user
+from backend.middleware import limiter
 from backend.models import Patient, User
 from backend.schemas import (
     LoginRequest,
@@ -26,7 +27,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=RegisterResponse)
-def register(body: RegisterRequest, db: Session = Depends(get_db)) -> RegisterResponse:
+@limiter.limit("5/minute")
+def register(request: Request, body: RegisterRequest, db: Session = Depends(get_db)) -> RegisterResponse:
     try:
         services.register_patient(db, body)
     except services.EmailAlreadyRegistered:
@@ -36,7 +38,8 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)) -> RegisterRe
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
+@limiter.limit("10/minute")  # per IP; the per-account lockout is in services.login
+def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
     try:
         token = services.login(db, body.email, body.password)
     except services.InvalidCredentials:
@@ -66,14 +69,18 @@ def logout(current: CurrentUser = Depends(get_current_user), db: Session = Depen
 
 
 @router.post("/password-reset/request", status_code=status.HTTP_202_ACCEPTED)
-def password_reset_request(body: PasswordResetRequest, db: Session = Depends(get_db)) -> dict:
+@limiter.limit("5/minute")  # each call can send an email
+def password_reset_request(request: Request, body: PasswordResetRequest,
+                           db: Session = Depends(get_db)) -> dict:
     services.request_password_reset(db, body.email)
     # Same answer for every email, so this cannot be used to find out who has an account
     return {"detail": "If that email is registered, a reset link has been sent. It expires in 1 hour."}
 
 
 @router.post("/password-reset/confirm", status_code=status.HTTP_204_NO_CONTENT)
-def password_reset_confirm(body: PasswordResetConfirm, db: Session = Depends(get_db)) -> Response:
+@limiter.limit("10/minute")
+def password_reset_confirm(request: Request, body: PasswordResetConfirm,
+                           db: Session = Depends(get_db)) -> Response:
     try:
         services.confirm_password_reset(db, body.token, body.new_password)
     except services.InvalidResetToken:

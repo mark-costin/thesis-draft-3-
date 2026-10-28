@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     database_url: str
     test_database_url: str | None = None
     redis_url: str = "redis://localhost:6379/0"
+    # false: rate limits and idempotency keys are kept in memory (one dev process, no Redis needed).
+    # true: kept in Redis at REDIS_URL (Docker and deployment).
+    redis_enabled: bool = False
+
+    # Browser origins allowed to call the API (the Reflex frontend). JSON list in .env, e.g.
+    # CORS_ORIGINS=["http://localhost:3000"]. Set to the real domain on deployment.
+    cors_origins: list[str] = ["http://localhost:3000"]
 
     # Version of the privacy notice (RA 10173) shown on the registration screen.
     # Raise it whenever the notice text changes; registration only accepts the current one.
