@@ -61,7 +61,7 @@ def me(current: CurrentUser = Depends(get_current_user), db: Session = Depends(g
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(current: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)) -> Response:
     """Logs out on every device by revoking all of this account's tokens."""
-    services.revoke_all_tokens(db, current.user_id)
+    services.revoke_all_tokens(db, current.user_id, current.patient_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
