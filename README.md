@@ -76,7 +76,12 @@ thesis-d3/
 │   │   ├── risk.py          # Risk results
 │   │   └── report.py        # Care plan and saved reports
 │   └── rxconfig.py          # Reflex configuration
-├── ml/                      # Risk model training and model files
+├── ml/
+│   ├── ai_model/            # Risk model training and prediction code
+│   ├── artifacts/           # Trained model files and checksums
+│   ├── OCR/                 # Lab result OCR and field mapping
+│   ├── synthetic/           # Synthetic patient data generator
+│   └── __init__.py
 ├── tests/                   # pytest tests
 ├── .env.example             # Template for .env (copy and fill in)
 ├── .gitignore
