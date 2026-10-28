@@ -36,15 +36,24 @@ This is a web-based clinical decision support system that estimates a patient's 
 
 ```
 thesis-d3/
+├── assets/                  # Static files (images, icons)
 ├── backend/
-│   ├── app/
-│   │   ├── main.py          # FastAPI entry point
-│   │   ├── models/          # SQLAlchemy models
-│   │   ├── schemas/         # Request/response schemas
-│   │   ├── routers/         # API endpoints
-│   │   └── services/        # OCR, risk model, care plans
-│   └── requirements.txt
-├── frontend/
-├── docs/
+│   ├── routes/              # API endpoints, grouped by feature
+│   ├── uploads/             # Uploaded lab result files (not committed)
+│   ├── __init__.py
+│   ├── audit.py             # Audit logging
+│   ├── check_db.py          # Checks the database connection
+│   ├── config.py            # Settings read from .env
+│   ├── database.py          # Database engine and sessions
+│   ├── dependencies.py      # Shared FastAPI dependencies (e.g., current user)
+│   ├── mailer.py            # Sends emails (e.g., password reset)
+│   ├── main.py              # FastAPI entry point
+│   ├── models.py            # SQLAlchemy models
+│   ├── ocr_worker.py        # Background worker that runs OCR on uploads
+│   ├── schemas.py           # Request/response schemas (Pydantic)
+│   ├── security.py          # Password hashing and JWT tokens
+│   └── services.py          # Business logic (risk model, care plans)
 └── README.md
 ```
+
+Generated folders (`.venv/`, `.pytest_cache/`, `__pycache__/`) are left out because Git ignores them.
