@@ -26,7 +26,59 @@ folder in alphabetical order the first time the database volume is created.
 | `16_risk_results.sql` | `risk_results` | Four disease probabilities and tiers |
 | `17_shap_explanations.sql` | `shap_explanations` | Per-feature SHAP values, ranked |
 | `18_patient_goals.sql` | `patient_goals` | Patient's own preventive goals |
+| `19_care_plan_templates.sql` | `care_plan_templates` | 12 physician-reviewed care plan templates (read-only for `med_app`) |
+| `20_health_reports.sql` | `health_reports` | Saved report snapshots (patient-owned, RLS, never edited) |
+| `21_famhistory.sql` | changes to `patient_family_history`, `patient_fhrs_stratification` | Relatives, onset levels, 5 risk bands |
 | `99_security.sql` | RLS policies, grants | Zero Trust enforcement (runs last) |
+| `seed_care_plan_templates.sql` | 12 draft templates | Not numbered, so Docker never loads unreviewed advice; run by hand as `postgres` |
+
+## Windows setup (no Docker)
+
+`00_roles.sh` only runs inside Docker. On Windows there are two files:
+
+| File | Builds | When |
+| --- | --- | --- |
+| `database/windows_setup.sql` | `med_db` (your working database) | Once, on a new empty `med_db` |
+| `tests/create_test_db.ps1` | `med_db_test` (for pytest) | Every time a script in `database/` is added or changed |
+
+### med_db (DBeaver)
+
+1. In DBeaver, connected as `postgres`, create an empty database named `med_db`.
+2. Open `database/windows_setup.sql`, set the active database to `med_db` (toolbar shows
+   `public@med_db`), and run the whole script (Alt+X). It creates `med_app`, runs 01 to 21,
+   then 99, then the draft care plan templates. It stops at once if the database is not `med_db`
+   or already has tables, so it can never overwrite your data (click **Stop** if DBeaver asks).
+3. Refresh `med_db`: Schemas -> public -> Tables should list 19 tables.
+4. Copy `.env.example` to `.env` and fill in any secrets it lists, such as `JWT_SECRET_KEY` (the dev password `CHANGE_ME`
+   already matches the script).
+5. Check the connection:
+
+   ```
+   uv run python backend/check_db.py
+   ```
+
+   Expected: `connected as: ('med_db', 'med_app')`, `tables: 19`, `patients visible: 0`
+   (0 is correct: RLS hides every patient row until a patient id is set).
+
+If step 5 fails with `password authentication failed for user "med_app"`, the role already existed
+with another password. Run `ALTER ROLE med_app WITH LOGIN PASSWORD 'CHANGE_ME';` as `postgres`.
+
+An existing `med_db` does not need to be rebuilt for a new script: run just the new script(s)
+as `postgres`, then rerun `99_security.sql` (safe to run again).
+
+### med_db_test (PowerShell)
+
+From the repo root:
+
+```
+powershell -ExecutionPolicy Bypass -File tests\create_test_db.ps1
+uv run pytest
+```
+
+It asks for the `postgres` password once, drops and recreates `med_db_test` only, and should end
+with `Done: med_db_test has 19 tables (expected 19)`. Fedora/Linux uses `bash tests/create_test_db.sh`.
+
+When a script in this folder is added or changed, update `windows_setup.sql` in the same pull request.
 
 ## Zero Trust principles applied
 
