@@ -3,8 +3,10 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
+from backend.routes import auth
 
 app = FastAPI(title="CDSS API", version="0.1.0")
+app.include_router(auth.router)
 
 
 @app.get("/health")

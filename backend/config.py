@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Repo root (thesis-d3/), so .env is found no matter which folder you run from
@@ -18,6 +19,22 @@ class Settings(BaseSettings):
     database_url: str
     test_database_url: str | None = None
     redis_url: str = "redis://localhost:6379/0"
+
+    # Version of the privacy notice (RA 10173) shown on the registration screen.
+    # Raise it whenever the notice text changes; registration only accepts the current one.
+    privacy_notice_version: str = "1.0"
+
+    # Signs the login tokens (JWT). Required, at least 32 characters, never the placeholder.
+    # Generate one with:  uv run python -c "import secrets; print(secrets.token_urlsafe(48))"
+    jwt_secret_key: str = Field(min_length=32)
+    access_token_expire_minutes: int = Field(default=30, ge=5, le=1440)
+
+    @field_validator("jwt_secret_key")
+    @classmethod
+    def reject_placeholder(cls, value: str) -> str:
+        if value.startswith("CHANGE_ME"):
+            raise ValueError("Set JWT_SECRET_KEY in .env to a long random value")
+        return value
 
 
 settings = Settings()
