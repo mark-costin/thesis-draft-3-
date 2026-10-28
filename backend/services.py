@@ -1,13 +1,16 @@
 """Business logic used by the routes. Routes handle HTTP; these functions handle the database."""
 
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import set_request_identity
-from backend.models import Patient, User
+from backend import audit, mailer
+from backend.models import PasswordResetToken, Patient, User
 from backend.schemas import RegisterRequest
 from backend.security import (
     burn_dummy_check,
@@ -20,6 +23,9 @@ from backend.security import (
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 
+# Reset tokens: single use, valid for 1 hour (also enforced by reset_tokens_expiry_check)
+RESET_TOKEN_LIFETIME = timedelta(hours=1)
+
 
 class EmailAlreadyRegistered(Exception):
     pass
@@ -27,6 +33,10 @@ class EmailAlreadyRegistered(Exception):
 
 class InvalidCredentials(Exception):
     """Wrong email or wrong password. One error for both, so emails cannot be probed."""
+
+
+class InvalidResetToken(Exception):
+    """Unknown, already used, or expired. One error for all three."""
 
 
 class AccountLocked(Exception):
@@ -59,7 +69,7 @@ def register_patient(db: Session, data: RegisterRequest) -> None:
         raise
 
     set_request_identity(db, user_id=user.user_id)
-    db.add(Patient(
+    patient = Patient(
         user_id=user.user_id,
         first_name=data.first_name,
         last_name=data.last_name,
@@ -67,7 +77,11 @@ def register_patient(db: Session, data: RegisterRequest) -> None:
         biological_sex=data.biological_sex,
         privacy_consent=data.privacy_consent,
         consent_version=data.consent_version,
-    ))
+    )
+    db.add(patient)
+    db.flush()
+    audit.log_event(db, "REGISTER", user_id=user.user_id, patient_id=patient.patient_id,
+                    consent_version=data.consent_version)
     db.commit()
 
 
@@ -82,11 +96,13 @@ def login(db: Session, email: str, password: str) -> str:
 
     if user is None:
         burn_dummy_check(password)
-        db.rollback()
+        audit.log_event(db, "LOGIN_FAILED", reason="unknown_email")  # the email itself is not stored
+        db.commit()
         raise InvalidCredentials
 
     if user.locked_until is not None and user.locked_until > now:
-        db.rollback()
+        audit.log_event(db, "LOGIN_FAILED", user_id=user.user_id, reason="locked")
+        db.commit()
         raise AccountLocked(user.locked_until)
 
     matches, new_hash = verify_and_update_password(password, user.password_hash)
@@ -96,8 +112,12 @@ def login(db: Session, email: str, password: str) -> str:
         if user.failed_attempts >= MAX_FAILED_ATTEMPTS:
             user.failed_attempts = 0
             user.locked_until = now + timedelta(minutes=LOCKOUT_MINUTES)
+            audit.log_event(db, "ACCOUNT_LOCKED", user_id=user.user_id,
+                            failed_attempts=MAX_FAILED_ATTEMPTS, locked_minutes=LOCKOUT_MINUTES)
             db.commit()
             raise AccountLocked(user.locked_until)
+        audit.log_event(db, "LOGIN_FAILED", user_id=user.user_id, reason="wrong_password",
+                        failed_attempts=user.failed_attempts)
         db.commit()
         raise InvalidCredentials
 
@@ -115,12 +135,71 @@ def login(db: Session, email: str, password: str) -> str:
         raise InvalidCredentials
 
     token = create_access_token(user.user_id, patient_id, user.token_version)
+    audit.log_event(db, "LOGIN_SUCCESS", user_id=user.user_id, patient_id=patient_id)
     db.commit()
     return token
 
 
-def revoke_all_tokens(db: Session, user_id: int) -> None:
+def revoke_all_tokens(db: Session, user_id: int, patient_id: int) -> None:
     """Logout everywhere: every token issued before this call stops working."""
     db.execute(update(User).where(User.user_id == user_id)
                .values(token_version=User.token_version + 1))
+    audit.log_event(db, "LOGOUT", user_id=user_id, patient_id=patient_id, all_sessions=True)
+    db.commit()
+
+
+def _hash_reset_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def request_password_reset(db: Session, email: str) -> None:
+    """Creates a reset token and sends the link. Does nothing visible if the email is unknown,
+    so the response is the same whether or not an account exists."""
+    user = db.scalars(select(User).where(func.lower(User.email) == email)).one_or_none()
+    if user is None:
+        db.rollback()
+        return
+
+    # Only the newest link works: drop this user's unused older tokens
+    db.execute(delete(PasswordResetToken).where(
+        PasswordResetToken.user_id == user.user_id,
+        PasswordResetToken.used_at.is_(None),
+    ))
+
+    token = secrets.token_urlsafe(32)  # 256 bits; only its SHA-256 hash is stored
+    db.add(PasswordResetToken(
+        user_id=user.user_id,
+        token_hash=_hash_reset_token(token),
+        # Database time, so it matches created_at exactly and passes the 1-hour CHECK
+        expires_at=func.now() + RESET_TOKEN_LIFETIME,
+    ))
+    audit.log_event(db, "PASSWORD_RESET_REQUESTED", user_id=user.user_id)
+    db.commit()
+    mailer.send_password_reset(user.email, token)
+
+
+def confirm_password_reset(db: Session, token: str, new_password: str) -> None:
+    """Uses the token once, sets the new password, unlocks the account and logs out
+    every existing session."""
+    row = db.scalars(
+        select(PasswordResetToken).where(
+            PasswordResetToken.token_hash == _hash_reset_token(token),
+            PasswordResetToken.used_at.is_(None),
+            PasswordResetToken.expires_at > func.now(),
+        ).with_for_update()
+    ).one_or_none()
+    if row is None:
+        db.rollback()
+        raise InvalidResetToken
+
+    row.used_at = func.now()  # med_app may update only this column
+    db.execute(update(User).where(User.user_id == row.user_id).values(
+        password_hash=hash_password(new_password),
+        password_changed_at=func.now(),
+        token_version=User.token_version + 1,
+        failed_attempts=0,
+        locked_until=None,
+    ))
+    audit.log_event(db, "PASSWORD_CHANGED", user_id=row.user_id, via="reset_link",
+                    sessions_revoked=True)
     db.commit()
