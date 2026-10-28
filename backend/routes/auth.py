@@ -1,4 +1,4 @@
-"""Account endpoints: register, login, current user, logout (Sprint 1). Password reset comes next."""
+"""Account endpoints: register, login, current user, logout and password reset (Sprint 1)."""
 
 from datetime import datetime, timezone
 from math import ceil
@@ -15,6 +15,8 @@ from backend.models import Patient, User
 from backend.schemas import (
     LoginRequest,
     MeResponse,
+    PasswordResetConfirm,
+    PasswordResetRequest,
     RegisterRequest,
     RegisterResponse,
     TokenResponse,
@@ -59,5 +61,22 @@ def me(current: CurrentUser = Depends(get_current_user), db: Session = Depends(g
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(current: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)) -> Response:
     """Logs out on every device by revoking all of this account's tokens."""
-    services.revoke_all_tokens(db, current.user_id)
+    services.revoke_all_tokens(db, current.user_id, current.patient_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/password-reset/request", status_code=status.HTTP_202_ACCEPTED)
+def password_reset_request(body: PasswordResetRequest, db: Session = Depends(get_db)) -> dict:
+    services.request_password_reset(db, body.email)
+    # Same answer for every email, so this cannot be used to find out who has an account
+    return {"detail": "If that email is registered, a reset link has been sent. It expires in 1 hour."}
+
+
+@router.post("/password-reset/confirm", status_code=status.HTTP_204_NO_CONTENT)
+def password_reset_confirm(body: PasswordResetConfirm, db: Session = Depends(get_db)) -> Response:
+    try:
+        services.confirm_password_reset(db, body.token, body.new_password)
+    except services.InvalidResetToken:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "This reset link is invalid, already used, or expired. Request a new one.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
