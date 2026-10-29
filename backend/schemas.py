@@ -5,10 +5,10 @@ extra="forbid" rejects unknown fields, so a client can never sneak in user_id, p
 or token_version.
 """
 
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from backend.config import settings
 
@@ -19,6 +19,22 @@ MIN_AGE = 18
 
 def age_on(born: date, today: date) -> int:
     return today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+
+
+def check_adult_birth_date(value: date) -> date:
+    """Same rule at registration and on profile edits (patients_dob_check + the 18+ rule)."""
+    today = date.today()
+    if value > today:
+        raise ValueError("Date of birth cannot be in the future")
+    if value < date(1900, 1, 1):
+        raise ValueError("Date of birth must be on or after 1900-01-01")
+    if age_on(value, today) < MIN_AGE:
+        raise ValueError(f"You must be at least {MIN_AGE} years old to use this app")
+    return value
+
+
+def strip_text(value):
+    return value.strip() if isinstance(value, str) else value
 
 
 class RegisterRequest(BaseModel):
@@ -43,19 +59,12 @@ class RegisterRequest(BaseModel):
     @field_validator("first_name", "last_name", mode="before")
     @classmethod
     def strip_name(cls, value):
-        return value.strip() if isinstance(value, str) else value
+        return strip_text(value)
 
     @field_validator("date_of_birth")
     @classmethod
     def check_age(cls, value: date) -> date:
-        today = date.today()
-        if value > today:
-            raise ValueError("Date of birth cannot be in the future")
-        if value < date(1900, 1, 1):
-            raise ValueError("Date of birth must be on or after 1900-01-01")
-        if age_on(value, today) < MIN_AGE:
-            raise ValueError(f"You must be at least {MIN_AGE} years old to register")
-        return value
+        return check_adult_birth_date(value)
 
     @field_validator("privacy_consent")
     @classmethod
@@ -119,3 +128,43 @@ class PasswordResetConfirm(BaseModel):
 
     token: str = Field(min_length=20, max_length=200)
     new_password: str = Field(min_length=8, max_length=128)  # same rule as registration
+
+
+class ProfileResponse(BaseModel):
+    email: str
+    first_name: str
+    last_name: str
+    date_of_birth: date
+    age: int  # computed, never stored (03_patients.sql)
+    biological_sex: Literal["Female", "Male"]
+    consent_version: str
+    consent_at: datetime
+
+
+class ProfileUpdate(BaseModel):
+    """Fields a patient may change. Email, consent and IDs are not editable here."""
+    model_config = ConfigDict(extra="forbid")
+
+    first_name: str | None = Field(default=None, min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, min_length=1, max_length=100)
+    date_of_birth: date | None = None
+    biological_sex: Literal["Female", "Male"] | None = None
+
+    @field_validator("first_name", "last_name", mode="before")
+    @classmethod
+    def strip_name(cls, value):
+        return strip_text(value)
+
+    @field_validator("date_of_birth")
+    @classmethod
+    def check_age(cls, value: date | None) -> date | None:
+        return None if value is None else check_adult_birth_date(value)
+
+    @model_validator(mode="after")
+    def not_empty(self):
+        if not self.model_fields_set:
+            raise ValueError("Send at least one field to change")
+        for name in self.model_fields_set:
+            if getattr(self, name) is None:
+                raise ValueError(f"{name} cannot be empty")
+        return self
