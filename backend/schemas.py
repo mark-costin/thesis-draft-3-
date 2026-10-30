@@ -11,6 +11,7 @@ from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from backend import questionnaires
 from backend.config import settings
 
 # Same pattern as users_email_format_check in 02_users.sql
@@ -306,3 +307,42 @@ class HealthHistoryResponse(HealthHistoryUpdate):
     model_config = ConfigDict(from_attributes=True)
 
     updated_at: datetime | None  # null until the patient answers for the first time
+
+
+
+# ---------------------------------------------------------------------------
+# Questionnaires (11_questionnaire_responses.sql); scoring in backend/questionnaires.py
+# ---------------------------------------------------------------------------
+class QuestionnaireSubmit(BaseModel):
+    """The item answers in question order. The total is computed by the server."""
+    model_config = ConfigDict(extra="forbid")
+
+    instrument: Literal["PHQ9", "GAD7", "PSQI", "MMRC", "CAT", "ACT"]
+    answers: list[int]
+
+    @model_validator(mode="after")
+    def check_answers(self):
+        questionnaires.check_answers(self.instrument, self.answers)
+        return self
+
+
+class CrisisHotline(BaseModel):
+    name: str
+    number: str
+    hours: str
+
+
+class CrisisResources(BaseModel):
+    message: str
+    hotlines: list[CrisisHotline]
+
+
+class QuestionnaireResponseOut(BaseModel):
+    response_id: int
+    instrument: str
+    answers: list[int]
+    total_score: int
+    band: str                       # screening band from the published cut-offs, not a diagnosis
+    requires_crisis_prompt: bool    # PHQ-9 item 9 above 0: show crisis resources at once
+    crisis_resources: CrisisResources | None
+    completed_at: datetime

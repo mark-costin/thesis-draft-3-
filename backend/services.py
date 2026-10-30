@@ -10,12 +10,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import set_request_identity
-from backend import audit, mailer
+from backend import audit, mailer, questionnaires
 from backend.models import (
     LifestyleRecord,
     PasswordResetToken,
     Patient,
     PatientHealthHistory,
+    QuestionnaireResponse,
     User,
     VitalsRecord,
 )
@@ -353,3 +354,49 @@ def save_health_history(db: Session, user_id: int, patient_id: int, data: dict) 
                     fields=sorted(name for name, value in values.items() if value is not None))
     db.commit()
     return get_health_history(db)
+
+
+
+# ---------------------------------------------------------------------------
+# Questionnaires
+# ---------------------------------------------------------------------------
+def submit_questionnaire(db: Session, user_id: int, patient_id: int, instrument: str,
+                         answers: list[int]) -> QuestionnaireResponse:
+    row = QuestionnaireResponse(patient_id=patient_id, instrument=instrument,
+                                item_responses=answers, total_score=questionnaires.total_score(answers))
+    db.add(row)
+    db.flush()
+    db.refresh(row)  # read back requires_crisis_prompt, computed by the database
+    # The instrument name only: never the score, the answers or the crisis flag
+    audit.log_event(db, "DATA_CREATED", user_id=user_id, patient_id=patient_id,
+                    table="questionnaire_responses", record_id=row.response_id, instrument=instrument)
+    db.commit()
+    return row
+
+
+def list_questionnaires(db: Session, instrument: str | None, limit: int) -> list[QuestionnaireResponse]:
+    query = select(QuestionnaireResponse)
+    if instrument is not None:
+        query = query.where(QuestionnaireResponse.instrument == instrument)
+    return list(db.scalars(query.order_by(QuestionnaireResponse.completed_at.desc(),
+                                          QuestionnaireResponse.response_id.desc()).limit(limit)))
+
+
+def get_questionnaire(db: Session, response_id: int) -> QuestionnaireResponse:
+    row = db.scalars(select(QuestionnaireResponse)
+                     .where(QuestionnaireResponse.response_id == response_id)).one_or_none()
+    if row is None:
+        raise NotFound
+    return row
+
+
+def delete_questionnaire(db: Session, user_id: int, patient_id: int, response_id: int) -> None:
+    deleted = db.scalar(delete(QuestionnaireResponse)
+                        .where(QuestionnaireResponse.response_id == response_id)
+                        .returning(QuestionnaireResponse.response_id))
+    if deleted is None:
+        db.rollback()
+        raise NotFound
+    audit.log_event(db, "DATA_DELETED", user_id=user_id, patient_id=patient_id,
+                    table="questionnaire_responses", record_id=response_id)
+    db.commit()
