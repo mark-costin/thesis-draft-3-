@@ -15,6 +15,7 @@ from backend.models import (
     LifestyleRecord,
     PasswordResetToken,
     Patient,
+    PatientGoal,
     PatientHealthHistory,
     QuestionnaireResponse,
     User,
@@ -399,4 +400,77 @@ def delete_questionnaire(db: Session, user_id: int, patient_id: int, response_id
         raise NotFound
     audit.log_event(db, "DATA_DELETED", user_id=user_id, patient_id=patient_id,
                     table="questionnaire_responses", record_id=response_id)
+    db.commit()
+
+
+
+# ---------------------------------------------------------------------------
+# Goals
+# ---------------------------------------------------------------------------
+class UnknownResult(Exception):
+    """result_id does not exist or belongs to another patient (goals_result_fkey)."""
+
+
+def create_goal(db: Session, user_id: int, patient_id: int, data: dict) -> PatientGoal:
+    values = {name: value for name, value in data.items() if value is not None}
+    row = PatientGoal(patient_id=patient_id, source="suggested" if "result_id" in values else "self", **values)
+    db.add(row)
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        if getattr(exc.orig, "sqlstate", None) == "23503":  # foreign_key_violation
+            raise UnknownResult from exc
+        raise
+    db.refresh(row)
+    audit.log_event(db, "DATA_CREATED", user_id=user_id, patient_id=patient_id,
+                    table="patient_goals", record_id=row.goal_id, fields=sorted(values))
+    db.commit()
+    return row
+
+
+def list_goals(db: Session, completed: bool | None) -> list[PatientGoal]:
+    query = select(PatientGoal)
+    if completed is not None:
+        query = query.where(PatientGoal.is_completed == completed)
+    # Open goals first, then newest first
+    return list(db.scalars(query.order_by(PatientGoal.is_completed, PatientGoal.created_at.desc(),
+                                          PatientGoal.goal_id.desc())))
+
+
+def get_goal(db: Session, goal_id: int) -> PatientGoal:
+    row = db.scalars(select(PatientGoal).where(PatientGoal.goal_id == goal_id)).one_or_none()
+    if row is None:
+        raise NotFound
+    return row
+
+
+def update_goal(db: Session, user_id: int, patient_id: int, goal_id: int, changes: dict) -> PatientGoal:
+    row = get_goal(db, goal_id)
+    changed = []
+    if "is_completed" in changes and changes["is_completed"] != row.is_completed:
+        row.is_completed = changes["is_completed"]
+        row.completed_at = func.now() if row.is_completed else None  # goals_completed_check
+        changed.append("is_completed")
+    for name in ("description", "target_metric"):
+        if name in changes and changes[name] != getattr(row, name):
+            setattr(row, name, changes[name] or None)
+            changed.append(name)
+    if changed:
+        db.flush()
+        audit.log_event(db, "DATA_UPDATED", user_id=user_id, patient_id=patient_id,
+                        table="patient_goals", record_id=goal_id, fields=sorted(changed))
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def delete_goal(db: Session, user_id: int, patient_id: int, goal_id: int) -> None:
+    deleted = db.scalar(delete(PatientGoal).where(PatientGoal.goal_id == goal_id)
+                        .returning(PatientGoal.goal_id))
+    if deleted is None:
+        db.rollback()
+        raise NotFound
+    audit.log_event(db, "DATA_DELETED", user_id=user_id, patient_id=patient_id,
+                    table="patient_goals", record_id=goal_id)
     db.commit()

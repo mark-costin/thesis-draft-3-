@@ -5,10 +5,12 @@ extra="forbid" rejects unknown fields, so a client can never sneak in user_id, p
 or token_version.
 """
 
+import html
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Literal
 
+import nh3
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from backend import questionnaires
@@ -346,3 +348,70 @@ class QuestionnaireResponseOut(BaseModel):
     requires_crisis_prompt: bool    # PHQ-9 item 9 above 0: show crisis resources at once
     crisis_resources: CrisisResources | None
     completed_at: datetime
+
+
+
+# ---------------------------------------------------------------------------
+# Goals (18_patient_goals.sql)
+# ---------------------------------------------------------------------------
+def clean_text(value):
+    """Trims and removes any HTML, so a goal can never carry a script into a page."""
+    if not isinstance(value, str):
+        return value
+    # nh3 drops tags (and whole <script>/<style> blocks) and escapes the rest; unescape turns
+    # "&amp;" back into "&" so normal text like "walk & stretch" is kept as typed
+    return html.unescape(nh3.clean(value, tags=set())).strip()
+
+
+class GoalCreate(BaseModel):
+    """A goal the patient writes, or one taken from a care plan item. When result_id is given
+    (the risk result whose care plan suggested it), the goal is saved as 'suggested'."""
+    model_config = ConfigDict(extra="forbid")
+
+    description: str = Field(min_length=1, max_length=255)
+    disease_domain: Literal["CVD", "T2D", "CRD", "NEURO"] | None = None  # null = general wellness
+    target_metric: str | None = Field(default=None, min_length=1, max_length=100)
+    result_id: int | None = Field(default=None, ge=1)
+
+    @field_validator("description", "target_metric", mode="before")
+    @classmethod
+    def clean(cls, value):
+        return clean_text(value)
+
+
+class GoalUpdate(BaseModel):
+    """Tick or untick a goal, or reword it. Only the fields sent are changed."""
+    model_config = ConfigDict(extra="forbid")
+
+    is_completed: bool | None = None
+    description: str | None = Field(default=None, min_length=1, max_length=255)
+    target_metric: str | None = Field(default=None, max_length=100)
+
+    @field_validator("description", "target_metric", mode="before")
+    @classmethod
+    def clean(cls, value):
+        return clean_text(value)
+
+    @model_validator(mode="after")
+    def not_empty(self):
+        if not self.model_fields_set:
+            raise ValueError("Send at least one field to change")
+        if "is_completed" in self.model_fields_set and self.is_completed is None:
+            raise ValueError("is_completed must be true or false")
+        if "description" in self.model_fields_set and self.description is None:
+            raise ValueError("description cannot be empty")
+        return self
+
+
+class GoalResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    goal_id: int
+    description: str
+    disease_domain: str | None
+    target_metric: str | None
+    source: str
+    result_id: int | None
+    is_completed: bool
+    completed_at: datetime | None
+    created_at: datetime
