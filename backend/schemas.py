@@ -5,10 +5,11 @@ extra="forbid" rejects unknown fields, so a client can never sneak in user_id, p
 or token_version.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from backend.config import settings
 
@@ -168,3 +169,64 @@ class ProfileUpdate(BaseModel):
             if getattr(self, name) is None:
                 raise ValueError(f"{name} cannot be empty")
         return self
+
+
+
+# ---------------------------------------------------------------------------
+# Vitals (07_vitals_records.sql). Ranges are the same as the table's CHECK constraints.
+# ---------------------------------------------------------------------------
+MEASUREMENT_FIELDS = ("sbp", "resting_hr", "weight_kg", "height_cm", "waist_cm",
+                      "blood_glucose_mgdl", "spo2")
+
+
+def _one_decimal(low, high, max_digits):
+    return Field(default=None, ge=low, le=high, max_digits=max_digits, decimal_places=1)
+
+
+class VitalsCreate(BaseModel):
+    """One reading session. Send only what was measured; BMI is computed by the database
+    when weight and height are in the same entry."""
+    model_config = ConfigDict(extra="forbid")
+
+    sbp: int | None = Field(default=None, ge=70, le=250)          # systolic, mmHg
+    dbp: int | None = Field(default=None, ge=40, le=150)          # diastolic, mmHg
+    resting_hr: int | None = Field(default=None, ge=30, le=220)   # beats per minute
+    weight_kg: Decimal | None = _one_decimal(20, 300, 5)
+    height_cm: Decimal | None = _one_decimal(100, 250, 5)
+    waist_cm: Decimal | None = _one_decimal(40, 200, 5)
+    blood_glucose_mgdl: Decimal | None = _one_decimal(20, 600, 5)
+    glucose_context: Literal["fasting", "random", "post_meal_2h"] | None = None
+    spo2: Decimal | None = _one_decimal(70, 100, 4)
+    measured_at: AwareDatetime | None = None  # with time zone, e.g. 2026-10-30T08:00:00+08:00
+
+    @model_validator(mode="after")
+    def check_rules(self):
+        if (self.sbp is None) != (self.dbp is None):
+            raise ValueError("Enter both systolic and diastolic blood pressure")
+        if self.sbp is not None and self.sbp <= self.dbp:
+            raise ValueError("Systolic pressure must be higher than diastolic")
+        if (self.blood_glucose_mgdl is None) != (self.glucose_context is None):
+            raise ValueError("A blood sugar reading needs its context (fasting, random or post_meal_2h)")
+        if all(getattr(self, name) is None for name in MEASUREMENT_FIELDS):
+            raise ValueError("Enter at least one measurement")
+        if self.measured_at is not None and self.measured_at > datetime.now(timezone.utc) + timedelta(minutes=5):
+            raise ValueError("measured_at cannot be in the future")
+        return self
+
+
+class VitalsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    vitals_id: int
+    sbp: int | None
+    dbp: int | None
+    resting_hr: int | None
+    weight_kg: float | None
+    height_cm: float | None
+    bmi: float | None  # computed by the database
+    waist_cm: float | None
+    blood_glucose_mgdl: float | None
+    glucose_context: str | None
+    spo2: float | None
+    measured_at: datetime
+    created_at: datetime
