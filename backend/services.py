@@ -203,3 +203,31 @@ def confirm_password_reset(db: Session, token: str, new_password: str) -> None:
     audit.log_event(db, "PASSWORD_CHANGED", user_id=row.user_id, via="reset_link",
                     sessions_revoked=True)
     db.commit()
+
+
+PROFILE_FIELDS = ("first_name", "last_name", "date_of_birth", "biological_sex")
+
+
+def get_profile(db: Session, user_id: int) -> tuple[User, Patient]:
+    """The caller's own account and patient row. RLS on patients already limits the query
+    to this patient, so no WHERE on patient_id is needed (or trusted)."""
+    user = db.get(User, user_id)
+    patient = db.scalars(select(Patient)).one()
+    return user, patient
+
+
+def update_profile(db: Session, user_id: int, patient_id: int, changes: dict) -> tuple[User, Patient]:
+    """Applies only the fields the patient sent. The audit entry names the changed fields,
+    never their values."""
+    user, patient = get_profile(db, user_id)
+    changed = sorted(name for name, value in changes.items()
+                     if name in PROFILE_FIELDS and getattr(patient, name) != value)
+    for name in changed:
+        setattr(patient, name, changes[name])
+    if changed:
+        db.flush()
+        audit.log_event(db, "DATA_UPDATED", user_id=user_id, patient_id=patient_id,
+                        table="patients", fields=changed)
+    db.commit()
+    db.refresh(patient)
+    return user, patient
