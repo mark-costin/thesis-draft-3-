@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import set_request_identity
 from backend import audit, mailer
-from backend.models import PasswordResetToken, Patient, User
+from backend.models import PasswordResetToken, Patient, User, VitalsRecord
 from backend.schemas import RegisterRequest
 from backend.security import (
     burn_dummy_check,
@@ -231,3 +231,48 @@ def update_profile(db: Session, user_id: int, patient_id: int, changes: dict) ->
     db.commit()
     db.refresh(patient)
     return user, patient
+
+
+
+# ---------------------------------------------------------------------------
+# Vitals. RLS limits every query to the caller's patient, so a record that belongs to someone
+# else looks exactly like one that does not exist (404, nothing leaked).
+# ---------------------------------------------------------------------------
+class NotFound(Exception):
+    pass
+
+
+def create_vitals(db: Session, user_id: int, patient_id: int, data: dict) -> VitalsRecord:
+    values = {name: value for name, value in data.items() if value is not None}
+    row = VitalsRecord(patient_id=patient_id, **values)
+    db.add(row)
+    db.flush()
+    db.refresh(row)  # read back the BMI the database computed
+    audit.log_event(db, "DATA_CREATED", user_id=user_id, patient_id=patient_id,
+                    table="vitals_records", record_id=row.vitals_id, fields=sorted(values))
+    db.commit()
+    return row
+
+
+def list_vitals(db: Session, limit: int) -> list[VitalsRecord]:
+    return list(db.scalars(select(VitalsRecord)
+                           .order_by(VitalsRecord.measured_at.desc(), VitalsRecord.vitals_id.desc())
+                           .limit(limit)))
+
+
+def get_vitals(db: Session, vitals_id: int) -> VitalsRecord:
+    row = db.scalars(select(VitalsRecord).where(VitalsRecord.vitals_id == vitals_id)).one_or_none()
+    if row is None:
+        raise NotFound
+    return row
+
+
+def delete_vitals(db: Session, user_id: int, patient_id: int, vitals_id: int) -> None:
+    deleted = db.scalar(delete(VitalsRecord).where(VitalsRecord.vitals_id == vitals_id)
+                        .returning(VitalsRecord.vitals_id))
+    if deleted is None:
+        db.rollback()
+        raise NotFound
+    audit.log_event(db, "DATA_DELETED", user_id=user_id, patient_id=patient_id,
+                    table="vitals_records", record_id=vitals_id)
+    db.commit()
