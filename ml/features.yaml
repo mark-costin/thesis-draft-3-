@@ -1,0 +1,580 @@
+# ml/features.yaml
+# The inputs each risk model uses, mapped to med_db columns.
+# Read by: ml/synthetic (column names and ranges), ml/ai_model (model inputs),
+# and the backend readiness check in Sprint 2 (GET /assessment/readiness).
+#
+# Fields
+#   name      column name used in synthetic data and in the model
+#   label     feature name exactly as in the CDSS Data Dictionary
+#   range     [min, max] expected value from the Data Dictionary (null = no fixed maximum)
+#   required  true = the assessment cannot run until the patient enters it
+#             false = optional; the model accepts it as missing (mostly lab results)
+#   column    table.column in med_db; "where" picks the row (lab test code, questionnaire, disease)
+#   source    registration | manual | lab_ocr | questionnaire | family_history | computed
+#   not_stored  dictionary parameters with no med_db column, and why (not model inputs)
+#
+# CVD, T2D, CRD: required/optional proposed by the team, to be approved.
+# NEURO: required/optional copied from the Data Dictionary's "Required" column.
+
+version: 1
+status: draft, waiting for group approval
+source: CDSS Data Dictionary (October 26, 2026), Parameter Ingestion Tables
+risk_tiers:
+  low: p < 0.20
+  moderate: 0.20 <= p < 0.50
+  high: p >= 0.50
+models:
+  CVD:
+    features:
+    - name: age
+      label: Age
+      type: continuous
+      unit: Years
+      range: [18, 100]
+      required: true
+      column: patients.date_of_birth
+      source: registration
+      derive: age in whole years on the assessment date
+    - name: sex
+      label: Biological Sex
+      type: categorical
+      unit: null
+      required: true
+      column: patients.biological_sex
+      source: registration
+    - name: sbp
+      label: Systolic Blood Pressure (SBP)
+      type: continuous
+      unit: mmHg
+      range: [70, 220]
+      required: true
+      column: vitals_records.sbp
+      source: manual
+    - name: dbp
+      label: Diastolic Blood Pressure (DBP)
+      type: continuous
+      unit: mmHg
+      range: [40, 130]
+      required: true
+      column: vitals_records.dbp
+      source: manual
+    - name: resting_hr
+      label: Heart Rate (Resting)
+      type: continuous
+      unit: bpm
+      range: [40, 180]
+      required: false
+      column: vitals_records.resting_hr
+      source: manual
+    - name: bmi
+      label: Body Mass Index (BMI)
+      type: continuous
+      unit: kg/m2
+      range: [12.0, 60.0]
+      required: true
+      column: vitals_records.bmi
+      source: computed
+      derive: computed by the database from weight_kg and height_cm
+    - name: total_cholesterol
+      label: Total Cholesterol
+      type: continuous
+      unit: mg/dL
+      range: [100, 400]
+      required: false
+      column: lab_results.value
+      where:
+        test_code: TOTAL_CHOLESTEROL
+      source: lab_ocr
+    - name: hdl
+      label: High-Density Lipoprotein (HDL)
+      type: continuous
+      unit: mg/dL
+      range: [15, 120]
+      required: false
+      column: lab_results.value
+      where: &id002
+        test_code: HDL
+      source: lab_ocr
+    - name: ldl
+      label: Low-Density Lipoprotein (LDL)
+      type: continuous
+      unit: mg/dL
+      range: [30, 300]
+      required: false
+      column: lab_results.value
+      where:
+        test_code: LDL
+      source: lab_ocr
+    - name: triglycerides
+      label: Serum Triglycerides
+      type: continuous
+      unit: mg/dL
+      range: [40, 1000]
+      required: false
+      column: lab_results.value
+      where: &id001
+        test_code: TRIGLYCERIDES
+      source: lab_ocr
+    - name: hs_crp
+      label: High-Sensitivity C-Reactive Protein (hs-CRP)
+      type: continuous
+      unit: mg/L
+      range: [0.1, 50.0]
+      required: false
+      column: lab_results.value
+      where:
+        test_code: HS_CRP
+      source: lab_ocr
+    - name: creatinine
+      label: Serum Creatinine
+      type: continuous
+      unit: mg/dL
+      range: [0.4, 10.0]
+      required: false
+      column: lab_results.value
+      where:
+        test_code: CREATININE
+      source: lab_ocr
+    - name: egfr
+      label: Estimated Glomerular Filtration Rate (eGFR)
+      type: continuous
+      unit: mL/min/1.73m2
+      range: [5, 140]
+      required: false
+      column: lab_results.value
+      where:
+        test_code: EGFR
+      source: lab_ocr
+    - name: pack_years
+      label: Smoking History
+      type: ordinal
+      unit: Pack-Years
+      range: [0, 120]
+      required: true
+      column: lifestyle_records.pack_years
+      source: manual
+      derive: 0 when smoking_status = 'never'
+    - name: sodium_mg_day
+      label: Daily Sodium Intake
+      type: continuous
+      unit: mg/day
+      range: [500, 10000]
+      required: false
+      column: lifestyle_records.sodium_mg_day
+      source: manual
+    - name: fhrs_cvd
+      label: Family History of Premature CVD
+      type: continuous
+      unit: Score
+      range: [0.0, null]
+      note: dictionary lists a binary family history; replaced by the FHRS as for NEURO
+      required: true
+      column: patient_fhrs_stratification.calculated_fhrs
+      where:
+        disease_domain: CVD
+      source: family_history
+    - name: physical_activity_min_week
+      label: Physical Activity Level
+      type: continuous
+      unit: mins/week
+      range: [0, 1050]
+      required: true
+      column: lifestyle_records.physical_activity_min_week
+      source: manual
+    not_stored:
+    - name: lvef
+      label: Left Ventricular Ejection Fraction (LVEF)
+      reason: needs an echocardiogram; describes existing heart disease
+    - name: troponin_i
+      label: Cardiac Troponin I (cTnI)
+      reason: hospital test for heart damage; describes existing disease
+    - name: nt_probnp
+      label: N-Terminal Pro-B-Type Natriuretic Peptide (NT-proBNP)
+      reason: hospital test for heart failure; describes existing disease
+  T2D:
+    features:
+    - name: fpg
+      label: Fasting Plasma Glucose (FPG)
+      type: continuous
+      unit: mg/dL
+      range: [50, 450]
+      required: false
+      column: lab_results.value
+      where:
+        test_code: FPG
+      source: lab_ocr
+    - name: ogtt_2h
+      label: 2-Hour Postprandial Glucose (2h-PG)
+      type: continuous
+      unit: mg/dL
+      range: [60, 600]
+      required: false
+      column: lab_results.value
+      where:
+        test_code: OGTT_2H
+      source: lab_ocr
+    - name: hba1c
+      label: Glycated Hemoglobin (HbA1c)
+      type: continuous
+      unit: '%'
+      range: [4.0, 15.0]
+      required: false
+      column: lab_results.value
+      where:
+        test_code: HBA1C
+      source: lab_ocr
+    - name: bmi
+      label: Body Mass Index (BMI)
+      type: continuous
+      unit: kg/m2
+      range: [12.0, 60.0]
+      required: true
+      column: vitals_records.bmi
+      source: computed
+      derive: computed by the database from weight_kg and height_cm
+    - name: waist_cm
+      label: Waist Circumference
+      type: continuous
+      unit: cm
+      range: [50, 160]
+      required: false
+      column: vitals_records.waist_cm
+      source: manual
+    - name: sbp
+      label: Systolic Blood Pressure (SBP)
+      type: continuous
+      unit: mmHg
+      range: [70, 220]
+      required: true
+      column: vitals_records.sbp
+      source: manual
+    - name: dbp
+      label: Diastolic Blood Pressure (DBP)
+      type: continuous
+      unit: mmHg
+      range: [40, 130]
+      required: true
+      column: vitals_records.dbp
+      source: manual
+    - name: triglycerides
+      label: Serum Triglycerides
+      type: continuous
+      unit: mg/dL
+      range: [40, 1000]
+      required: false
+      column: lab_results.value
+      where: *id001
+      source: lab_ocr
+    - name: hdl
+      label: High-Density Lipoprotein (HDL)
+      type: continuous
+      unit: mg/dL
+      range: [15, 120]
+      required: false
+      column: lab_results.value
+      where: *id002
+      source: lab_ocr
+    - name: uacr
+      label: Urine Albumin-to-Creatinine Ratio (UACR)
+      type: continuous
+      unit: mg/g
+      range: [1, 3500]
+      required: false
+      column: lab_results.value
+      where:
+        test_code: UACR
+      source: lab_ocr
+    - name: uric_acid
+      label: Serum Uric Acid
+      type: continuous
+      unit: mg/dL
+      range: [1.5, 14.0]
+      required: false
+      column: lab_results.value
+      where:
+        test_code: URIC_ACID
+      source: lab_ocr
+    - name: gestational_diabetes
+      label: Gestational Diabetes History
+      type: binary
+      unit: null
+      required: true
+      column: patient_health_history.gestational_diabetes
+      source: manual
+      derive: false for male patients
+    - name: fhrs_t2d
+      label: Family History of Diabetes
+      type: continuous
+      unit: Score
+      range: [0.0, null]
+      note: dictionary lists a binary family history; replaced by the FHRS as for NEURO
+      required: true
+      column: patient_fhrs_stratification.calculated_fhrs
+      where:
+        disease_domain: T2D
+      source: family_history
+    - name: acanthosis_nigricans
+      label: Acanthosis Nigricans Presence
+      type: binary
+      unit: null
+      required: true
+      column: patient_health_history.acanthosis_nigricans
+      source: manual
+    - name: carbs_g_day
+      label: Daily Carbohydrate Intake
+      type: continuous
+      unit: g/day
+      range: [50, 600]
+      required: false
+      column: lifestyle_records.carbs_g_day
+      source: manual
+    - name: sedentary_hours_day
+      label: Sedentary Behavior Duration
+      type: continuous
+      unit: Hours/day
+      range: [1.0, 18.0]
+      required: true
+      column: lifestyle_records.sedentary_hours_day
+      source: manual
+    not_stored:
+    - name: fasting_insulin
+      label: Fasting Serum Insulin
+      reason: no lab test code for insulin in 08_lab_results.sql
+    - name: c_peptide
+      label: Serum C-Peptide Level
+      reason: no lab test code for C-peptide in 08_lab_results.sql
+    - name: homa_ir
+      label: HOMA-IR (Insulin Resistance Score)
+      reason: needs fasting insulin, which is not stored
+    - name: waist_hip_ratio
+      label: Waist-to-Hip Ratio (WHR)
+      reason: no hip circumference column in vitals_records
+  CRD:
+    features:
+    - name: eosinophils
+      label: Blood Eosinophil Count
+      type: continuous
+      unit: cells/μL
+      range: [0, 2500]
+      required: false
+      column: lab_results.value
+      where:
+        test_code: EOSINOPHILS
+      source: lab_ocr
+    - name: spo2
+      label: Resting Oxygen Saturation (SpO2)
+      type: continuous
+      unit: '%'
+      range: [65.0, 100.0]
+      required: false
+      column: vitals_records.spo2
+      source: manual
+    - name: mmrc
+      label: mMRC Dyspnea Scale Score
+      type: ordinal
+      unit: Score
+      range: [0, 4]
+      required: true
+      column: questionnaire_responses.total_score
+      where:
+        instrument: MMRC
+      source: questionnaire
+    - name: act
+      label: Asthma Control Test (ACT) Score
+      type: ordinal
+      unit: Score
+      range: [5, 25]
+      required: false
+      column: questionnaire_responses.total_score
+      where:
+        instrument: ACT
+      source: questionnaire
+    - name: cat
+      label: COPD Assessment Test (CAT) Score
+      type: ordinal
+      unit: Score
+      range: [0, 40]
+      required: false
+      column: questionnaire_responses.total_score
+      where:
+        instrument: CAT
+      source: questionnaire
+    - name: ige
+      label: Serum Total IgE Level
+      type: continuous
+      unit: IU/mL
+      range: [2, 3000]
+      required: false
+      column: lab_results.value
+      where:
+        test_code: IGE
+      source: lab_ocr
+    - name: pack_years
+      label: Lifetime Tobacco Exposure
+      type: continuous
+      unit: Pack-Years
+      range: [0, 120]
+      required: true
+      column: lifestyle_records.pack_years
+      source: manual
+      derive: 0 when smoking_status = 'never'
+    - name: occupational_dust
+      label: Occupational Dust/Fume Exposure
+      type: binary
+      unit: null
+      required: true
+      column: lifestyle_records.occupational_dust
+      source: manual
+    - name: allergic_rhinitis
+      label: Allergic Rhinitis Comorbidity
+      type: binary
+      unit: null
+      required: true
+      column: patient_health_history.allergic_rhinitis
+      source: manual
+    - name: childhood_asthma
+      label: Childhood Asthma History
+      type: binary
+      unit: null
+      required: true
+      column: patient_health_history.childhood_asthma
+      source: manual
+    - name: bmi
+      label: Body Mass Index (BMI)
+      type: continuous
+      unit: kg/m2
+      range: [12.0, 60.0]
+      required: true
+      column: vitals_records.bmi
+      source: computed
+      derive: computed by the database from weight_kg and height_cm
+    not_stored:
+    - name: fev1
+      label: Forced Expiratory Volume in 1 Second (FEV1)
+      reason: needs spirometry; diagnoses COPD or asthma itself
+    - name: fvc
+      label: Forced Vital Capacity (FVC)
+      reason: needs spirometry; diagnoses COPD or asthma itself
+    - name: fev1_fvc
+      label: FEV1/FVC Ratio
+      reason: needs spirometry; diagnoses COPD or asthma itself
+    - name: fev1_pct_pred
+      label: Post-Bronchodilator FEV1 % Predicted
+      reason: needs spirometry; diagnoses COPD or asthma itself
+    - name: pef
+      label: Peak Expiratory Flow (PEF)
+      reason: no column; needs a peak flow meter
+    - name: feno
+      label: Fractional Exhaled Nitric Oxide (FeNO)
+      reason: clinic-only breath test; no column
+    - name: pao2
+      label: Arterial Oxygen Partial Pressure (PaO2)
+      reason: needs an arterial blood gas in hospital
+    - name: paco2
+      label: Arterial Carbon Dioxide Partial Pressure (PaCO2)
+      reason: needs an arterial blood gas in hospital
+    - name: exacerbations_per_year
+      label: Annual Exacerbation Frequency
+      reason: no column; exacerbations describe existing COPD or asthma
+  NEURO:
+    features:
+    - name: age
+      label: Age
+      type: continuous
+      unit: Years
+      range: [18, 100]
+      required: true
+      column: patients.date_of_birth
+      source: registration
+      derive: age in whole years on the assessment date
+    - name: sex
+      label: Biological Sex
+      type: binary
+      unit: null
+      required: true
+      column: patients.biological_sex
+      source: registration
+    - name: phq9
+      label: Patient Health Questionnaire-9 (PHQ-9)
+      type: ordinal
+      unit: Score
+      range: [0, 27]
+      required: true
+      column: questionnaire_responses.total_score
+      where:
+        instrument: PHQ9
+      source: questionnaire
+    - name: gad7
+      label: Generalized Anxiety Disorder-7 (GAD-7)
+      type: ordinal
+      unit: Score
+      range: [0, 21]
+      required: true
+      column: questionnaire_responses.total_score
+      where:
+        instrument: GAD7
+      source: questionnaire
+    - name: psqi
+      label: Pittsburgh Sleep Quality Index (PSQI)
+      type: ordinal
+      unit: Score
+      range: [0, 21]
+      required: false
+      column: questionnaire_responses.total_score
+      where:
+        instrument: PSQI
+      source: questionnaire
+    - name: sleep_hours_day
+      label: Daily Sleep Duration
+      type: continuous
+      unit: Hours
+      range: [1.0, 16.0]
+      required: true
+      column: lifestyle_records.sleep_hours_day
+      source: manual
+    - name: alcohol_use
+      label: Alcohol Use
+      type: binary
+      unit: null
+      required: true
+      column: lifestyle_records.substance_use
+      source: manual
+      derive: 1 when 'past' or 'current', 0 when 'none'
+    - name: tbi_history
+      label: History of Traumatic Brain Injury (TBI)
+      type: binary
+      unit: null
+      required: false
+      column: patient_health_history.tbi_history
+      source: manual
+    - name: fhrs_neuro
+      label: Family History Risk Score (FHRS), NEURO
+      type: continuous
+      unit: Score
+      range: [0.0, null]
+      required: true
+      column: patient_fhrs_stratification.calculated_fhrs
+      where:
+        disease_domain: NEURO
+      source: family_history
+    - name: tsh
+      label: Thyroid Stimulating Hormone (TSH)
+      type: continuous
+      unit: mIU/L
+      range: [0.01, 100.0]
+      required: false
+      column: lab_results.value
+      where:
+        test_code: TSH
+      source: lab_ocr
+    - name: vitamin_b12
+      label: Serum Vitamin B12
+      type: continuous
+      unit: pg/mL
+      range: [50, 2000]
+      required: false
+      column: lab_results.value
+      where:
+        test_code: VITAMIN_B12
+      source: lab_ocr
+    not_stored: []
