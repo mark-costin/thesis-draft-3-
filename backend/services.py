@@ -5,12 +5,20 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, func, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import set_request_identity
 from backend import audit, mailer
-from backend.models import PasswordResetToken, Patient, User, VitalsRecord
+from backend.models import (
+    LifestyleRecord,
+    PasswordResetToken,
+    Patient,
+    PatientHealthHistory,
+    User,
+    VitalsRecord,
+)
 from backend.schemas import RegisterRequest
 from backend.security import (
     burn_dummy_check,
@@ -276,3 +284,72 @@ def delete_vitals(db: Session, user_id: int, patient_id: int, vitals_id: int) ->
     audit.log_event(db, "DATA_DELETED", user_id=user_id, patient_id=patient_id,
                     table="vitals_records", record_id=vitals_id)
     db.commit()
+
+
+
+# ---------------------------------------------------------------------------
+# Lifestyle
+# ---------------------------------------------------------------------------
+def create_lifestyle(db: Session, user_id: int, patient_id: int, data: dict) -> LifestyleRecord:
+    values = {name: value for name, value in data.items() if value is not None}
+    row = LifestyleRecord(patient_id=patient_id, **values)
+    db.add(row)
+    db.flush()
+    db.refresh(row)
+    audit.log_event(db, "DATA_CREATED", user_id=user_id, patient_id=patient_id,
+                    table="lifestyle_records", record_id=row.lifestyle_id, fields=sorted(values))
+    db.commit()
+    return row
+
+
+def list_lifestyle(db: Session, limit: int) -> list[LifestyleRecord]:
+    return list(db.scalars(select(LifestyleRecord)
+                           .order_by(LifestyleRecord.recorded_at.desc(), LifestyleRecord.lifestyle_id.desc())
+                           .limit(limit)))
+
+
+def get_lifestyle(db: Session, lifestyle_id: int) -> LifestyleRecord:
+    row = db.scalars(select(LifestyleRecord).where(LifestyleRecord.lifestyle_id == lifestyle_id)).one_or_none()
+    if row is None:
+        raise NotFound
+    return row
+
+
+def delete_lifestyle(db: Session, user_id: int, patient_id: int, lifestyle_id: int) -> None:
+    deleted = db.scalar(delete(LifestyleRecord).where(LifestyleRecord.lifestyle_id == lifestyle_id)
+                        .returning(LifestyleRecord.lifestyle_id))
+    if deleted is None:
+        db.rollback()
+        raise NotFound
+    audit.log_event(db, "DATA_DELETED", user_id=user_id, patient_id=patient_id,
+                    table="lifestyle_records", record_id=lifestyle_id)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Health history (one row per patient)
+# ---------------------------------------------------------------------------
+class NotApplicable(Exception):
+    """A question that does not apply to this patient, e.g. gestational diabetes for a male patient."""
+
+
+def get_health_history(db: Session) -> PatientHealthHistory | None:
+    return db.scalars(select(PatientHealthHistory)).one_or_none()
+
+
+def save_health_history(db: Session, user_id: int, patient_id: int, data: dict) -> PatientHealthHistory:
+    sex = db.scalar(select(Patient.biological_sex))  # RLS: the caller's own row
+    if sex != "Female" and data.get("gestational_diabetes") is not None:
+        raise NotApplicable("gestational_diabetes applies to female patients only")
+
+    existed = get_health_history(db) is not None
+    values = {name: data.get(name) for name in (
+        "gestational_diabetes", "acanthosis_nigricans", "allergic_rhinitis", "childhood_asthma", "tbi_history")}
+    db.execute(pg_insert(PatientHealthHistory)
+               .values(patient_id=patient_id, **values)
+               .on_conflict_do_update(index_elements=[PatientHealthHistory.patient_id], set_=values))
+    audit.log_event(db, "DATA_UPDATED" if existed else "DATA_CREATED", user_id=user_id,
+                    patient_id=patient_id, table="patient_health_history",
+                    fields=sorted(name for name, value in values.items() if value is not None))
+    db.commit()
+    return get_health_history(db)

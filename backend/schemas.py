@@ -230,3 +230,79 @@ class VitalsResponse(BaseModel):
     spo2: float | None
     measured_at: datetime
     created_at: datetime
+
+
+
+# ---------------------------------------------------------------------------
+# Lifestyle (09_lifestyle_records.sql): a new entry each time habits are reported.
+# ---------------------------------------------------------------------------
+LIFESTYLE_FIELDS = ("smoking_status", "pack_years", "physical_activity_min_week", "sedentary_hours_day",
+                    "sleep_hours_day", "sodium_mg_day", "carbs_g_day", "occupational_dust", "substance_use")
+
+
+class LifestyleCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    smoking_status: Literal["never", "former", "current"] | None = None
+    pack_years: Decimal | None = _one_decimal(0, 200, 5)               # packs per day x years smoked
+    physical_activity_min_week: int | None = Field(default=None, ge=0, le=10080)
+    sedentary_hours_day: Decimal | None = _one_decimal(0, 24, 3)
+    sleep_hours_day: Decimal | None = _one_decimal(0, 24, 3)
+    sodium_mg_day: int | None = Field(default=None, ge=0, le=20000)
+    carbs_g_day: int | None = Field(default=None, ge=0, le=1500)
+    occupational_dust: bool | None = None
+    substance_use: Literal["none", "past", "current"] | None = None
+
+    @model_validator(mode="after")
+    def check_rules(self):
+        if all(getattr(self, name) is None for name in LIFESTYLE_FIELDS):
+            raise ValueError("Answer at least one question")
+        if self.pack_years is not None and self.smoking_status is None:
+            raise ValueError("pack_years needs smoking_status")
+        if self.smoking_status == "never" and self.pack_years not in (None, 0):
+            raise ValueError("A never-smoker cannot have pack years")
+        if (self.sedentary_hours_day is not None and self.sleep_hours_day is not None
+                and self.sedentary_hours_day + self.sleep_hours_day > 24):
+            raise ValueError("Sitting time plus sleep cannot be more than 24 hours")
+        return self
+
+
+class LifestyleResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    lifestyle_id: int
+    smoking_status: str | None
+    pack_years: float | None
+    physical_activity_min_week: int | None
+    sedentary_hours_day: float | None
+    sleep_hours_day: float | None
+    sodium_mg_day: int | None
+    carbs_g_day: int | None
+    occupational_dust: bool | None
+    substance_use: str | None
+    recorded_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Health history (10_health_history.sql): one row per patient, replaced as a whole.
+# null = "I don't know" or not answered.
+# ---------------------------------------------------------------------------
+HISTORY_FIELDS = ("gestational_diabetes", "acanthosis_nigricans", "allergic_rhinitis",
+                  "childhood_asthma", "tbi_history")
+
+
+class HealthHistoryUpdate(BaseModel):
+    """PUT body: every field is set to what is sent; a field left out becomes null."""
+    model_config = ConfigDict(extra="forbid")
+
+    gestational_diabetes: bool | None = None   # female patients only
+    acanthosis_nigricans: bool | None = None
+    allergic_rhinitis: bool | None = None
+    childhood_asthma: bool | None = None
+    tbi_history: bool | None = None
+
+
+class HealthHistoryResponse(HealthHistoryUpdate):
+    model_config = ConfigDict(from_attributes=True)
+
+    updated_at: datetime | None  # null until the patient answers for the first time
