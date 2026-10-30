@@ -415,3 +415,32 @@ class GoalResponse(BaseModel):
     is_completed: bool
     completed_at: datetime | None
     created_at: datetime
+
+
+
+# ---------------------------------------------------------------------------
+# Readiness (GET /assessment/readiness); built by backend/readiness.py from ml/features.yaml
+# ---------------------------------------------------------------------------
+class MissingInput(BaseModel):
+    name: str                       # feature name in ml/features.yaml
+    label: str                      # name in the CDSS Data Dictionary
+    source: str                     # manual | lab_ocr | questionnaire | family_history | ...
+    enter_in: str                   # screen where the patient enters it
+    path: str                       # API path for that screen
+    instrument: str | None = None   # for questionnaires: which one
+
+
+class ChecklistItem(MissingInput):
+    models: list[str]               # the models that still need it
+
+
+class ModelReadiness(BaseModel):
+    ready: bool
+    missing_required: list[MissingInput]
+    missing_optional: list[MissingInput]
+
+
+class ReadinessResponse(BaseModel):
+    ready: bool                         # true when all four models can run
+    missing_required: list[ChecklistItem]  # each missing required input once, for the checklist
+    models: dict[str, ModelReadiness]
