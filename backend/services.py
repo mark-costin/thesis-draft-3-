@@ -2,7 +2,9 @@
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
+from uuid import UUID
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -12,6 +14,9 @@ from sqlalchemy.orm import Session
 from backend.database import set_request_identity
 from backend import audit, fhrs, mailer, questionnaires
 from backend.models import (
+    Document,
+    HealthReport,
+    LabResult,
     LifestyleRecord,
     PasswordResetToken,
     Patient,
@@ -20,6 +25,9 @@ from backend.models import (
     PatientGoal,
     PatientHealthHistory,
     QuestionnaireResponse,
+    RiskAssessment,
+    RiskResult,
+    ShapExplanation,
     User,
     VitalsRecord,
 )
@@ -29,6 +37,7 @@ from backend.security import (
     create_access_token,
     hash_password,
     verify_and_update_password,
+    verify_password,
 )
 
 # Lockout policy: this many wrong passwords in a row locks the account for LOCKOUT_MINUTES
@@ -598,3 +607,83 @@ def confirm_family_history(db: Session, user_id: int, patient_id: int) -> list[P
     for row in rows:
         db.refresh(row)
     return rows
+
+
+
+# ---------------------------------------------------------------------------
+# Account export and permanent deletion (RA 10173)
+# ---------------------------------------------------------------------------
+# Every patient-owned table, with columns left out of the export: internal keys and storage
+# names that mean nothing to the patient. RLS limits every query to the caller's rows.
+EXPORT_TABLES = (
+    ("vitals", VitalsRecord, ()),
+    ("lab_results", LabResult, ()),
+    ("lifestyle", LifestyleRecord, ()),
+    ("health_history", PatientHealthHistory, ()),
+    ("questionnaires", QuestionnaireResponse, ()),
+    ("family_history", PatientFamilyHistory, ()),
+    ("family_history_scores", PatientFhrsStratification, ()),
+    ("goals", PatientGoal, ()),
+    ("documents", Document, ("storage_key",)),
+    ("risk_assessments", RiskAssessment, ()),
+    ("risk_results", RiskResult, ()),
+    ("risk_explanations", ShapExplanation, ()),
+    ("health_reports", HealthReport, ()),
+)
+
+
+class WrongPassword(Exception):
+    pass
+
+
+def _plain(value):
+    """Database values as plain JSON (numbers, text, ISO dates)."""
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, UUID):
+        return str(value)
+    return value
+
+
+def _rows(db: Session, model, skip=()) -> list[dict]:
+    columns = [c for c in model.__table__.columns if c.name not in skip and c.name != "patient_id"]
+    return [{c.name: _plain(getattr(row, c.key)) for c in columns}
+            for row in db.scalars(select(model))]
+
+
+def export_account(db: Session, user_id: int, patient_id: int) -> dict:
+    """Everything the app holds about the patient, as one JSON document. The audit log is not
+    included: it is the system's security record and holds IDs and event names only."""
+    user = db.get(User, user_id)
+    patient = db.scalars(select(Patient)).one()
+    data = {
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "account": {"email": user.email, "created_at": _plain(user.created_at),
+                    "last_login_at": _plain(user.last_login_at),
+                    "password_changed_at": _plain(user.password_changed_at)},
+        "profile": {c.name: _plain(getattr(patient, c.key)) for c in Patient.__table__.columns
+                    if c.name not in ("patient_id", "user_id")},
+    }
+    for name, model, skip in EXPORT_TABLES:
+        data[name] = _rows(db, model, skip)
+    audit.log_event(db, "DATA_EXPORTED", user_id=user_id, patient_id=patient_id, format="json")
+    db.commit()
+    return data
+
+
+def delete_account(db: Session, user_id: int, patient_id: int, password: str) -> list[str]:
+    """Permanently deletes the account and every patient row. Deleting the users row cascades to
+    patients and from there to every patient-owned table (ON DELETE CASCADE). The audit
+    ledger has no foreign keys, so the ACCOUNT_DELETED entry stays.
+    Returns the storage keys of uploaded files, which the caller removes from disk."""
+    user = db.get(User, user_id)
+    if user is None or not verify_password(password, user.password_hash):
+        db.rollback()
+        raise WrongPassword
+    storage_keys = [str(k) for k in db.scalars(select(Document.storage_key))]
+    audit.log_event(db, "ACCOUNT_DELETED", user_id=user_id, patient_id=patient_id, files=len(storage_keys))
+    db.execute(delete(User).where(User.user_id == user_id))
+    db.commit()
+    return storage_keys

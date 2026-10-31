@@ -528,3 +528,26 @@ class FhrsResponse(BaseModel):
     calculated_fhrs: float
     risk_band: str                  # Baseline | Mild | Moderate | Pronounced | Critical
     evaluated_at: datetime
+
+
+
+# ---------------------------------------------------------------------------
+# Account (RA 10173: right to access and right to erasure)
+# ---------------------------------------------------------------------------
+DELETE_CONFIRMATION = "DELETE MY ACCOUNT"
+
+
+class AccountDeleteRequest(BaseModel):
+    """Permanent deletion needs the current password and the exact confirmation phrase,
+    so a stolen session or a mis-tap cannot erase an account."""
+    model_config = ConfigDict(extra="forbid")
+
+    password: str = Field(min_length=1, max_length=128)
+    confirm: str
+
+    @field_validator("confirm")
+    @classmethod
+    def check_phrase(cls, value: str) -> str:
+        if value != DELETE_CONFIRMATION:
+            raise ValueError(f'Type "{DELETE_CONFIRMATION}" to confirm')
+        return value
