@@ -130,7 +130,9 @@ class IdempotencyMiddleware:
             return await self.app(scope, receive, send)
         headers = Headers(scope=scope)
         idem_key = headers.get(IDEMPOTENCY_HEADER)
-        if idem_key is None:
+        # File uploads skip this (Sprint 1 review note): the same file twice is already refused
+        # by its SHA-256 (documents_patient_file_unique), and a 10 MB body is not worth buffering
+        if idem_key is None or headers.get("content-type", "").startswith("multipart/"):
             return await self.app(scope, receive, send)
         if not _KEY_PATTERN.fullmatch(idem_key):
             return await _error(400, "Idempotency-Key must be 8-128 letters, digits, - or _")(scope, receive, send)

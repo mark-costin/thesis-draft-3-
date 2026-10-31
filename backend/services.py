@@ -2,17 +2,19 @@
 
 import hashlib
 import secrets
+import uuid
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 
+from cryptography.fernet import InvalidToken
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import set_request_identity
-from backend import audit, fhrs, mailer, questionnaires
+from backend import audit, fhrs, mailer, questionnaires, storage
 from backend.models import (
     Document,
     HealthReport,
@@ -687,3 +689,105 @@ def delete_account(db: Session, user_id: int, patient_id: int, password: str) ->
     db.execute(delete(User).where(User.user_id == user_id))
     db.commit()
     return storage_keys
+
+
+
+# ---------------------------------------------------------------------------
+# Documents: upload, list, download, delete. The file is encrypted on disk (backend/storage.py).
+# ---------------------------------------------------------------------------
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # documents_file_size_check
+
+# The real type comes from the file's first bytes, never from the name or the browser's claim
+_SIGNATURES = (
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"%PDF-", "application/pdf"),
+)
+
+
+class UnsupportedFile(Exception):
+    pass
+
+
+class DuplicateFile(Exception):
+    pass
+
+
+def detect_mime(data: bytes) -> str:
+    for signature, mime in _SIGNATURES:
+        if data.startswith(signature):
+            return mime
+    raise UnsupportedFile("Only JPEG, PNG or PDF files are accepted")
+
+
+def upload_document(db: Session, user_id: int, patient_id: int, data: bytes) -> Document:
+    if not data:
+        raise UnsupportedFile("The file is empty")
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise UnsupportedFile("The file is larger than 10 MB")
+    mime = detect_mime(data)
+    digest = hashlib.sha256(data).hexdigest()
+
+    key = uuid.uuid4()
+    row = Document(patient_id=patient_id, storage_key=key, mime_type=mime,
+                   file_size_bytes=len(data), file_sha256=digest)
+    db.add(row)
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        if getattr(exc.orig, "sqlstate", None) == "23505":  # documents_patient_file_unique
+            raise DuplicateFile from exc
+        raise
+
+    storage.save(key, data)
+    try:
+        audit.log_event(db, "DOCUMENT_UPLOADED", user_id=user_id, patient_id=patient_id,
+                        record_id=row.document_id, mime_type=mime, size_bytes=len(data))
+        db.commit()
+    except Exception:
+        db.rollback()
+        storage.remove(key)  # no row, no file
+        raise
+    db.refresh(row)
+    return row
+
+
+def list_documents(db: Session) -> list[Document]:
+    return list(db.scalars(select(Document).order_by(Document.uploaded_at.desc(), Document.document_id.desc())))
+
+
+def get_document(db: Session, document_id: int) -> Document:
+    row = db.scalars(select(Document).where(Document.document_id == document_id)).one_or_none()
+    if row is None:
+        raise NotFound
+    return row
+
+
+class TamperedFile(Exception):
+    pass
+
+
+def read_document_file(db: Session, user_id: int, patient_id: int, document_id: int) -> tuple[Document, bytes]:
+    row = get_document(db, document_id)
+    try:
+        data = storage.load(row.storage_key)
+    except (InvalidToken, FileNotFoundError) as exc:  # wrong key, edited or missing file
+        raise TamperedFile from exc
+    if hashlib.sha256(data).hexdigest() != row.file_sha256:  # integrity check of the original
+        raise TamperedFile
+    audit.log_event(db, "DATA_EXPORTED", user_id=user_id, patient_id=patient_id,
+                    table="documents", record_id=document_id)
+    db.commit()
+    return row, data
+
+
+def delete_document(db: Session, user_id: int, patient_id: int, document_id: int) -> None:
+    key = db.scalar(delete(Document).where(Document.document_id == document_id).returning(Document.storage_key))
+    if key is None:
+        db.rollback()
+        raise NotFound
+    audit.log_event(db, "DATA_DELETED", user_id=user_id, patient_id=patient_id,
+                    table="documents", record_id=document_id)
+    db.commit()
+    storage.remove(key)
