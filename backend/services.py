@@ -10,11 +10,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import set_request_identity
-from backend import audit, mailer, questionnaires
+from backend import audit, fhrs, mailer, questionnaires
 from backend.models import (
     LifestyleRecord,
     PasswordResetToken,
     Patient,
+    PatientFamilyHistory,
+    PatientFhrsStratification,
     PatientGoal,
     PatientHealthHistory,
     QuestionnaireResponse,
@@ -474,3 +476,125 @@ def delete_goal(db: Session, user_id: int, patient_id: int, goal_id: int) -> Non
     audit.log_event(db, "DATA_DELETED", user_id=user_id, patient_id=patient_id,
                     table="patient_goals", record_id=goal_id)
     db.commit()
+
+
+
+# ---------------------------------------------------------------------------
+# Family history and FHRS. Every change recalculates the FHRS for all four diseases in the
+# same transaction, so the score always matches the saved pedigree.
+# ---------------------------------------------------------------------------
+class DuplicateEntry(Exception):
+    """The same relative is already listed with this diagnosis (family_unique_entry)."""
+
+
+def _set_onset(row: PatientFamilyHistory, chosen: str | None = None) -> None:
+    """A known age decides the onset level; without an age the patient's choice is kept."""
+    if row.age_at_diagnosis is not None:
+        row.onset_classification = fhrs.onset_from_age(
+            row.disease_domain, row.specific_diagnosis, fhrs.sex_of(row.relative), row.age_at_diagnosis)
+    elif chosen is not None:
+        row.onset_classification = chosen
+
+
+def recalculate_fhrs(db: Session, patient_id: int) -> list[PatientFhrsStratification]:
+    entries = [fhrs.FamilyEntry(relative=r.relative, domain=r.disease_domain, onset=r.onset_classification,
+                                confirmed=r.diagnosis_confirmed, shared_environment=r.shared_environment)
+               for r in db.scalars(select(PatientFamilyHistory))]
+    rows = []
+    for domain in fhrs.DOMAINS:
+        result = fhrs.calculate(domain, entries)
+        row = PatientFhrsStratification(
+            patient_id=patient_id, disease_domain=domain, affected_relatives=result.affected_relatives,
+            clustering_score=result.clustering_score, environmental_modifier=result.environmental_modifier,
+            calculated_fhrs=result.calculated_fhrs, risk_band=result.risk_band)
+        db.add(row)
+        rows.append(row)
+    db.flush()
+    return rows
+
+
+def latest_fhrs(db: Session) -> list[PatientFhrsStratification]:
+    rows = db.scalars(select(PatientFhrsStratification)
+                      .distinct(PatientFhrsStratification.disease_domain)
+                      .order_by(PatientFhrsStratification.disease_domain,
+                                PatientFhrsStratification.evaluated_at.desc(),
+                                PatientFhrsStratification.fhrs_id.desc()))
+    return list(rows)
+
+
+def list_family_history(db: Session) -> list[PatientFamilyHistory]:
+    return list(db.scalars(select(PatientFamilyHistory).order_by(
+        PatientFamilyHistory.disease_domain, PatientFamilyHistory.record_id)))
+
+
+def get_family_entry(db: Session, record_id: int) -> PatientFamilyHistory:
+    row = db.scalars(select(PatientFamilyHistory)
+                     .where(PatientFamilyHistory.record_id == record_id)).one_or_none()
+    if row is None:
+        raise NotFound
+    return row
+
+
+def _flush_entry(db: Session) -> None:
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        if getattr(exc.orig, "sqlstate", None) == "23505":
+            raise DuplicateEntry from exc
+        raise
+
+
+def add_family_entry(db: Session, user_id: int, patient_id: int, data: dict) -> PatientFamilyHistory:
+    chosen = data.pop("onset_classification")
+    row = PatientFamilyHistory(patient_id=patient_id, **data)
+    _set_onset(row, chosen)
+    db.add(row)
+    _flush_entry(db)
+    recalculate_fhrs(db, patient_id)
+    audit.log_event(db, "DATA_CREATED", user_id=user_id, patient_id=patient_id,
+                    table="patient_family_history", record_id=row.record_id)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def update_family_entry(db: Session, user_id: int, patient_id: int, record_id: int,
+                        changes: dict) -> PatientFamilyHistory:
+    row = get_family_entry(db, record_id)
+    chosen = changes.pop("onset_classification", None)
+    for name, value in changes.items():
+        setattr(row, name, value)
+    _set_onset(row, chosen)
+    _flush_entry(db)
+    recalculate_fhrs(db, patient_id)
+    audit.log_event(db, "DATA_UPDATED", user_id=user_id, patient_id=patient_id,
+                    table="patient_family_history", record_id=record_id,
+                    fields=sorted(set(changes) | ({"onset_classification"} if chosen else set())))
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def delete_family_entry(db: Session, user_id: int, patient_id: int, record_id: int) -> None:
+    deleted = db.scalar(delete(PatientFamilyHistory).where(PatientFamilyHistory.record_id == record_id)
+                        .returning(PatientFamilyHistory.record_id))
+    if deleted is None:
+        db.rollback()
+        raise NotFound
+    recalculate_fhrs(db, patient_id)
+    audit.log_event(db, "DATA_DELETED", user_id=user_id, patient_id=patient_id,
+                    table="patient_family_history", record_id=record_id)
+    db.commit()
+
+
+def confirm_family_history(db: Session, user_id: int, patient_id: int) -> list[PatientFhrsStratification]:
+    """Saves the FHRS as it stands now. A patient with no known family history calls this to
+    record Baseline for every disease (the readiness check needs an FHRS for each model)."""
+    rows = recalculate_fhrs(db, patient_id)
+    audit.log_event(db, "DATA_CREATED", user_id=user_id, patient_id=patient_id,
+                    table="patient_fhrs_stratification", entries=len(list_family_history(db)))
+    db.commit()
+    for row in rows:
+        db.refresh(row)
+    return rows

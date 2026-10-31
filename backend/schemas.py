@@ -13,7 +13,7 @@ from typing import Literal
 import nh3
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from backend import questionnaires
+from backend import fhrs, questionnaires
 from backend.config import settings
 
 # Same pattern as users_email_format_check in 02_users.sql
@@ -444,3 +444,87 @@ class ReadinessResponse(BaseModel):
     ready: bool                         # true when all four models can run
     missing_required: list[ChecklistItem]  # each missing required input once, for the checklist
     models: dict[str, ModelReadiness]
+
+
+
+# ---------------------------------------------------------------------------
+# Family history (12_family_history.sql + 21_famhistory.sql) and FHRS (13_fhrs_stratification.sql)
+# ---------------------------------------------------------------------------
+Relative = Literal[tuple(sorted(fhrs.RELATIVES))]
+Domain = Literal["CVD", "T2D", "CRD", "NEURO"]
+Onset = Literal["severe_early", "early", "typical", "late", "unknown"]
+Confirmed = Literal["yes", "no", "not_sure"]
+
+
+class FamilyEntryCreate(BaseModel):
+    """One relative with one diagnosis. If age_at_diagnosis is given, the server sets the onset
+    level from the FHRS Guide's cut-offs; otherwise the patient may pick it or leave 'unknown'."""
+    model_config = ConfigDict(extra="forbid")
+
+    disease_domain: Domain
+    specific_diagnosis: str = Field(min_length=1, max_length=150)   # e.g. "Hypertension", "Asthma"
+    relative: Relative
+    age_at_diagnosis: int | None = Field(default=None, ge=0, le=120)
+    onset_classification: Onset = "unknown"
+    shared_environment: bool = False      # lived in the same household
+    diagnosis_confirmed: Confirmed = "not_sure"
+
+    @field_validator("specific_diagnosis", mode="before")
+    @classmethod
+    def clean(cls, value):
+        return clean_text(value)
+
+
+class FamilyEntryUpdate(BaseModel):
+    """Only the fields sent are changed. To change the relative or the disease, delete the
+    entry and add a new one."""
+    model_config = ConfigDict(extra="forbid")
+
+    specific_diagnosis: str | None = Field(default=None, min_length=1, max_length=150)
+    age_at_diagnosis: int | None = Field(default=None, ge=0, le=120)
+    onset_classification: Onset | None = None
+    shared_environment: bool | None = None
+    diagnosis_confirmed: Confirmed | None = None
+
+    @field_validator("specific_diagnosis", mode="before")
+    @classmethod
+    def clean(cls, value):
+        return clean_text(value)
+
+    @model_validator(mode="after")
+    def not_empty(self):
+        if not self.model_fields_set:
+            raise ValueError("Send at least one field to change")
+        for name in self.model_fields_set - {"age_at_diagnosis"}:  # age may be cleared with null
+            if getattr(self, name) is None:
+                raise ValueError(f"{name} cannot be empty")
+        return self
+
+
+class FamilyEntryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    record_id: int
+    disease_domain: str
+    specific_diagnosis: str
+    relative: str
+    relationship_degree: int        # computed by the database
+    relative_sex: str               # computed by the database
+    age_at_diagnosis: int | None
+    onset_classification: str
+    shared_environment: bool
+    diagnosis_confirmed: str
+    recorded_at: datetime
+    updated_at: datetime
+
+
+class FhrsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    disease_domain: str
+    affected_relatives: int
+    clustering_score: float
+    environmental_modifier: float
+    calculated_fhrs: float
+    risk_band: str                  # Baseline | Mild | Moderate | Pronounced | Critical
+    evaluated_at: datetime
