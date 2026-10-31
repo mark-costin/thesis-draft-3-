@@ -637,3 +637,33 @@ class LabResponse(BaseModel):
     collected_on: date | None
     created_at: datetime
     out_of_expected_range: bool = False  # filled in by the route
+
+
+# ---------------------------------------------------------------------------
+# OCR review and confirm
+# ---------------------------------------------------------------------------
+class LabUpdate(LabCreate):
+    """Corrects one OCR value during review: send the right test, value and unit as on the report."""
+
+
+class DocumentConfirm(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    collected_on: date | None = None  # the date on the report; used for values with no date
+    # Values the patient typed in because OCR missed them; saved with source = manual
+    typed_values: list[LabCreate] = Field(default_factory=list, max_length=20)
+
+    _collected = field_validator("collected_on")(_check_collected_on)
+
+    @model_validator(mode="after")
+    def one_value_per_test(self):
+        codes = [value.test_code for value in self.typed_values]
+        if len(codes) != len(set(codes)):
+            raise ValueError("Each lab test can be typed in only once")
+        return self
+
+
+class DocumentReviewResponse(BaseModel):
+    document: DocumentResponse
+    lab_results: list[LabResponse]       # what OCR found (and, after confirm, what was typed in)
+    missing_required: list[ChecklistItem]  # what the patient still has to enter before an assessment

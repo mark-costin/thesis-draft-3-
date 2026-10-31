@@ -118,14 +118,20 @@ def present_inputs(db: Session, features: tuple[Feature, ...]) -> set[str]:
         present.add(f"patient_fhrs_stratification.calculated_fhrs[disease_domain={domain}]")
 
     for code in db.scalars(select(LabResult.test_code).where(LabResult.is_confirmed).distinct()):
-        present.add(f"lab_results.value[test_code={code}]")
+        present.add(lab_key(code))
 
     return present
 
 
-def readiness(db: Session) -> dict:
+def lab_key(test_code: str) -> str:
+    return f"lab_results.value[test_code={test_code}]"
+
+
+def readiness(db: Session, assume_present: frozenset[str] = frozenset()) -> dict:
+    """assume_present: inputs to count as given, e.g. lab values OCR found that the patient is
+    reviewing right now (not confirmed yet, so present_inputs does not see them)."""
     features = load_features()
-    present = present_inputs(db, features)
+    present = present_inputs(db, features) | set(assume_present)
 
     models = {}
     checklist: dict[str, dict] = {}  # required inputs still missing, each listed once
