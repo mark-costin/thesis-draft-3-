@@ -4,15 +4,16 @@ Upload checks the real file type from its first bytes (JPEG, PNG, PDF), the size
 the SHA-256 (the same file twice is refused), then stores it encrypted under a UUID name.
 OCR is a separate task: new documents stay 'pending' until the worker picks them up.
 
-Review: when OCR is done (status ready_for_review) the patient sees the values it read, fixes
-any with PATCH /labs/{id} or removes them with DELETE /labs/{id}, then confirms or rejects the
-document. Only confirmed values are used by the models.
+Review: when OCR is done (status ready_for_review) the patient sees the values it read and the
+required inputs still missing, fixes values with PATCH /labs/{id} or removes them with
+DELETE /labs/{id}, then confirms (adding any lab values OCR missed) or rejects the document.
+Only confirmed values are used by the models.
 """
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
-from backend import services
+from backend import labs, readiness, services
 from backend.database import get_db
 from backend.dependencies import CurrentUser, get_current_user
 from backend.middleware import limiter
@@ -90,9 +91,12 @@ def remove_document(document_id: int, current: CurrentUser = Depends(get_current
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-def _review_response(document, rows) -> DocumentReviewResponse:
+def _review_response(db: Session, document, rows) -> DocumentReviewResponse:
+    # Values still under review count as given, so the list shows only what OCR did not find
+    found = frozenset(readiness.lab_key(row.test_code) for row in rows)
+    missing = readiness.readiness(db, assume_present=found)["missing_required"]
     return DocumentReviewResponse(document=DocumentResponse.model_validate(document),
-                                  lab_results=[lab_out(row) for row in rows])
+                                  lab_results=[lab_out(row) for row in rows], missing_required=missing)
 
 
 def _wrong_status(exc: services.WrongStatus) -> HTTPException:
@@ -110,17 +114,23 @@ def review(document_id: int, response: Response, current: CurrentUser = Depends(
     except services.NotFound:
         raise _NOT_FOUND
     response.headers.update(NO_STORE)
-    return _review_response(document, rows)
+    return _review_response(db, document, rows)
 
 
 @router.post("/{document_id}/confirm", response_model=DocumentReviewResponse)
 def confirm(document_id: int, response: Response, body: DocumentConfirm | None = None,
             current: CurrentUser = Depends(get_current_user),
             db: Session = Depends(get_db)) -> DocumentReviewResponse:
-    collected_on = body.collected_on if body else None
+    body = body or DocumentConfirm()
+    typed = []
+    for number, value in enumerate(body.typed_values, start=1):
+        try:
+            typed.append((labs.convert(value.test_code, value.value, value.unit), value.collected_on))
+        except labs.MappingError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Typed value {number}: {exc}")
     try:
         document, rows = services.confirm_document(db, current.user_id, current.patient_id,
-                                                   document_id, collected_on)
+                                                   document_id, body.collected_on, typed)
     except services.NotFound:
         raise _NOT_FOUND
     except services.WrongStatus as exc:
@@ -129,7 +139,7 @@ def confirm(document_id: int, response: Response, body: DocumentConfirm | None =
         raise HTTPException(status.HTTP_409_CONFLICT,
                             "There are no values left to confirm. Reject the document instead.")
     response.headers.update(NO_STORE)
-    return _review_response(document, rows)
+    return _review_response(db, document, rows)
 
 
 @router.post("/{document_id}/reject", response_model=DocumentResponse)

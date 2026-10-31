@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, func, select, update
 
-from backend import audit, labs
+from backend import audit, labs, readiness
 from backend.config import settings
 from backend.database import SessionLocal, set_request_identity
 from backend.main import app
@@ -124,6 +124,26 @@ def test_unconfirmed_values_do_not_count_for_readiness(make_patient):
     before = missing_labs()
     assert client.post(f"/documents/{document_id}/confirm", headers=headers).status_code == 200
     assert missing_labs() == before - 1
+
+
+def test_review_lists_the_required_inputs_still_missing(make_patient):
+    _, headers, document_id = ready_document(make_patient)
+    review = client.get(f"/documents/{document_id}/review", headers=headers).json()
+    expected = client.get("/assessment/readiness", headers=headers).json()["missing_required"]
+    assert review["missing_required"] == expected and expected  # a new patient is missing a lot
+    assert all(item["path"] for item in review["missing_required"])  # each says where to enter it
+
+
+def test_values_under_review_count_as_found(make_patient):
+    """Labs are optional in features.yaml today, so this checks the T2D optional list; if a lab
+    becomes required, the same rule keeps it off the review's missing list."""
+    email, _ = make_patient()
+    with SessionLocal() as session:
+        as_patient(session, email)
+        plain = readiness.readiness(session)["models"]["T2D"]["missing_optional"]
+        assumed = readiness.readiness(session, assume_present=frozenset({readiness.lab_key("HBA1C")}))
+    assert "hba1c" in [item["name"] for item in plain]
+    assert "hba1c" not in [item["name"] for item in assumed["models"]["T2D"]["missing_optional"]]
 
 
 def test_review_of_another_patients_document_is_not_found(make_patient):
@@ -244,6 +264,45 @@ def test_confirm_with_every_value_removed_is_refused(make_patient):
     assert client.post(f"/documents/{document_id}/reject", headers=headers).status_code == 200
 
 
+def test_confirm_saves_typed_values_with_the_ocr_values(make_patient):
+    _, headers, document_id = ready_document(make_patient)
+    response = client.post(f"/documents/{document_id}/confirm", headers=headers, json={
+        "collected_on": "2026-10-15",
+        "typed_values": [{"test_code": "HBA1C", "value": 48, "unit": "mmol/mol"},
+                         {"test_code": "TSH", "value": 2.5, "unit": "mIU/L", "collected_on": "2026-10-10"}]})
+    assert response.status_code == 200
+    rows = {row["test_code"]: row for row in response.json()["lab_results"]}
+    assert set(rows) == {"FPG", "TOTAL_CHOLESTEROL", "HDL", "HBA1C", "TSH"}
+    assert all(row["is_confirmed"] and row["document_id"] == document_id for row in rows.values())
+    assert rows["FPG"]["source"] == "ocr" and rows["HBA1C"]["source"] == "manual"
+    assert rows["HBA1C"]["value"] == 6.543 and rows["HBA1C"]["unit_as_reported"] == "mmol/mol"
+    assert rows["HBA1C"]["collected_on"] == "2026-10-15" and rows["TSH"]["collected_on"] == "2026-10-10"
+
+
+def test_confirm_works_with_only_typed_values_when_ocr_found_nothing_usable(make_patient):
+    _, headers, document_id = ready_document(make_patient, lines=[("FBS", "95", "mg/dL")])
+    only = lab_ids(client.get(f"/documents/{document_id}/review", headers=headers).json())[0]
+    client.delete(f"/labs/{only}", headers=headers)
+    response = client.post(f"/documents/{document_id}/confirm", headers=headers,
+                           json={"typed_values": [{"test_code": "FPG", "value": 96, "unit": "mg/dL"}]})
+    assert response.status_code == 200
+    assert [(row["source"], row["value"]) for row in response.json()["lab_results"]] == [("manual", 96.0)]
+
+
+@pytest.mark.parametrize("typed", [
+    [{"test_code": "FPG", "value": 5, "unit": "%"}],                                   # wrong unit
+    [{"test_code": "TSH", "value": 2, "unit": "mIU/L"}, {"test_code": "TSH", "value": 3, "unit": "mIU/L"}],
+    [{"test_code": "FPG", "value": 95, "unit": "mg/dL", "source": "ocr"}],              # extra field
+], ids=["wrong-unit", "same-test-twice", "extra-field"])
+def test_bad_typed_values_change_nothing(make_patient, typed):
+    _, headers, document_id = ready_document(make_patient)
+    response = client.post(f"/documents/{document_id}/confirm", headers=headers, json={"typed_values": typed})
+    assert response.status_code == 422
+    review = client.get(f"/documents/{document_id}/review", headers=headers).json()
+    assert review["document"]["status"] == "ready_for_review"
+    assert not any(row["is_confirmed"] for row in review["lab_results"])
+
+
 def test_reject_drops_the_ocr_values_and_keeps_the_file(make_patient):
     email, headers, document_id = ready_document(make_patient)
     response = client.post(f"/documents/{document_id}/reject", headers=headers)
@@ -281,7 +340,7 @@ def test_confirm_and_reject_are_audited_without_values(make_patient, monkeypatch
     client.post(f"/documents/{first}/confirm", headers=headers)
     verified = recorded[-1]
     assert verified[0] == "DOCUMENT_VERIFIED" and verified[1]["record_id"] == first
-    assert verified[1]["confirmed_values"] == 3 and "100.89" not in str(verified) and "FPG" not in str(verified)
+    assert verified[1]["confirmed_values"] == 3 and verified[1]["typed_values"] == 0 and "100.89" not in str(verified) and "FPG" not in str(verified)
 
     _, headers, second = ready_document(make_patient)
     client.post(f"/documents/{second}/reject", headers=headers)

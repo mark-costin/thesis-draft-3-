@@ -902,8 +902,10 @@ def _finish_review(db: Session, document_id: int, new_status: str, **extra) -> D
 
 
 def confirm_document(db: Session, user_id: int, patient_id: int, document_id: int,
-                     collected_on: date | None) -> tuple[Document, list[LabResult]]:
-    """The patient says the (possibly corrected) values match the report: they now count."""
+                     collected_on: date | None, typed: list[tuple[labs.MappedLab, date | None]]
+                     ) -> tuple[Document, list[LabResult]]:
+    """The patient says the (possibly corrected) OCR values match the report, and adds the values
+    OCR missed. Both are saved and confirmed in one transaction, so they now count."""
     now = datetime.now(timezone.utc)
     _finish_review(db, document_id, "verified", verified_at=now)
     pending = LabResult.document_id == document_id, LabResult.is_confirmed.is_(False)
@@ -913,11 +915,17 @@ def confirm_document(db: Session, user_id: int, patient_id: int, document_id: in
     confirmed = db.scalars(update(LabResult).where(*pending)
                            .values(is_confirmed=True, confirmed_at=now)
                            .returning(LabResult.lab_result_id)).all()
-    if not confirmed:
+    for mapped, typed_on in typed:  # linked to the report they were read from
+        db.add(LabResult(patient_id=patient_id, document_id=document_id, test_code=mapped.test_code,
+                         value=mapped.value, unit=mapped.unit, value_as_reported=mapped.value_as_reported,
+                         unit_as_reported=mapped.unit_as_reported, source="manual", is_confirmed=True,
+                         confirmed_at=now, collected_on=typed_on or collected_on))
+    if not confirmed and not typed:
         db.rollback()
         raise NothingToConfirm
+    db.flush()
     audit.log_event(db, "DOCUMENT_VERIFIED", user_id=user_id, patient_id=patient_id,
-                    record_id=document_id, confirmed_values=len(confirmed))
+                    record_id=document_id, confirmed_values=len(confirmed), typed_values=len(typed))
     db.commit()
     return review_document(db, document_id)
 
