@@ -551,3 +551,24 @@ class AccountDeleteRequest(BaseModel):
         if value != DELETE_CONFIRMATION:
             raise ValueError(f'Type "{DELETE_CONFIRMATION}" to confirm')
         return value
+
+
+
+# ---------------------------------------------------------------------------
+# Documents (06_documents.sql)
+# ---------------------------------------------------------------------------
+class DocumentResponse(BaseModel):
+    """Metadata only. The file comes from GET /documents/{id}/file; the storage name and the
+    OCR text are never sent here."""
+    model_config = ConfigDict(from_attributes=True)
+
+    document_id: int
+    mime_type: str
+    file_size_bytes: int
+    file_sha256: str
+    status: str
+    ocr_confidence: float | None
+    error_message: str | None
+    uploaded_at: datetime
+    processed_at: datetime | None
+    verified_at: datetime | None
