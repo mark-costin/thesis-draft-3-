@@ -572,3 +572,68 @@ class DocumentResponse(BaseModel):
     uploaded_at: datetime
     processed_at: datetime | None
     verified_at: datetime | None
+
+
+# ---------------------------------------------------------------------------
+# Lab results (08_lab_results.sql): typed in by the patient. Units are converted in backend/labs.py.
+# ---------------------------------------------------------------------------
+LabTestCode = Literal["TOTAL_CHOLESTEROL", "HDL", "LDL", "TRIGLYCERIDES", "FPG", "HBA1C", "OGTT_2H",
+                      "CREATININE", "EGFR", "URIC_ACID", "UACR", "HS_CRP", "EOSINOPHILS", "IGE",
+                      "TSH", "VITAMIN_B12", "FOLATE"]
+
+
+def _check_collected_on(value: date | None) -> date | None:
+    if value is not None:
+        if value > date.today():
+            raise ValueError("collected_on cannot be in the future")
+        if value < date(1900, 1, 1):
+            raise ValueError("collected_on must be on or after 1900-01-01")
+    return value
+
+
+class LabCreate(BaseModel):
+    """Manual entry: the patient picks the test and types the value and unit from the report."""
+    model_config = ConfigDict(extra="forbid")
+
+    test_code: LabTestCode
+    value: Decimal = Field(gt=0, lt=100000, max_digits=10, decimal_places=3)
+    unit: str = Field(min_length=1, max_length=15)  # any unit labs.py knows, e.g. mmol/L
+    collected_on: date | None = None
+
+    _collected = field_validator("collected_on")(_check_collected_on)
+
+
+class LabMapRequest(BaseModel):
+    """One line of a lab report as read (label, value, unit). Returns the mapping, saves nothing."""
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(min_length=1, max_length=100)
+    value: str = Field(min_length=1, max_length=20)
+    unit: str = Field(min_length=1, max_length=20)
+
+
+class LabMapResponse(BaseModel):
+    test_code: str
+    value: float
+    unit: str
+    value_as_reported: float | None
+    unit_as_reported: str | None
+    out_of_expected_range: bool
+
+
+class LabResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    lab_result_id: int
+    document_id: int | None
+    test_code: str
+    value: float
+    unit: str
+    value_as_reported: float | None
+    unit_as_reported: str | None
+    source: str
+    is_confirmed: bool
+    confirmed_at: datetime | None
+    collected_on: date | None
+    created_at: datetime
+    out_of_expected_range: bool = False  # filled in by the route
