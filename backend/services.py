@@ -783,6 +783,9 @@ def read_document_file(db: Session, user_id: int, patient_id: int, document_id: 
 
 
 def delete_document(db: Session, user_id: int, patient_id: int, document_id: int) -> None:
+    # Values not yet confirmed go with the document. Confirmed ones stay (document_id becomes
+    # NULL through lab_document_fkey): the patient already checked them against the report.
+    db.execute(delete(LabResult).where(LabResult.document_id == document_id, LabResult.is_confirmed.is_(False)))
     key = db.scalar(delete(Document).where(Document.document_id == document_id).returning(Document.storage_key))
     if key is None:
         db.rollback()
@@ -839,3 +842,94 @@ def delete_lab(db: Session, user_id: int, patient_id: int, lab_result_id: int) -
     audit.log_event(db, "DATA_DELETED", user_id=user_id, patient_id=patient_id,
                     table="lab_results", record_id=lab_result_id)
     db.commit()
+
+
+# ---------------------------------------------------------------------------
+# OCR review: the patient checks what OCR read before any of it is used (patient-in-the-loop).
+# The OCR worker (separate task) saves unconfirmed lab rows and sets the document to ready_for_review.
+# ---------------------------------------------------------------------------
+class WrongStatus(Exception):
+    def __init__(self, status: str):
+        super().__init__(status)
+        self.status = status
+
+
+class NothingToConfirm(Exception):
+    pass
+
+
+class AlreadyConfirmed(Exception):
+    pass
+
+
+def review_document(db: Session, document_id: int) -> tuple[Document, list[LabResult]]:
+    document = get_document(db, document_id)
+    rows = list(db.scalars(select(LabResult).where(LabResult.document_id == document_id)
+                           .order_by(LabResult.lab_result_id)))
+    return document, rows
+
+
+def update_lab(db: Session, user_id: int, patient_id: int, lab_result_id: int,
+               mapped: labs.MappedLab, collected_on: date | None, collected_on_sent: bool) -> LabResult:
+    """Fixes an OCR value before it is confirmed. Confirmed values are not edited: delete and re-enter."""
+    row = get_lab(db, lab_result_id)
+    if row.is_confirmed:
+        raise AlreadyConfirmed
+    row.test_code, row.value, row.unit = mapped.test_code, mapped.value, mapped.unit
+    row.value_as_reported, row.unit_as_reported = mapped.value_as_reported, mapped.unit_as_reported
+    if collected_on_sent:
+        row.collected_on = collected_on
+    db.flush()
+    audit.log_event(db, "DATA_UPDATED", user_id=user_id, patient_id=patient_id, table="lab_results",
+                    record_id=lab_result_id, fields=["test_code", "unit", "value"]
+                    + (["collected_on"] if collected_on_sent else []))
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def _finish_review(db: Session, document_id: int, new_status: str, **extra) -> Document:
+    """Moves a document out of ready_for_review in one UPDATE, so two clicks cannot both succeed."""
+    document = get_document(db, document_id)
+    changed = db.scalar(update(Document)
+                        .where(Document.document_id == document_id, Document.status == "ready_for_review")
+                        .values(status=new_status, ocr_text=None, **extra)  # OCR text no longer needed
+                        .returning(Document.document_id))
+    if changed is None:
+        db.rollback()
+        raise WrongStatus(document.status)
+    return document
+
+
+def confirm_document(db: Session, user_id: int, patient_id: int, document_id: int,
+                     collected_on: date | None) -> tuple[Document, list[LabResult]]:
+    """The patient says the (possibly corrected) values match the report: they now count."""
+    now = datetime.now(timezone.utc)
+    _finish_review(db, document_id, "verified", verified_at=now)
+    pending = LabResult.document_id == document_id, LabResult.is_confirmed.is_(False)
+    if collected_on is not None:  # the date on the report, for rows OCR could not date
+        db.execute(update(LabResult).where(*pending, LabResult.collected_on.is_(None))
+                   .values(collected_on=collected_on))
+    confirmed = db.scalars(update(LabResult).where(*pending)
+                           .values(is_confirmed=True, confirmed_at=now)
+                           .returning(LabResult.lab_result_id)).all()
+    if not confirmed:
+        db.rollback()
+        raise NothingToConfirm
+    audit.log_event(db, "DOCUMENT_VERIFIED", user_id=user_id, patient_id=patient_id,
+                    record_id=document_id, confirmed_values=len(confirmed))
+    db.commit()
+    return review_document(db, document_id)
+
+
+def reject_document(db: Session, user_id: int, patient_id: int, document_id: int) -> Document:
+    """OCR read the report wrong: its unconfirmed values are dropped. The file stays; the patient
+    can type the values in with POST /labs instead."""
+    _finish_review(db, document_id, "rejected")
+    dropped = db.scalars(delete(LabResult)
+                         .where(LabResult.document_id == document_id, LabResult.is_confirmed.is_(False))
+                         .returning(LabResult.lab_result_id)).all()
+    audit.log_event(db, "DOCUMENT_REJECTED", user_id=user_id, patient_id=patient_id,
+                    record_id=document_id, dropped_values=len(dropped))
+    db.commit()
+    return get_document(db, document_id)

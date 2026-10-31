@@ -637,3 +637,23 @@ class LabResponse(BaseModel):
     collected_on: date | None
     created_at: datetime
     out_of_expected_range: bool = False  # filled in by the route
+
+
+# ---------------------------------------------------------------------------
+# OCR review and confirm
+# ---------------------------------------------------------------------------
+class LabUpdate(LabCreate):
+    """Corrects one OCR value during review: send the right test, value and unit as on the report."""
+
+
+class DocumentConfirm(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    collected_on: date | None = None  # used for values OCR could not date
+
+    _collected = field_validator("collected_on")(_check_collected_on)
+
+
+class DocumentReviewResponse(BaseModel):
+    document: DocumentResponse
+    lab_results: list[LabResponse]

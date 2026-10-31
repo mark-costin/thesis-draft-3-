@@ -1,4 +1,4 @@
-"""Lab results: manual entry, list, read, delete, and a mapping preview (Sprint 3).
+"""Lab results: manual entry, list, read, fix (OCR review), delete, and a mapping preview (Sprint 3).
 
 Values are stored in one standard unit per test (lab_unit_check). A value typed in mmol/L or
 umol/L is converted in backend/labs.py, and the original is kept in value_as_reported.
@@ -13,7 +13,7 @@ from backend import labs, services
 from backend.database import get_db
 from backend.dependencies import CurrentUser, get_current_user
 from backend.models import LabResult
-from backend.schemas import LabCreate, LabMapRequest, LabMapResponse, LabResponse, LabTestCode
+from backend.schemas import LabCreate, LabMapRequest, LabMapResponse, LabResponse, LabTestCode, LabUpdate
 
 router = APIRouter(prefix="/labs", tags=["labs"])
 
@@ -21,7 +21,7 @@ NO_STORE = {"Cache-Control": "no-store"}
 _NOT_FOUND = HTTPException(status.HTTP_404_NOT_FOUND, "Lab result not found")
 
 
-def _out(row: LabResult) -> LabResponse:
+def lab_out(row: LabResult) -> LabResponse:
     low, high = labs.EXPECTED_RANGE[row.test_code]
     data = LabResponse.model_validate(row)
     data.out_of_expected_range = not (Decimal(str(low)) <= row.value <= Decimal(str(high)))
@@ -50,7 +50,7 @@ def add_lab(body: LabCreate, response: Response, current: CurrentUser = Depends(
     row = services.create_lab(db, current.user_id, current.patient_id, mapped, body.collected_on)
     response.headers.update(NO_STORE)
     response.headers["Location"] = f"/labs/{row.lab_result_id}"
-    return _out(row)
+    return lab_out(row)
 
 
 @router.get("", response_model=list[LabResponse])
@@ -59,7 +59,7 @@ def list_labs(response: Response, test_code: LabTestCode | None = None,
               current: CurrentUser = Depends(get_current_user),
               db: Session = Depends(get_db)) -> list[LabResponse]:
     response.headers.update(NO_STORE)
-    return [_out(row) for row in services.list_labs(db, test_code, limit)]
+    return [lab_out(row) for row in services.list_labs(db, test_code, limit)]
 
 
 @router.get("/{lab_result_id}", response_model=LabResponse)
@@ -70,7 +70,27 @@ def read_lab(lab_result_id: int, response: Response, current: CurrentUser = Depe
     except services.NotFound:
         raise _NOT_FOUND
     response.headers.update(NO_STORE)
-    return _out(row)
+    return lab_out(row)
+
+
+@router.patch("/{lab_result_id}", response_model=LabResponse)
+def fix_lab(lab_result_id: int, body: LabUpdate, response: Response,
+            current: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)) -> LabResponse:
+    """Corrects a value OCR misread, before the document is confirmed."""
+    try:
+        mapped = labs.convert(body.test_code, body.value, body.unit)
+    except labs.MappingError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+    try:
+        row = services.update_lab(db, current.user_id, current.patient_id, lab_result_id, mapped,
+                                  body.collected_on, "collected_on" in body.model_fields_set)
+    except services.NotFound:
+        raise _NOT_FOUND
+    except services.AlreadyConfirmed:
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            "This value is already confirmed. Delete it and enter it again to change it.")
+    response.headers.update(NO_STORE)
+    return lab_out(row)
 
 
 @router.delete("/{lab_result_id}", status_code=status.HTTP_204_NO_CONTENT)

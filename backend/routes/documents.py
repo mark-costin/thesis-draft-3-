@@ -3,6 +3,10 @@
 Upload checks the real file type from its first bytes (JPEG, PNG, PDF), the size (10 MB), and
 the SHA-256 (the same file twice is refused), then stores it encrypted under a UUID name.
 OCR is a separate task: new documents stay 'pending' until the worker picks them up.
+
+Review: when OCR is done (status ready_for_review) the patient sees the values it read, fixes
+any with PATCH /labs/{id} or removes them with DELETE /labs/{id}, then confirms or rejects the
+document. Only confirmed values are used by the models.
 """
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
@@ -12,7 +16,8 @@ from backend import services
 from backend.database import get_db
 from backend.dependencies import CurrentUser, get_current_user
 from backend.middleware import limiter
-from backend.schemas import DocumentResponse
+from backend.routes.labs import lab_out
+from backend.schemas import DocumentConfirm, DocumentResponse, DocumentReviewResponse
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -83,3 +88,58 @@ def remove_document(document_id: int, current: CurrentUser = Depends(get_current
     except services.NotFound:
         raise _NOT_FOUND
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _review_response(document, rows) -> DocumentReviewResponse:
+    return DocumentReviewResponse(document=DocumentResponse.model_validate(document),
+                                  lab_results=[lab_out(row) for row in rows])
+
+
+def _wrong_status(exc: services.WrongStatus) -> HTTPException:
+    return HTTPException(status.HTTP_409_CONFLICT,
+                         f"This document is '{exc.status}'. Only documents that are ready for review "
+                         "can be confirmed or rejected.")
+
+
+@router.get("/{document_id}/review", response_model=DocumentReviewResponse)
+def review(document_id: int, response: Response, current: CurrentUser = Depends(get_current_user),
+           db: Session = Depends(get_db)) -> DocumentReviewResponse:
+    """The values OCR read from this document, with the unit conversion and range flags."""
+    try:
+        document, rows = services.review_document(db, document_id)
+    except services.NotFound:
+        raise _NOT_FOUND
+    response.headers.update(NO_STORE)
+    return _review_response(document, rows)
+
+
+@router.post("/{document_id}/confirm", response_model=DocumentReviewResponse)
+def confirm(document_id: int, response: Response, body: DocumentConfirm | None = None,
+            current: CurrentUser = Depends(get_current_user),
+            db: Session = Depends(get_db)) -> DocumentReviewResponse:
+    collected_on = body.collected_on if body else None
+    try:
+        document, rows = services.confirm_document(db, current.user_id, current.patient_id,
+                                                   document_id, collected_on)
+    except services.NotFound:
+        raise _NOT_FOUND
+    except services.WrongStatus as exc:
+        raise _wrong_status(exc)
+    except services.NothingToConfirm:
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            "There are no values left to confirm. Reject the document instead.")
+    response.headers.update(NO_STORE)
+    return _review_response(document, rows)
+
+
+@router.post("/{document_id}/reject", response_model=DocumentResponse)
+def reject(document_id: int, response: Response, current: CurrentUser = Depends(get_current_user),
+           db: Session = Depends(get_db)) -> DocumentResponse:
+    try:
+        document = services.reject_document(db, current.user_id, current.patient_id, document_id)
+    except services.NotFound:
+        raise _NOT_FOUND
+    except services.WrongStatus as exc:
+        raise _wrong_status(exc)
+    response.headers.update(NO_STORE)
+    return DocumentResponse.model_validate(document)
