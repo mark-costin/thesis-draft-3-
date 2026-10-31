@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import set_request_identity
-from backend import audit, fhrs, mailer, questionnaires, storage
+from backend import audit, fhrs, labs, mailer, questionnaires, storage
 from backend.models import (
     Document,
     HealthReport,
@@ -791,3 +791,51 @@ def delete_document(db: Session, user_id: int, patient_id: int, document_id: int
                     table="documents", record_id=document_id)
     db.commit()
     storage.remove(key)
+
+
+# ---------------------------------------------------------------------------
+# Lab results (manual entry). OCR rows will be added by the OCR worker and confirmed on review.
+# ---------------------------------------------------------------------------
+def create_lab(db: Session, user_id: int, patient_id: int, mapped: labs.MappedLab,
+               collected_on: date | None) -> LabResult:
+    """A typed-in value is confirmed at once: the patient read it off the report themselves."""
+    row = LabResult(patient_id=patient_id, test_code=mapped.test_code, value=mapped.value, unit=mapped.unit,
+                    value_as_reported=mapped.value_as_reported, unit_as_reported=mapped.unit_as_reported,
+                    source="manual", is_confirmed=True, confirmed_at=datetime.now(timezone.utc),
+                    collected_on=collected_on)
+    db.add(row)
+    db.flush()
+    db.refresh(row)
+    # Field names only; the test and its value stay out of the audit ledger
+    audit.log_event(db, "DATA_CREATED", user_id=user_id, patient_id=patient_id, table="lab_results",
+                    record_id=row.lab_result_id, fields=["collected_on", "test_code", "unit", "value"],
+                    converted=mapped.unit_as_reported is not None)
+    db.commit()
+    return row
+
+
+def list_labs(db: Session, test_code: str | None, limit: int) -> list[LabResult]:
+    query = select(LabResult)
+    if test_code is not None:
+        query = query.where(LabResult.test_code == test_code)
+    return list(db.scalars(query.order_by(LabResult.collected_on.desc().nulls_last(),
+                                          LabResult.created_at.desc(), LabResult.lab_result_id.desc())
+                          .limit(limit)))
+
+
+def get_lab(db: Session, lab_result_id: int) -> LabResult:
+    row = db.scalars(select(LabResult).where(LabResult.lab_result_id == lab_result_id)).one_or_none()
+    if row is None:
+        raise NotFound
+    return row
+
+
+def delete_lab(db: Session, user_id: int, patient_id: int, lab_result_id: int) -> None:
+    deleted = db.scalar(delete(LabResult).where(LabResult.lab_result_id == lab_result_id)
+                        .returning(LabResult.lab_result_id))
+    if deleted is None:
+        db.rollback()
+        raise NotFound
+    audit.log_event(db, "DATA_DELETED", user_id=user_id, patient_id=patient_id,
+                    table="lab_results", record_id=lab_result_id)
+    db.commit()
