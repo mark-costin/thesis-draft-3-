@@ -49,6 +49,13 @@ class Settings(BaseSettings):
     # the patient types the values in. Engines are added there (e.g. "tesseract", "chandra").
     ocr_engine: str = "none"
 
+    # Risk models (Sprint 5). false until the four models are trained and registered in
+    # model_versions and the care plan templates are approved; true makes the app refuse to
+    # start if a model file was changed or a model or template is missing.
+    risk_models_enabled: bool = False
+    # Model files may only be loaded from this folder
+    model_dir: Path = ROOT_DIR / "ml" / "artifacts"
+
     @field_validator("document_encryption_key")
     @classmethod
     def check_fernet_key(cls, value: str) -> str:
