@@ -2,7 +2,8 @@
 
 Upload checks the real file type from its first bytes (JPEG, PNG, PDF), the size (10 MB), and
 the SHA-256 (the same file twice is refused), then stores it encrypted under a UUID name.
-OCR is a separate task: new documents stay 'pending' until the worker picks them up.
+Upload answers 202: OCR runs after the response (backend/worker.py) and moves the document from
+'pending' to 'ready_for_review' (or 'failed'). With OCR_ENGINE=none it stays 'pending'.
 
 Review: when OCR is done (status ready_for_review) the patient sees the values it read and the
 required inputs still missing, fixes values with PATCH /labs/{id} or removes them with
@@ -10,10 +11,10 @@ DELETE /labs/{id}, then confirms (adding any lab values OCR missed) or rejects t
 Only confirmed values are used by the models.
 """
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
-from backend import labs, readiness, services
+from backend import labs, readiness, services, worker
 from backend.database import get_db
 from backend.dependencies import CurrentUser, get_current_user
 from backend.middleware import limiter
@@ -27,9 +28,9 @@ _NOT_FOUND = HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
 _EXTENSIONS = {"image/jpeg": "jpg", "image/png": "png", "application/pdf": "pdf"}
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=DocumentResponse)
+@router.post("", status_code=status.HTTP_202_ACCEPTED, response_model=DocumentResponse)
 @limiter.limit("10/minute")
-def upload(request: Request, response: Response, file: UploadFile = File(...),
+def upload(request: Request, response: Response, background_tasks: BackgroundTasks, file: UploadFile = File(...),
            current: CurrentUser = Depends(get_current_user),
            db: Session = Depends(get_db)) -> DocumentResponse:
     # The uploaded file name and the browser's content type are ignored on purpose
@@ -40,8 +41,9 @@ def upload(request: Request, response: Response, file: UploadFile = File(...),
         raise HTTPException(422, str(exc))
     except services.DuplicateFile:
         raise HTTPException(status.HTTP_409_CONFLICT, "You already uploaded this file")
+    worker.enqueue(row.document_id, current.patient_id, background_tasks)
     response.headers.update(NO_STORE)
-    response.headers["Location"] = f"/documents/{row.document_id}"
+    response.headers["Location"] = f"/documents/{row.document_id}"  # poll it for the OCR status
     return DocumentResponse.model_validate(row)
 
 

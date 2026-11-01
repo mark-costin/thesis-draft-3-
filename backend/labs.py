@@ -159,17 +159,21 @@ def convert(test_code: str, value: Decimal, unit: str) -> MappedLab:
                      out_of_expected_range=not (Decimal(str(low)) <= converted <= Decimal(str(high))))
 
 
-def map_field(label: str, value, unit: str) -> MappedLab:
-    """One line of a lab report (label, value, unit as read) -> lab_results values. For OCR review
-    and POST /labs/map; manual entry already knows the test code and calls convert()."""
+def parse_number(value) -> Decimal:
+    """A number as written on a report. '1,250' is accepted; '5,6' is refused, because it could
+    mean 5.6 or 56."""
     text = str(value).strip()
     if "," in text:
-        # Only a thousands separator (1,250 or 1,250.5). "5,6" could mean 5.6 or 56, so it is refused.
         if not re.fullmatch(r"\d{1,3}(,\d{3})+(\.\d+)?", text):
             raise MappingError(f"Not a number: {value!r} (use a dot for decimals)")
         text = text.replace(",", "")
     try:
-        number = Decimal(text)
+        return Decimal(text)
     except ArithmeticError as exc:  # decimal.InvalidOperation
         raise MappingError(f"Not a number: {value!r}") from exc
-    return convert(test_code_for(label), number, unit)
+
+
+def map_field(label: str, value, unit: str) -> MappedLab:
+    """One line of a lab report (label, value, unit as read) -> lab_results values. For OCR review
+    and POST /labs/map; manual entry already knows the test code and calls convert()."""
+    return convert(test_code_for(label), parse_number(value), unit)

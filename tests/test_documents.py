@@ -69,7 +69,7 @@ def storage_key_of(email, document_id):
 def test_files_on_disk_are_unreadable_without_the_key(make_patient, upload_folder):
     email, headers = make_patient()
     response = upload(headers, PNG)
-    assert response.status_code == 201
+    assert response.status_code == 202
     doc = response.json()
     assert (doc["mime_type"], doc["status"], doc["file_size_bytes"]) == ("image/png", "pending", len(PNG))
     assert doc["file_sha256"] == hashlib.sha256(PNG).hexdigest()
@@ -98,7 +98,7 @@ def test_download_returns_the_original_file(make_patient):
 def test_type_comes_from_the_file_not_the_name(make_patient, data, mime):
     _, headers = make_patient()
     response = upload(headers, data, name="whatever.txt", content_type="text/plain")
-    assert response.status_code == 201 and response.json()["mime_type"] == mime
+    assert response.status_code == 202 and response.json()["mime_type"] == mime
 
 
 @pytest.mark.parametrize("data", [
@@ -117,14 +117,14 @@ def test_bad_files_are_refused(make_patient, upload_folder, data):
 def test_same_file_twice_is_refused_per_patient(make_patient):
     _, headers_a = make_patient()
     _, headers_b = make_patient()
-    assert upload(headers_a, PNG).status_code == 201
+    assert upload(headers_a, PNG).status_code == 202
     assert upload(headers_a, PNG).status_code == 409
-    assert upload(headers_b, PNG).status_code == 201  # another patient may upload the same file
+    assert upload(headers_b, PNG).status_code == 202  # another patient may upload the same file
 
 
 def test_uploaded_name_is_never_used_on_disk(make_patient, upload_folder):
     _, headers = make_patient()
-    assert upload(headers, PNG, name="../../../evil.png").status_code == 201
+    assert upload(headers, PNG, name="../../../evil.png").status_code == 202
     files = list(upload_folder.iterdir())
     assert len(files) == 1 and files[0].suffix == ".enc"
     uuid.UUID(files[0].stem)  # a UUID, nothing from the uploaded name
@@ -188,7 +188,7 @@ def test_upload_is_audited_without_the_file_name(make_patient, monkeypatch):
 def test_uploads_skip_idempotency_keys(make_patient):
     _, headers = make_patient()
     key = {"Idempotency-Key": "upload-" + uuid.uuid4().hex}
-    assert upload(headers, PNG, extra=key).status_code == 201
+    assert upload(headers, PNG, extra=key).status_code == 202
     again = upload(headers, PNG, extra=key)
     assert again.status_code == 409 and REPLAY_HEADER not in again.headers
 

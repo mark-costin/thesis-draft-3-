@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     # Folder for the encrypted files (a Docker volume on deployment)
     upload_dir: Path = ROOT_DIR / "backend" / "uploads"
 
+    # OCR engine for uploaded lab documents (backend/ocr.py). "none": uploads stay 'pending' and
+    # the patient types the values in. Engines are added there (e.g. "tesseract", "chandra").
+    ocr_engine: str = "none"
+
     @field_validator("document_encryption_key")
     @classmethod
     def check_fernet_key(cls, value: str) -> str:

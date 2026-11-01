@@ -61,7 +61,7 @@ def as_patient(session, email):
 def upload(headers):
     data = PNG + uuid.uuid4().bytes  # a different file each time (same file twice is refused)
     response = client.post("/documents", headers=headers, files={"file": ("lab.png", data, "image/png")})
-    assert response.status_code == 201
+    assert response.status_code == 202
     return response.json()["document_id"]
 
 
