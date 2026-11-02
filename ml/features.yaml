@@ -18,7 +18,7 @@
 
 version: 1
 status: draft, waiting for group approval
-source: CDSS Data Dictionary (October 26, 2026), Parameter Ingestion Tables
+source: CDSS Data Dictionary (October 31, 2026), Parameter Ingestion Tables
 risk_tiers:
   low: p < 0.20
   moderate: 0.20 <= p < 0.50
