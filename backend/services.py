@@ -209,10 +209,11 @@ PROFILE_FIELDS = ("first_name", "last_name", "date_of_birth", "biological_sex")
 
 
 def get_profile(db: Session, user_id: int) -> tuple[User, Patient]:
-    """The caller's own account and patient row. RLS on patients already limits the query
-    to this patient, so no WHERE on patient_id is needed (or trusted)."""
+    """The caller's own account and patient row, selected by the user_id from the verified JWT.
+    RLS on patients is the second layer, not the only one: it would also hide any other
+    patient's row if this query were ever wrong."""
     user = db.get(User, user_id)
-    patient = db.scalars(select(Patient)).one()
+    patient = db.scalars(select(Patient).where(Patient.user_id == user_id)).one()
     return user, patient
 
 
@@ -226,7 +227,7 @@ def update_profile(db: Session, user_id: int, patient_id: int, changes: dict) ->
         setattr(patient, name, changes[name])
     if changed:
         db.flush()
-        audit.log_event(db, "DATA_UPDATED", user_id=user_id, patient_id=patient_id,
+        audit.log_event(db, "DATA_UPDATED", user_id=user_id, patient_id=patient.patient_id,
                         table="patients", fields=changed)
     db.commit()
     db.refresh(patient)
