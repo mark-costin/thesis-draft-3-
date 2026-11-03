@@ -42,7 +42,9 @@ limiter = Limiter(
 IDEMPOTENCY_HEADER = "idempotency-key"
 REPLAY_HEADER = "Idempotent-Replayed"
 _KEY_PATTERN = re.compile(r"^[A-Za-z0-9_\-]{8,128}$")
-_METHODS = {"POST", "PUT", "PATCH"}
+# POST only: it is the method that creates records. PUT and PATCH set fixed values, so
+# repeating them changes nothing, and skipping them keeps profile data out of the replay store.
+_METHODS = {"POST"}
 RESULT_TTL_SECONDS = 24 * 60 * 60   # a saved response is replayed for 24 hours
 LOCK_TTL_SECONDS = 60               # how long a key stays "in progress" if the request dies
 
@@ -108,7 +110,7 @@ def _error(status: int, detail: str) -> Response:
 class IdempotencyMiddleware:
     """Same Idempotency-Key twice = one action.
 
-    The first POST/PUT/PATCH with a key runs normally and its response is saved. A repeat with
+    The first POST with a key runs normally and its response is saved. A repeat with
     the same key and the same body gets the saved response back (header Idempotent-Replayed: true)
     without running again, so a double click or a retried request never creates two records.
     The same key with a different body is refused (422). Keys are scoped to the caller's token

@@ -4,11 +4,12 @@ from sqlalchemy.orm import Session
 
 from backend import middleware
 from backend.database import get_db
-from backend.routes import auth
+from backend.routes import auth, profile
 
 app = FastAPI(title="CDSS API", version="0.1.0")
 middleware.install(app)
 app.include_router(auth.router)
+app.include_router(profile.router)
 
 
 @app.get("/health")
