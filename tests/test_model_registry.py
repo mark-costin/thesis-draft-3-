@@ -188,3 +188,34 @@ def test_a_changed_model_file_stops_the_app_from_starting(model_dir, monkeypatch
     with pytest.raises(model_registry.ModelTampered):
         model_registry.load_at_startup()
     assert model_registry.ACTIVE == {}
+
+
+# ---------------------------------------------------------------------------
+# Encoding and package versions
+# ---------------------------------------------------------------------------
+def test_sex_uses_the_encoding_in_features_yaml():
+    """One line in ml/features.yaml decides it for the synthetic data, the training and the app."""
+    for disease in ("CVD", "NEURO"):
+        sex = next(f for f in load_features() if f.model == disease and f.name == "sex")
+        assert dict(sex.encoding) == {"Male": 1, "Female": 0}
+
+
+def test_text_inputs_become_numbers_from_features_yaml(model_dir):
+    model = model_registry.load_model(registered(train_xgboost(model_dir / "neuro_v1.json")))
+    assert model.encodings == {"sex": {"Male": 1.0, "Female": 0.0}}
+    column = NEURO.index("sex")
+    assert model.to_row(INPUTS | {"sex": "Male"})[0, column] == 1
+    assert model.to_row(INPUTS | {"sex": "Female"})[0, column] == 0
+
+
+def test_a_model_built_with_other_package_versions_is_refused(model_dir):
+    from importlib import metadata
+    path = train_xgboost(model_dir / "neuro_v1.json")
+    same = registered(path)
+    same.metrics = {"auroc": 0.8, "versions": {"numpy": metadata.version("numpy"),
+                                               "xgboost": metadata.version("xgboost")}}
+    assert model_registry.load_model(same).disease == "NEURO"
+    other = registered(path)
+    other.metrics = {"versions": {"xgboost": "0.0.1"}}
+    with pytest.raises(model_registry.ModelError, match="xgboost 0.0.1"):
+        model_registry.load_model(other)

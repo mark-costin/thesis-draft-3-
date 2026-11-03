@@ -5,14 +5,20 @@ register a model. For each active row the app:
   1. resolves artifact_path and refuses paths outside MODEL_DIR (no ../ tricks);
   2. recomputes the file's SHA-256 and refuses the model if it differs from artifact_sha256,
      BEFORE the file is opened by any model library (a pickled file runs code when loaded);
-  3. checks that feature_list has exactly the model's inputs in ml/features.yaml.
+  3. checks that feature_list has exactly the model's inputs in ml/features.yaml;
+  4. if metrics lists the package versions the file was built with, checks they match the
+     installed ones (a .joblib file may not load, or may load wrongly, with other versions).
+
+Text inputs (sex) become numbers with the "encoding" line of ml/features.yaml, the same line the
+synthetic data and the training read, so the app and the models cannot disagree.
 
 File formats: XGBoost JSON/UBJ (.json, .ubj) or a scikit-learn object saved with joblib
 (.joblib), e.g. an XGBoost model wrapped in CalibratedClassifierCV.
 """
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from importlib import metadata
 from pathlib import Path
 
 import numpy as np
@@ -22,10 +28,6 @@ from sqlalchemy.orm import Session
 from backend.config import ROOT_DIR, settings
 from backend.models import ModelVersion
 from backend.readiness import MODELS, load_features
-
-# How text inputs are given to the models. PROVISIONAL: must match how the training data
-# encodes sex (to be confirmed by the ML track).
-SEX_CODES = {"Male": 1, "Female": 0}
 
 ACTIVE: dict[str, "LoadedModel"] = {}  # filled at startup when RISK_MODELS_ENABLED=true
 
@@ -50,6 +52,7 @@ class LoadedModel:
     features: list[str]            # the order the model expects
     thresholds: dict[str, float]   # {"moderate": p, "high": p}
     estimator: object
+    encodings: dict[str, dict[str, float]] = field(default_factory=dict)  # from ml/features.yaml
 
     def to_row(self, inputs: dict) -> np.ndarray:
         """Feature builder output -> one row in the model's order. Missing = NaN."""
@@ -57,9 +60,11 @@ class LoadedModel:
         for name in self.features:
             value = inputs.get(name)
             if isinstance(value, str):
-                if name != "sex" or value not in SEX_CODES:
-                    raise ModelError(f"{self.disease}: cannot turn {name}={value!r} into a number")
-                value = SEX_CODES[value]
+                codes = self.encodings.get(name, {})
+                if value not in codes:
+                    raise ModelError(f"{self.disease}: cannot turn {name}={value!r} into a number "
+                                     "(no encoding for it in ml/features.yaml)")
+                value = codes[value]
             row.append(np.nan if value is None else float(value))
         return np.array([row], dtype=float)
 
@@ -113,17 +118,36 @@ def load_model(row: ModelVersion) -> LoadedModel:
         raise ModelTampered(f"{row.disease_domain} v{row.version}: {path.name} does not match its registered "
                             "SHA-256. The file was changed; the model is not loaded.")
 
-    expected = {f.name for f in load_features() if f.model == row.disease_domain}
+    model_features = [f for f in load_features() if f.model == row.disease_domain]
+    expected = {f.name for f in model_features}
     features = list(row.feature_list)
     if len(features) != len(set(features)) or set(features) != expected:
         raise ModelError(f"{row.disease_domain} v{row.version}: feature_list does not match ml/features.yaml "
                          f"(missing {sorted(expected - set(features))}, extra {sorted(set(features) - expected)})")
 
+    check_versions(row)
     estimator = _read(path)
     if not hasattr(estimator, "predict_proba"):
         raise ModelError(f"{row.disease_domain} v{row.version}: the file has no predict_proba")
     thresholds = {key: float(row.thresholds[key]) for key in ("moderate", "high")}
-    return LoadedModel(row.disease_domain, row.version, row.model_version_id, features, thresholds, estimator)
+    encodings = {f.name: {text: float(number) for text, number in f.encoding}
+                 for f in model_features if f.encoding}
+    return LoadedModel(row.disease_domain, row.version, row.model_version_id, features, thresholds,
+                       estimator, encodings)
+
+
+def check_versions(row: ModelVersion) -> None:
+    """metrics may hold {"versions": {"xgboost": "3.2.0", "scikit-learn": "1.9.1", ...}}, the
+    packages the file was built with. Each must match what is installed here."""
+    wanted = (row.metrics or {}).get("versions") or {}
+    for package, version in wanted.items():
+        try:
+            installed = metadata.version(package)
+        except metadata.PackageNotFoundError:
+            installed = None
+        if installed != str(version):
+            raise ModelError(f"{row.disease_domain} v{row.version}: built with {package} {version}, "
+                             f"but {installed or 'none'} is installed. Run uv sync, or retrain the model.")
 
 
 def load_active(db: Session, required: bool = True) -> dict[str, LoadedModel]:
