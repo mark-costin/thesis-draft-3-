@@ -2,13 +2,14 @@ from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from backend import middleware, ocr, readiness
+from backend import middleware, model_registry, ocr, readiness
 from backend.database import get_db
 from backend.routes import account, assessment, auth, documents, family_history, goals, labs, lifestyle, profile, questionnaires, vitals
 
 app = FastAPI(title="CDSS API", version="0.1.0")
 readiness.load_features()  # fail at startup if ml/features.yaml names a column that does not exist
 ocr.check_engine()  # fail at startup if OCR_ENGINE names an engine that does not exist
+model_registry.load_at_startup()  # RISK_MODELS_ENABLED=true: a changed model file stops the app here
 middleware.install(app)
 app.include_router(auth.router)
 app.include_router(profile.router)
