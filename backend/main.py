@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from backend import middleware, readiness
 from backend.database import get_db
-from backend.routes import account, assessment, auth, family_history, goals, lifestyle, profile, questionnaires, vitals
+from backend.routes import account, assessment, auth, documents, family_history, goals, lifestyle, profile, questionnaires, vitals
 
 app = FastAPI(title="CDSS API", version="0.1.0")
 readiness.load_features()  # fail at startup if ml/features.yaml names a column that does not exist
@@ -17,6 +17,7 @@ app.include_router(questionnaires.router)
 app.include_router(goals.router)
 app.include_router(family_history.router)
 app.include_router(account.router)
+app.include_router(documents.router)
 app.include_router(assessment.router)
 
 
