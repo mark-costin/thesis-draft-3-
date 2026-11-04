@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import set_request_identity
-from backend import audit, fhrs, labs, mailer, questionnaires, storage
+from backend import audit, fhrs, image_privacy, labs, mailer, questionnaires, storage
 from backend.models import (
     Document,
     HealthReport,
@@ -809,6 +809,7 @@ def upload_document(db: Session, user_id: int, patient_id: int, data: bytes) -> 
     if len(data) > MAX_UPLOAD_BYTES:
         raise UnsupportedFile("The file is larger than 10 MB")
     mime = detect_mime(data)
+    data = image_privacy.strip_metadata(data, mime)  # no GPS / camera / comments kept (RA 10173)
     digest = hashlib.sha256(data).hexdigest()
 
     key = uuid.uuid4()
