@@ -3,8 +3,10 @@
 model_versions (14_model_versions.sql) is read-only for the app: only the database owner can
 register a model. For each active row the app:
   1. resolves artifact_path and refuses paths outside MODEL_DIR (no ../ tricks);
-  2. recomputes the file's SHA-256 and refuses the model if it differs from artifact_sha256,
-     BEFORE the file is opened by any model library (a pickled file runs code when loaded);
+  2. reads the file ONCE into memory, hashes those bytes and refuses the model if the SHA-256
+     differs from artifact_sha256; the model is then loaded from the same bytes, so the bytes
+     that were checked are exactly the bytes that run (a pickled file runs code when loaded,
+     and a file swapped on disk after the check is never read again);
   3. checks that feature_list has exactly the model's inputs in ml/features.yaml.
 
 File formats: XGBoost JSON/UBJ (.json, .ubj) or a scikit-learn object saved with joblib
@@ -12,6 +14,7 @@ File formats: XGBoost JSON/UBJ (.json, .ubj) or a scikit-learn object saved with
 """
 
 import hashlib
+import io
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -92,24 +95,31 @@ def resolve_path(artifact_path: str) -> Path:
     return path
 
 
-def _read(path: Path):
-    suffix = path.suffix.lower()
+_FILE_TYPES = (".json", ".ubj", ".joblib")
+
+
+def _read(data: bytes, suffix: str):
+    """Loads a model from bytes already checked against artifact_sha256 (never from the disk)."""
     if suffix in (".json", ".ubj"):
         from xgboost import XGBClassifier
         model = XGBClassifier()
-        model.load_model(str(path))
+        model.load_model(bytearray(data))
         return model
     if suffix == ".joblib":
         import joblib
-        return joblib.load(path)
-    raise ModelError(f"Unsupported model file type: {path.name} (use .json, .ubj or .joblib)")
+        return joblib.load(io.BytesIO(data))
+    raise ModelError(f"Unsupported model file type {suffix!r} (use .json, .ubj or .joblib)")
 
 
 def load_model(row: ModelVersion) -> LoadedModel:
     path = resolve_path(row.artifact_path)
+    suffix = path.suffix.lower()
+    if suffix not in _FILE_TYPES:
+        raise ModelError(f"Unsupported model file type: {path.name} (use .json, .ubj or .joblib)")
     if not path.is_file():
         raise ModelError(f"{row.disease_domain} v{row.version}: model file not found: {row.artifact_path}")
-    if sha256_of(path) != row.artifact_sha256:
+    data = path.read_bytes()  # read once: these bytes are hashed and these bytes are loaded
+    if hashlib.sha256(data).hexdigest() != row.artifact_sha256:
         raise ModelTampered(f"{row.disease_domain} v{row.version}: {path.name} does not match its registered "
                             "SHA-256. The file was changed; the model is not loaded.")
 
@@ -119,7 +129,7 @@ def load_model(row: ModelVersion) -> LoadedModel:
         raise ModelError(f"{row.disease_domain} v{row.version}: feature_list does not match ml/features.yaml "
                          f"(missing {sorted(expected - set(features))}, extra {sorted(set(features) - expected)})")
 
-    estimator = _read(path)
+    estimator = _read(data, suffix)
     if not hasattr(estimator, "predict_proba"):
         raise ModelError(f"{row.disease_domain} v{row.version}: the file has no predict_proba")
     thresholds = {key: float(row.thresholds[key]) for key in ("moderate", "high")}
