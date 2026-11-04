@@ -1,16 +1,17 @@
 """Goals: can be added, completed and deleted, only by their owner."""
 
+import re
 import uuid
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, func
+from sqlalchemy import delete, func, select
 
 from backend import audit
 from backend.config import settings
-from backend.database import SessionLocal
+from backend.database import SessionLocal, set_request_identity
 from backend.main import app
-from backend.models import User
+from backend.models import Patient, User
 
 client = TestClient(app)
 PASSWORD = "correct horse battery"
@@ -99,6 +100,50 @@ def test_html_is_removed_from_goal_text(make_patient):
     assert add(headers, description="<script>alert(1)</script>").status_code == 422  # nothing left
 
 
+@pytest.mark.parametrize("description", ["&lt;script&gt;alert(1)&lt;/script&gt;", "&lt;b&gt;hi&lt;/b&gt;"],
+                         ids=["escaped-script", "escaped-bold"])
+def test_escaped_html_does_not_come_back_as_tags(make_patient, description):
+    """Unescaping after nh3 must not turn "&lt;script&gt;" into a real <script> tag."""
+    headers = make_patient()
+    response = add(headers, description=description)
+    saved = response.json().get("description", "") if response.status_code == 201 else ""
+    assert "<" not in saved and ">" not in saved
+
+
+@pytest.mark.parametrize("description", ["Walk & stretch", "Keep BP < 130", "Sleep > 7 h, 5 days/week",
+                                         "Eat less salt (< 2 g/day) & more fish"])
+def test_normal_text_with_symbols_is_saved_unchanged(make_patient, description):
+    headers = make_patient()
+    response = add(headers, description=description)
+    assert response.status_code == 201 and response.json()["description"] == description
+
+
+@pytest.mark.parametrize("description", ["&amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;Walk",
+                                         "<scr<script>ipt>alert(1)</script>Walk",
+                                         "&lt;img src=x onerror=alert(1)&gt;Walk"],
+                         ids=["double-escaped", "nested-tag", "escaped-img"])
+def test_tricky_html_is_cleaned(make_patient, description):
+    """Whatever is left is plain text: nothing that a browser could read as a tag."""
+    headers = make_patient()
+    response = add(headers, description=description)
+    assert response.status_code == 201
+    saved = response.json()["description"]
+    assert "Walk" in saved
+    assert re.search(r"<\s*[A-Za-z/!?]", saved) is None  # no "<tag", "</", "<!--" or "<?"
+    assert "onerror" not in saved and "script" not in saved.lower()
+
+
+def test_list_limit(make_patient):
+    headers = make_patient()
+    for n in range(3):
+        add(headers, description=f"Goal {n}")
+    assert [g["description"] for g in client.get("/goals?limit=2", headers=headers).json()] == ["Goal 2", "Goal 1"]
+    assert len(client.get("/goals", headers=headers).json()) == 3  # default 50
+    assert len(client.get("/goals?limit=200", headers=headers).json()) == 3
+    for bad in ("0", "201", "x"):
+        assert client.get(f"/goals?limit={bad}", headers=headers).status_code == 422
+
+
 def test_unknown_result_id_is_refused(make_patient):
     headers = make_patient()
     response = add(headers, result_id=999999)
@@ -154,3 +199,53 @@ def test_audit_has_field_names_not_text(make_patient, monkeypatch):
     assert updated[0] == "DATA_UPDATED" and updated[1]["fields"] == ["is_completed"]
     assert deleted[0] == "DATA_DELETED" and deleted[1]["record_id"] == goal_id
     assert "smoking" not in str(recorded[-3:])
+
+
+def risk_result_for(headers, disease="T2D"):
+    """A saved risk result for the caller, linked to the test-only model row from
+    tests/seed_test_models.sql (only the database owner can register models)."""
+    from decimal import Decimal
+    from backend.models import ModelVersion, RiskAssessment, RiskResult
+    email = client.get("/profile", headers=headers).json()["email"]
+    with SessionLocal() as session:
+        user_id = session.scalar(select(User.user_id).where(User.email == email))
+        set_request_identity(session, user_id=user_id)
+        patient_id = session.scalar(select(Patient.patient_id))
+        set_request_identity(session, user_id=user_id, patient_id=patient_id)
+        model_id = session.scalar(select(ModelVersion.model_version_id).where(
+            ModelVersion.disease_domain == disease, ModelVersion.version == "test-only"))
+        assert model_id is not None, "rebuild med_db_test: tests/seed_test_models.sql is missing"
+        assessment = RiskAssessment(patient_id=patient_id, input_snapshot={disease: {}})
+        session.add(assessment)
+        session.flush()
+        result = RiskResult(assessment_id=assessment.assessment_id, patient_id=patient_id,
+                            model_version_id=model_id, disease_domain=disease,
+                            risk_probability=Decimal("0.3100"), risk_level="Moderate")
+        session.add(result)
+        session.commit()
+        return result.result_id
+
+
+def test_a_goal_from_a_care_plan_links_to_its_result_and_takes_its_disease(make_patient):
+    headers = make_patient()
+    result_id = risk_result_for(headers, "T2D")
+    response = add(headers, description="Walk after dinner", result_id=result_id)
+    assert response.status_code == 201
+    goal = response.json()
+    assert (goal["result_id"], goal["disease_domain"], goal["source"]) == (result_id, "T2D", "suggested")
+    same = add(headers, description="Cut down on sweet drinks", result_id=result_id, disease_domain="T2D")
+    assert same.status_code == 201
+
+
+def test_a_goal_with_a_different_disease_than_its_result_is_refused(make_patient):
+    headers = make_patient()
+    result_id = risk_result_for(headers, "T2D")
+    response = add(headers, result_id=result_id, disease_domain="CVD")
+    assert response.status_code == 422 and "T2D" in response.json()["detail"]
+    assert client.get("/goals", headers=headers).json() == []
+
+
+def test_another_patients_result_cannot_be_used_for_a_goal(make_patient):
+    owner, other = make_patient(), make_patient()
+    result_id = risk_result_for(owner, "CVD")
+    assert add(other, result_id=result_id).status_code == 422

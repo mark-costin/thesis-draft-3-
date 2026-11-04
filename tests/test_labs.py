@@ -26,7 +26,7 @@ PASSWORD = "correct horse battery"
 SAMPLE_REPORT = [
     ("FBS", "5.6", "mmol/L", "FPG", "100.890", "mg/dL"),
     ("Fasting Blood Sugar", "95", "mg/dL", "FPG", "95.000", "mg/dL"),
-    ("2-Hour Glucose", "7.8", "mmol/L", "OGTT_2H", "140.525", "mg/dL"),
+    ("OGTT 2 hr", "7.8", "mmol/L", "OGTT_2H", "140.525", "mg/dL"),  # "2-Hour Glucose" alone is ambiguous
     ("HbA1c", "48", "mmol/mol", "HBA1C", "6.543", "%"),
     ("Hb A1c", "6.5", "%", "HBA1C", "6.500", "%"),
     ("Cholesterol", "5.2", "mmol/L", "TOTAL_CHOLESTEROL", "201.084", "mg/dL"),
@@ -94,6 +94,28 @@ def test_a_label_is_matched_without_case_or_punctuation():
 def test_lines_that_cannot_be_mapped_are_refused(label, value, unit):
     with pytest.raises(labs.MappingError):
         labs.map_field(label, value, unit)
+
+
+@pytest.mark.parametrize("label", ["2 hr pp glucose", "2 hour glucose", "2hr glucose", "2-hr PP Glucose"])
+def test_postprandial_or_unclear_2_hour_glucose_is_not_taken_as_ogtt(label):
+    """Only a 75 g OGTT 2-hour value is the diagnostic test the T2D model expects."""
+    with pytest.raises(labs.MappingError, match="Unknown lab test"):
+        labs.map_field(label, "140", "mg/dL")
+    assert labs.map_field("OGTT 2 hr", "140", "mg/dL").test_code == "OGTT_2H"
+
+
+@pytest.mark.parametrize("unit", ["mg%", "MG%", "mg %"])
+def test_mg_percent_is_mg_per_dl(unit):
+    mapped = labs.map_field("FBS", "96", unit)
+    assert (mapped.test_code, mapped.value, mapped.unit) == ("FPG", Decimal("96.000"), "mg/dL")
+    assert mapped.value_as_reported is None  # same unit, nothing converted
+
+
+def test_mg_percent_works_for_manual_entry(make_patient):
+    response = client.post("/labs", headers=make_patient(),
+                           json={"test_code": "TOTAL_CHOLESTEROL", "value": 190, "unit": "mg%"})
+    assert response.status_code == 201
+    assert (response.json()["value"], response.json()["unit"]) == (190.0, "mg/dL")
 
 
 def test_a_thousands_separator_is_accepted():
@@ -197,9 +219,10 @@ def test_read_and_delete_one_result(make_patient):
 def test_a_patient_cannot_see_or_delete_another_patients_result(make_patient):
     owner, other = make_patient(), make_patient()
     lab_id = client.post("/labs", headers=owner, json={"test_code": "LDL", "value": 130, "unit": "mg/dL"}).json()["lab_result_id"]
+    own_id = client.post("/labs", headers=other, json={"test_code": "HDL", "value": 50, "unit": "mg/dL"}).json()["lab_result_id"]
     assert client.get(f"/labs/{lab_id}", headers=other).status_code == 404
     assert client.delete(f"/labs/{lab_id}", headers=other).status_code == 404
-    assert client.get("/labs", headers=other).json() == []
+    assert [r["lab_result_id"] for r in client.get("/labs", headers=other).json()] == [own_id]
     assert client.get(f"/labs/{lab_id}", headers=owner).status_code == 200
 
 

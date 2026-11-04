@@ -7,6 +7,11 @@ sentences (explanations) and the care plan for each tier (care_plan).
 
 Same inputs always give the same saved result: the models are fixed files (checked by SHA-256),
 the inputs are saved in input_snapshot, and nothing random is used.
+
+input_snapshot: {"CVD": {inputs}, "T2D": ..., "CRD": ..., "NEURO": ...,
+                 "capped": {disease: {feature: {"entered": x, "used": y}}},   # clipped to features.yaml
+                 "templates_used": {disease: {"template_id": n, "version": "v"}}}  # care plans at run time
+Every query filters on the patient_id from the verified JWT; RLS is the second layer.
 """
 
 import math
@@ -46,23 +51,38 @@ def run_assessment(db: Session, user_id: int, patient_id: int, as_of: date | Non
     models = model_registry.ACTIVE
     if set(models) != set(MODELS):
         raise ModelsOff
-    inputs = feature_builder.build_all(db, as_of=as_of)  # strict: required inputs must be there
+    built = feature_builder.build_inputs(db, patient_id, as_of=as_of)  # strict: required inputs must be there
+    inputs = built.values
 
     try:
-        assessment = RiskAssessment(patient_id=patient_id, input_snapshot=inputs)
-        db.add(assessment)
-        db.flush()
+        # 1. Score every model first: assessments are immutable (no UPDATE), so the snapshot must
+        #    be complete before the row is inserted
+        scored = {}
         for disease in MODELS:
             model = models[disease]
             probability = round(model.probability(inputs[disease]), 4)  # numeric(5,4), as saved
             shap_values, base = model.contributions(inputs[disease])
+            scored[disease] = (probability, model.tier(probability), shap_values, base)
+        # The care plan templates for these tiers, as they are now: an old assessment can then be
+        # shown with the advice that applied when it was run
+        plans = _care_plans(db, patient_id, {disease: scored[disease][1] for disease in MODELS})
+        used = care_plan.templates_used({disease: plan for disease, plan in plans.items() if plan is not None})
+
+        # 2. Save it all in one transaction
+        assessment = RiskAssessment(patient_id=patient_id, input_snapshot={
+            **inputs, "capped": built.capped, "templates_used": used})
+        db.add(assessment)
+        db.flush()
+        for disease in MODELS:
+            model = models[disease]
+            probability, tier, shap_values, base = scored[disease]
             result = RiskResult(assessment_id=assessment.assessment_id, patient_id=patient_id,
                                 model_version_id=model.model_version_id, disease_domain=disease,
-                                risk_probability=_dec(probability, 4), risk_level=model.tier(probability),
+                                risk_probability=_dec(probability, 4), risk_level=tier,
                                 shap_base_value=_dec(base, 5))
             db.add(result)
             db.flush()
-            encoded = dict(zip(model.features, model.to_row(inputs[disease])[0]))
+            encoded = dict(zip(model.features, model.to_row(inputs[disease])[0]))  # sex: 1 / 0 (features.yaml)
             ranked = sorted(model.features, key=lambda name: -abs(shap_values[name]))  # ties: model order
             for rank, name in enumerate(ranked, start=1):
                 value = encoded[name]
@@ -80,33 +100,37 @@ def run_assessment(db: Session, user_id: int, patient_id: int, as_of: date | Non
     return assessment.assessment_id
 
 
-def _care_plans(db: Session, tiers: dict[str, str]) -> dict[str, dict | None]:
+def _care_plans(db: Session, patient_id: int, tiers: dict[str, str]) -> dict[str, dict | None]:
     plans: dict[str, dict | None] = {}
     for disease, tier in tiers.items():
         try:
-            plans.update(care_plan.build_care_plans(db, {disease: tier},
+            plans.update(care_plan.build_care_plans(db, patient_id, {disease: tier},
                                                     include_drafts=settings.show_draft_care_plans))
         except care_plan.TemplateMissing:
             plans[disease] = None  # no approved template yet: the screen says so
     return plans
 
 
-def view(db: Session, assessment_id: int) -> dict:
-    """The saved assessment as the results screen shows it. Read under RLS: own data only."""
+def view(db: Session, patient_id: int, assessment_id: int) -> dict:
+    """The saved assessment as the results screen shows it: own data only."""
     assessment = db.scalars(select(RiskAssessment)
-                            .where(RiskAssessment.assessment_id == assessment_id)).one_or_none()
+                            .where(RiskAssessment.assessment_id == assessment_id,
+                                   RiskAssessment.patient_id == patient_id)).one_or_none()
     if assessment is None:
         raise NotFound
     results = {row.disease_domain: row for row in db.scalars(
-        select(RiskResult).where(RiskResult.assessment_id == assessment_id))}
+        select(RiskResult).where(RiskResult.assessment_id == assessment_id,
+                                 RiskResult.patient_id == patient_id))}
     versions = dict(db.execute(select(ModelVersion.model_version_id, ModelVersion.version)
                                .where(ModelVersion.model_version_id.in_(
                                    [r.model_version_id for r in results.values()]))).all())
     shap_rows = db.scalars(select(ShapExplanation)
                            .where(ShapExplanation.result_id.in_([r.result_id for r in results.values()]),
+                                  ShapExplanation.patient_id == patient_id,
                                   ShapExplanation.rank <= TOP_FACTORS)
                            .order_by(ShapExplanation.result_id, ShapExplanation.rank)).all()
-    plans = _care_plans(db, {d: results[d].risk_level for d in MODELS if d in results})
+    plans = _care_plans(db, patient_id, {d: results[d].risk_level for d in MODELS if d in results})
+    capped = assessment.input_snapshot.get("capped", {})
 
     out = []
     for disease in MODELS:
@@ -114,11 +138,14 @@ def view(db: Session, assessment_id: int) -> dict:
             continue
         result = results[disease]
         inputs = assessment.input_snapshot.get(disease, {})
+        caps = capped.get(disease, {})
         factors = [{"rank": row.rank, "feature": row.feature_name, "shap_value": float(row.shap_value),
                     "sentence": explanations.sentence(row.feature_name, inputs.get(row.feature_name),
-                                                      float(row.shap_value), disease)}
+                                                      float(row.shap_value), disease,
+                                                      entered=caps.get(row.feature_name, {}).get("entered"))}
                    for row in shap_rows if row.result_id == result.result_id]
         out.append({
+            "result_id": result.result_id,  # lets a goal from the care plan link to this result
             "disease": disease,
             "disease_name": explanations.DISEASE_NAMES[disease],
             "probability": float(result.risk_probability),
@@ -133,12 +160,14 @@ def view(db: Session, assessment_id: int) -> dict:
             "disclaimer": DISCLAIMER, "results": out}
 
 
-def list_assessments(db: Session, limit: int) -> list[dict]:
-    rows = db.scalars(select(RiskAssessment).order_by(RiskAssessment.created_at.desc(),
+def list_assessments(db: Session, patient_id: int, limit: int) -> list[dict]:
+    rows = db.scalars(select(RiskAssessment).where(RiskAssessment.patient_id == patient_id)
+                      .order_by(RiskAssessment.created_at.desc(),
                                                       RiskAssessment.assessment_id.desc()).limit(limit)).all()
     levels: dict[int, dict[str, str]] = {}
     if rows:
         for result in db.scalars(select(RiskResult).where(
+                RiskResult.patient_id == patient_id,
                 RiskResult.assessment_id.in_([row.assessment_id for row in rows]))):
             levels.setdefault(result.assessment_id, {})[result.disease_domain] = result.risk_level
     return [{"assessment_id": row.assessment_id, "created_at": row.created_at,

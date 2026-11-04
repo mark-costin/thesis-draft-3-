@@ -1,0 +1,785 @@
+population_group_id,population_group_name,measure_id,measure_name,location_id,location_name,sex_id,sex_name,age_id,age_name,cause_id,cause_name,metric_id,metric_name,year,val,upper,lower
+1,All Population,5,Prevalence,16,Philippines,1,Male,8,15-19 years,493,Ischemic heart disease,3,Rate,2023,123.55783992127999,172.40155322006,81.39096150266
+1,All Population,5,Prevalence,16,Philippines,2,Female,8,15-19 years,493,Ischemic heart disease,3,Rate,2023,89.3217573701,128.94708885369,56.836633642529996
+1,All Population,5,Prevalence,16,Philippines,1,Male,9,20-24 years,493,Ischemic heart disease,3,Rate,2023,324.64779479482,440.64097385445,227.00176867231
+1,All Population,5,Prevalence,16,Philippines,2,Female,9,20-24 years,493,Ischemic heart disease,3,Rate,2023,231.70746943934998,319.88954665504,153.79507092659
+1,All Population,5,Prevalence,16,Philippines,1,Male,10,25-29 years,493,Ischemic heart disease,3,Rate,2023,621.89478380849,836.6545756178499,454.18029913995997
+1,All Population,5,Prevalence,16,Philippines,2,Female,10,25-29 years,493,Ischemic heart disease,3,Rate,2023,419.78603900366,573.18963323587,303.06618759967
+1,All Population,5,Prevalence,16,Philippines,1,Male,11,30-34 years,493,Ischemic heart disease,3,Rate,2023,1020.2676801676399,1416.14299097134,748.13195939153
+1,All Population,5,Prevalence,16,Philippines,2,Female,11,30-34 years,493,Ischemic heart disease,3,Rate,2023,649.32677424729,896.7625912371401,467.42221831156
+1,All Population,5,Prevalence,16,Philippines,1,Male,12,35-39 years,493,Ischemic heart disease,3,Rate,2023,1577.09624954802,2087.78671996581,1141.55130438531
+1,All Population,5,Prevalence,16,Philippines,2,Female,12,35-39 years,493,Ischemic heart disease,3,Rate,2023,923.9972030963099,1230.26337042096,680.6997248771501
+1,All Population,5,Prevalence,16,Philippines,1,Male,13,40-44 years,493,Ischemic heart disease,3,Rate,2023,2343.18046685053,3112.8987366792803,1694.4755294518302
+1,All Population,5,Prevalence,16,Philippines,2,Female,13,40-44 years,493,Ischemic heart disease,3,Rate,2023,1267.12095858611,1654.13467001463,939.4920528498701
+1,All Population,5,Prevalence,16,Philippines,1,Male,14,45-49 years,493,Ischemic heart disease,3,Rate,2023,3499.0536875236303,4408.0324794527305,2626.6276983295497
+1,All Population,5,Prevalence,16,Philippines,2,Female,14,45-49 years,493,Ischemic heart disease,3,Rate,2023,1780.9046248274199,2266.8377215116197,1353.61482826977
+1,All Population,5,Prevalence,16,Philippines,1,Male,15,50-54 years,493,Ischemic heart disease,3,Rate,2023,5035.46553078241,6593.6132540706,3707.27705372422
+1,All Population,5,Prevalence,16,Philippines,2,Female,15,50-54 years,493,Ischemic heart disease,3,Rate,2023,2488.26673236432,3245.07179537891,1851.3729751158298
+1,All Population,5,Prevalence,16,Philippines,1,Male,16,55-59 years,493,Ischemic heart disease,3,Rate,2023,6937.707412692599,8941.31794037077,5221.193594962499
+1,All Population,5,Prevalence,16,Philippines,2,Female,16,55-59 years,493,Ischemic heart disease,3,Rate,2023,3448.96890456829,4415.81491829243,2609.65928051935
+1,All Population,5,Prevalence,16,Philippines,1,Male,17,60-64 years,493,Ischemic heart disease,3,Rate,2023,9091.06102553234,12040.51204990952,6520.76467176725
+1,All Population,5,Prevalence,16,Philippines,2,Female,17,60-64 years,493,Ischemic heart disease,3,Rate,2023,4649.42288957539,6177.1007123315,3337.8920550397997
+1,All Population,5,Prevalence,16,Philippines,1,Male,18,65-69 years,493,Ischemic heart disease,3,Rate,2023,11303.91839215837,14623.838815061848,8253.40404665939
+1,All Population,5,Prevalence,16,Philippines,2,Female,18,65-69 years,493,Ischemic heart disease,3,Rate,2023,6129.68167846699,8016.41955860527,4503.295040333151
+1,All Population,5,Prevalence,16,Philippines,1,Male,19,70-74 years,493,Ischemic heart disease,3,Rate,2023,13317.532231027571,18160.89367760429,9641.687448700299
+1,All Population,5,Prevalence,16,Philippines,2,Female,19,70-74 years,493,Ischemic heart disease,3,Rate,2023,7819.04429722062,10826.71948173768,5540.93348489583
+1,All Population,5,Prevalence,16,Philippines,1,Male,20,75-79 years,493,Ischemic heart disease,3,Rate,2023,14527.351146063262,18961.24292258517,10358.61928216266
+1,All Population,5,Prevalence,16,Philippines,2,Female,20,75-79 years,493,Ischemic heart disease,3,Rate,2023,9680.83366285697,13046.585499685329,6841.50891731579
+1,All Population,5,Prevalence,16,Philippines,1,Male,21,80+ years,493,Ischemic heart disease,3,Rate,2023,13679.186417623709,18800.269421923298,9099.09450720434
+1,All Population,5,Prevalence,16,Philippines,2,Female,21,80+ years,493,Ischemic heart disease,3,Rate,2023,12067.865852432371,17007.91169422323,8400.42343708592
+1,All Population,5,Prevalence,16,Philippines,1,Male,25,50-69 years,493,Ischemic heart disease,3,Rate,2023,7484.710661070911,9378.79006305089,5775.89810698988
+1,All Population,5,Prevalence,16,Philippines,2,Female,25,50-69 years,493,Ischemic heart disease,3,Rate,2023,3900.8372607952797,4850.21874250616,3060.10555894533
+1,All Population,5,Prevalence,16,Philippines,1,Male,26,70+ years,493,Ischemic heart disease,3,Rate,2023,13718.10397378242,17740.78691262648,9979.07633427631
+1,All Population,5,Prevalence,16,Philippines,2,Female,26,70+ years,493,Ischemic heart disease,3,Rate,2023,9543.985681042639,12363.98634050922,7102.8015099432105
+1,All Population,5,Prevalence,16,Philippines,1,Male,30,80-84 years,493,Ischemic heart disease,3,Rate,2023,14498.32993479433,19974.74749236167,9479.52592278932
+1,All Population,5,Prevalence,16,Philippines,2,Female,30,80-84 years,493,Ischemic heart disease,3,Rate,2023,11392.56540639016,16011.53290443631,7570.110517793791
+1,All Population,5,Prevalence,16,Philippines,1,Male,31,85-89 years,493,Ischemic heart disease,3,Rate,2023,12805.826463475769,18712.51789199271,8143.37751974445
+1,All Population,5,Prevalence,16,Philippines,2,Female,31,85-89 years,493,Ischemic heart disease,3,Rate,2023,12726.39199236226,18299.73764283282,8324.594664279999
+1,All Population,5,Prevalence,16,Philippines,1,Male,32,90-94 years,493,Ischemic heart disease,3,Rate,2023,10727.57021569509,16556.71688461522,6611.74618636056
+1,All Population,5,Prevalence,16,Philippines,2,Female,32,90-94 years,493,Ischemic heart disease,3,Rate,2023,13583.117707887448,20515.16891170658,8758.57510055646
+1,All Population,5,Prevalence,16,Philippines,1,Male,41,50-74 years,493,Ischemic heart disease,3,Rate,2023,8018.245928530419,9994.90783983124,6354.27501773549
+1,All Population,5,Prevalence,16,Philippines,2,Female,41,50-74 years,493,Ischemic heart disease,3,Rate,2023,4333.93316193178,5356.10726064458,3451.9168696006295
+1,All Population,5,Prevalence,16,Philippines,1,Male,160,85+ years,493,Ischemic heart disease,3,Rate,2023,12200.89881423704,17714.648237103538,8001.78879406737
+1,All Population,5,Prevalence,16,Philippines,2,Female,160,85+ years,493,Ischemic heart disease,3,Rate,2023,13011.691822227109,18720.07598164466,8806.8214838515
+1,All Population,5,Prevalence,16,Philippines,1,Male,228,55+ years,493,Ischemic heart disease,3,Rate,2023,9855.76403486958,12277.90324453731,7808.79399365461
+1,All Population,5,Prevalence,16,Philippines,2,Female,228,55+ years,493,Ischemic heart disease,3,Rate,2023,6023.19910787366,7379.57519330915,4791.54278669545
+1,All Population,5,Prevalence,16,Philippines,1,Male,231,60+ years,493,Ischemic heart disease,3,Rate,2023,11245.89781531247,14322.282968064801,8711.45312089579
+1,All Population,5,Prevalence,16,Philippines,2,Female,231,60+ years,493,Ischemic heart disease,3,Rate,2023,7030.867847946661,8714.69269156515,5543.00673235103
+1,All Population,5,Prevalence,16,Philippines,1,Male,232,65-74 years,493,Ischemic heart disease,3,Rate,2023,12078.26609685814,15755.79264153196,8921.19758743104
+1,All Population,5,Prevalence,16,Philippines,2,Female,232,65-74 years,493,Ischemic heart disease,3,Rate,2023,6821.49363106793,9096.01438870834,5077.44453287253
+1,All Population,5,Prevalence,16,Philippines,1,Male,234,75+ years,493,Ischemic heart disease,3,Rate,2023,14156.320036760231,18290.24663119853,9901.16966503669
+1,All Population,5,Prevalence,16,Philippines,2,Female,234,75+ years,493,Ischemic heart disease,3,Rate,2023,10892.87790913042,14256.44023672,7872.39144566077
+1,All Population,5,Prevalence,16,Philippines,1,Male,235,95+ years,493,Ischemic heart disease,3,Rate,2023,9196.67273919959,15458.236309161719,5457.700535113
+1,All Population,5,Prevalence,16,Philippines,2,Female,235,95+ years,493,Ischemic heart disease,3,Rate,2023,14370.63037919468,24037.01022346293,7997.77721631488
+1,All Population,5,Prevalence,16,Philippines,1,Male,243,75-84 years,493,Ischemic heart disease,3,Rate,2023,14517.67270493353,19029.0415502853,10282.347306098449
+1,All Population,5,Prevalence,16,Philippines,2,Female,243,75-84 years,493,Ischemic heart disease,3,Rate,2023,10323.60624404103,13452.88014351727,7315.87999272667
+1,All Population,5,Prevalence,16,Philippines,1,Male,420,<70 years,493,Ischemic heart disease,3,Rate,2023,1689.4091815833901,2055.6474543988497,1362.63372297495
+1,All Population,5,Prevalence,16,Philippines,2,Female,420,<70 years,493,Ischemic heart disease,3,Rate,2023,957.0317028124199,1155.85135604066,787.1740703413699
+1,All Population,5,Prevalence,16,Philippines,1,Male,8,15-19 years,494,Stroke,3,Rate,2023,250.3937110199,288.71949330087,212.34074284105998
+1,All Population,5,Prevalence,16,Philippines,2,Female,8,15-19 years,494,Stroke,3,Rate,2023,277.93029238297,319.41598701947,243.46089771808
+1,All Population,5,Prevalence,16,Philippines,1,Male,9,20-24 years,494,Stroke,3,Rate,2023,341.307665261,394.50958297841,303.0434854221
+1,All Population,5,Prevalence,16,Philippines,2,Female,9,20-24 years,494,Stroke,3,Rate,2023,369.65256725825003,427.50177170929,325.23081834961
+1,All Population,5,Prevalence,16,Philippines,1,Male,10,25-29 years,494,Stroke,3,Rate,2023,467.18874092314,529.58787218392,412.45685353472
+1,All Population,5,Prevalence,16,Philippines,2,Female,10,25-29 years,494,Stroke,3,Rate,2023,490.00907450065,552.48702027145,434.66680835191
+1,All Population,5,Prevalence,16,Philippines,1,Male,11,30-34 years,494,Stroke,3,Rate,2023,641.46773615243,741.23532811454,568.1848519885
+1,All Population,5,Prevalence,16,Philippines,2,Female,11,30-34 years,494,Stroke,3,Rate,2023,651.09984400769,745.33150291323,578.50903291693
+1,All Population,5,Prevalence,16,Philippines,1,Male,12,35-39 years,494,Stroke,3,Rate,2023,892.86463291356,1005.7462420373,810.12818257125
+1,All Population,5,Prevalence,16,Philippines,2,Female,12,35-39 years,494,Stroke,3,Rate,2023,875.8260166376401,977.63672123652,795.8316894893401
+1,All Population,5,Prevalence,16,Philippines,1,Male,13,40-44 years,494,Stroke,3,Rate,2023,1239.6856616188,1388.18215319847,1112.04947193769
+1,All Population,5,Prevalence,16,Philippines,2,Female,13,40-44 years,494,Stroke,3,Rate,2023,1177.62929734366,1309.66841161065,1063.5385282908499
+1,All Population,5,Prevalence,16,Philippines,1,Male,14,45-49 years,494,Stroke,3,Rate,2023,1731.27429325853,1952.67589924414,1549.525394544
+1,All Population,5,Prevalence,16,Philippines,2,Female,14,45-49 years,494,Stroke,3,Rate,2023,1594.41034259491,1787.82759039092,1435.93313084186
+1,All Population,5,Prevalence,16,Philippines,1,Male,15,50-54 years,494,Stroke,3,Rate,2023,2369.89756876534,2725.34424561377,2080.27210532691
+1,All Population,5,Prevalence,16,Philippines,2,Female,15,50-54 years,494,Stroke,3,Rate,2023,2113.91787949083,2420.5129707994997,1865.77863064839
+1,All Population,5,Prevalence,16,Philippines,1,Male,16,55-59 years,494,Stroke,3,Rate,2023,3197.02806345476,3638.3736764287596,2866.2733474389397
+1,All Population,5,Prevalence,16,Philippines,2,Female,16,55-59 years,494,Stroke,3,Rate,2023,2727.3807635795197,3079.3008661264303,2414.9597319210798
+1,All Population,5,Prevalence,16,Philippines,1,Male,17,60-64 years,494,Stroke,3,Rate,2023,4201.744852959951,4821.92938836139,3708.0473763814903
+1,All Population,5,Prevalence,16,Philippines,2,Female,17,60-64 years,494,Stroke,3,Rate,2023,3443.2136066237103,3950.07290193033,2995.10041623362
+1,All Population,5,Prevalence,16,Philippines,1,Male,18,65-69 years,494,Stroke,3,Rate,2023,5340.55399323407,6165.45010144326,4730.3417382608
+1,All Population,5,Prevalence,16,Philippines,2,Female,18,65-69 years,494,Stroke,3,Rate,2023,4327.02162820196,4932.15565821157,3790.65653651368
+1,All Population,5,Prevalence,16,Philippines,1,Male,19,70-74 years,494,Stroke,3,Rate,2023,6549.5582756344,7441.36167563266,5653.36266617487
+1,All Population,5,Prevalence,16,Philippines,2,Female,19,70-74 years,494,Stroke,3,Rate,2023,5300.5463267655405,6179.9113002803,4512.1865717761
+1,All Population,5,Prevalence,16,Philippines,1,Male,20,75-79 years,494,Stroke,3,Rate,2023,8017.14480569929,9284.204892593729,6879.10233877205
+1,All Population,5,Prevalence,16,Philippines,2,Female,20,75-79 years,494,Stroke,3,Rate,2023,6101.33171346121,7162.99411489644,5149.78342121849
+1,All Population,5,Prevalence,16,Philippines,1,Male,21,80+ years,494,Stroke,3,Rate,2023,9732.302290307181,11440.9698761476,8001.333457018971
+1,All Population,5,Prevalence,16,Philippines,2,Female,21,80+ years,494,Stroke,3,Rate,2023,7027.8050749269905,8632.50904295519,5730.343463572541
+1,All Population,5,Prevalence,16,Philippines,1,Male,25,50-69 years,494,Stroke,3,Rate,2023,3489.77376927525,3928.45162317358,3152.0389633638
+1,All Population,5,Prevalence,16,Philippines,2,Female,25,50-69 years,494,Stroke,3,Rate,2023,2984.10959016941,3325.3590649625,2664.41685808289
+1,All Population,5,Prevalence,16,Philippines,1,Male,26,70+ years,494,Stroke,3,Rate,2023,7608.7321147046805,8737.26090663234,6617.602729310131
+1,All Population,5,Prevalence,16,Philippines,2,Female,26,70+ years,494,Stroke,3,Rate,2023,6013.9123716965805,7010.25500170044,5114.87212673866
+1,All Population,5,Prevalence,16,Philippines,1,Male,30,80-84 years,494,Stroke,3,Rate,2023,9552.914677088611,11220.852083989339,8091.2885878036495
+1,All Population,5,Prevalence,16,Philippines,2,Female,30,80-84 years,494,Stroke,3,Rate,2023,6750.9097116415505,8302.00755800244,5496.448860508181
+1,All Population,5,Prevalence,16,Philippines,1,Male,31,85-89 years,494,Stroke,3,Rate,2023,10102.54484556493,12076.43624183265,8193.76808563381
+1,All Population,5,Prevalence,16,Philippines,2,Female,31,85-89 years,494,Stroke,3,Rate,2023,7286.44911675842,9068.15564813132,5875.89532916664
+1,All Population,5,Prevalence,16,Philippines,1,Male,32,90-94 years,494,Stroke,3,Rate,2023,9999.37978089609,12506.23567276387,7874.81645604664
+1,All Population,5,Prevalence,16,Philippines,2,Female,32,90-94 years,494,Stroke,3,Rate,2023,7693.43599504658,9982.34120320528,5968.419469614
+1,All Population,5,Prevalence,16,Philippines,1,Male,41,50-74 years,494,Stroke,3,Rate,2023,3769.65597129174,4205.26509491235,3414.2952864803697
+1,All Population,5,Prevalence,16,Philippines,2,Female,41,50-74 years,494,Stroke,3,Rate,2023,3240.1550840739596,3581.4941789663603,2889.61325978955
+1,All Population,5,Prevalence,16,Philippines,1,Male,160,85+ years,494,Stroke,3,Rate,2023,10056.03858225525,12181.783500286961,8081.25865534689
+1,All Population,5,Prevalence,16,Philippines,2,Female,160,85+ years,494,Stroke,3,Rate,2023,7414.8047227374,9123.38902575239,5874.83669946215
+1,All Population,5,Prevalence,16,Philippines,1,Male,228,55+ years,494,Stroke,3,Rate,2023,4859.80943887407,5398.81970654898,4401.41483293304
+1,All Population,5,Prevalence,16,Philippines,2,Female,228,55+ years,494,Stroke,3,Rate,2023,4160.48677226784,4655.5358136449695,3703.4431253080597
+1,All Population,5,Prevalence,16,Philippines,1,Male,231,60+ years,494,Stroke,3,Rate,2023,5651.94230630871,6332.46504996339,5082.99142721468
+1,All Population,5,Prevalence,16,Philippines,2,Female,231,60+ years,494,Stroke,3,Rate,2023,4721.468507433469,5326.23956482978,4136.43131385045
+1,All Population,5,Prevalence,16,Philippines,1,Male,232,65-74 years,494,Stroke,3,Rate,2023,5805.48409699946,6581.5672617683895,5126.3856000184705
+1,All Population,5,Prevalence,16,Philippines,2,Female,232,65-74 years,494,Stroke,3,Rate,2023,4725.6903421548,5370.44935343958,4109.35977998274
+1,All Population,5,Prevalence,16,Philippines,1,Male,234,75+ years,494,Stroke,3,Rate,2023,8767.4433771976,10181.7860899076,7508.235055523831
+1,All Population,5,Prevalence,16,Philippines,2,Female,234,75+ years,494,Stroke,3,Rate,2023,6571.7596833873195,7856.6195873547795,5453.9698300834
+1,All Population,5,Prevalence,16,Philippines,1,Male,235,95+ years,494,Stroke,3,Rate,2023,9483.08639500542,12676.66367269874,7135.7458590959195
+1,All Population,5,Prevalence,16,Philippines,2,Female,235,95+ years,494,Stroke,3,Rate,2023,7914.4960436108995,10344.03025971048,5814.07128930237
+1,All Population,5,Prevalence,16,Philippines,1,Male,243,75-84 years,494,Stroke,3,Rate,2023,8529.317028675081,9824.020853123171,7314.06298921121
+1,All Population,5,Prevalence,16,Philippines,2,Female,243,75-84 years,494,Stroke,3,Rate,2023,6345.25482124265,7539.083034894061,5286.81995000555
+1,All Population,5,Prevalence,16,Philippines,1,Male,420,<70 years,494,Stroke,3,Rate,2023,915.24481698636,1002.87413707619,852.49946913016
+1,All Population,5,Prevalence,16,Philippines,2,Female,420,<70 years,494,Stroke,3,Rate,2023,874.92781134897,954.9895449453101,802.95621206899
+1,All Population,5,Prevalence,16,Philippines,1,Male,8,15-19 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,268.74792126974995,313.41392030319,215.89211393765
+1,All Population,5,Prevalence,16,Philippines,2,Female,8,15-19 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,273.77221187557,320.27729937432997,218.46612764079
+1,All Population,5,Prevalence,16,Philippines,1,Male,9,20-24 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,411.55170724324006,481.76036847767995,327.97899101502
+1,All Population,5,Prevalence,16,Philippines,2,Female,9,20-24 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,413.06861852329,487.86892332786,324.63787284376
+1,All Population,5,Prevalence,16,Philippines,1,Male,10,25-29 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,582.37019054432,687.57484991631,477.76458979261
+1,All Population,5,Prevalence,16,Philippines,2,Female,10,25-29 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,578.90783375355,684.24626975537,463.75053462178
+1,All Population,5,Prevalence,16,Philippines,1,Male,11,30-34 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,765.4980114100799,878.0502523683301,646.97764781554
+1,All Population,5,Prevalence,16,Philippines,2,Female,11,30-34 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,759.65531647152,881.12609456245,615.42552683554
+1,All Population,5,Prevalence,16,Philippines,1,Male,12,35-39 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,953.30026497423,1089.86039318535,808.08661224107
+1,All Population,5,Prevalence,16,Philippines,2,Female,12,35-39 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,945.36942110484,1089.09154713473,789.1815521624801
+1,All Population,5,Prevalence,16,Philippines,1,Male,13,40-44 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1265.35131665741,1418.92855130402,1096.8523594385902
+1,All Population,5,Prevalence,16,Philippines,2,Female,13,40-44 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1178.64084588368,1338.69897009137,1005.45947401434
+1,All Population,5,Prevalence,16,Philippines,1,Male,14,45-49 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,2111.75534043026,2582.7055200962,1763.88769748509
+1,All Population,5,Prevalence,16,Philippines,2,Female,14,45-49 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1593.13450116043,1832.99008159934,1368.15630203828
+1,All Population,5,Prevalence,16,Philippines,1,Male,15,50-54 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,3523.15509817707,4272.71078335563,2912.52413367792
+1,All Population,5,Prevalence,16,Philippines,2,Female,15,50-54 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,2240.7545545212097,2665.2325310781,1858.6664093229701
+1,All Population,5,Prevalence,16,Philippines,1,Male,16,55-59 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,5140.440251074519,6026.89593351236,4266.70606776742
+1,All Population,5,Prevalence,16,Philippines,2,Female,16,55-59 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,3088.61552965216,3709.0496066571795,2545.35672426911
+1,All Population,5,Prevalence,16,Philippines,1,Male,17,60-64 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,7095.016310606719,8028.50708938647,6089.8813464817795
+1,All Population,5,Prevalence,16,Philippines,2,Female,17,60-64 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,4147.19310492241,4992.442574628069,3346.2277339221696
+1,All Population,5,Prevalence,16,Philippines,1,Male,18,65-69 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,10170.26276150374,11898.44652288486,8604.9934769154
+1,All Population,5,Prevalence,16,Philippines,2,Female,18,65-69 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,5468.234140691619,6493.25610104406,4451.83084640831
+1,All Population,5,Prevalence,16,Philippines,1,Male,19,70-74 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,14071.1970499204,16435.57863447709,11462.92082423733
+1,All Population,5,Prevalence,16,Philippines,2,Female,19,70-74 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,7195.74860168518,8547.61993393951,5896.37662446278
+1,All Population,5,Prevalence,16,Philippines,1,Male,20,75-79 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,18031.37690745836,21326.15728908726,14727.62701915514
+1,All Population,5,Prevalence,16,Philippines,2,Female,20,75-79 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,9384.850377272789,11198.25394597805,7730.581571845931
+1,All Population,5,Prevalence,16,Philippines,1,Male,21,80+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,22973.57728565555,27365.26901499036,18313.23329436099
+1,All Population,5,Prevalence,16,Philippines,2,Female,21,80+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,13776.03993578835,16536.57155898261,11630.550916703849
+1,All Population,5,Prevalence,16,Philippines,1,Male,25,50-69 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,5845.7254104472595,6623.95297083575,5045.9941888207395
+1,All Population,5,Prevalence,16,Philippines,2,Female,25,50-69 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,3489.6749262785,4097.85197731296,2936.7626937629598
+1,All Population,5,Prevalence,16,Philippines,1,Male,26,70+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,16994.89458400169,19669.43003781997,14094.57180887377
+1,All Population,5,Prevalence,16,Philippines,2,Female,26,70+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,9675.43330315071,11341.70771205847,8131.77083743166
+1,All Population,5,Prevalence,16,Philippines,1,Male,30,80-84 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,21430.4205774294,25336.43394312977,17169.41351790689
+1,All Population,5,Prevalence,16,Philippines,2,Female,30,80-84 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,12048.77644507447,14340.6212459222,9828.4520030765
+1,All Population,5,Prevalence,16,Philippines,1,Male,31,85-89 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,24822.326424245188,29969.72343231221,19498.48033282711
+1,All Population,5,Prevalence,16,Philippines,2,Female,31,85-89 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,15122.37789276515,17985.86346510366,12417.822785865059
+1,All Population,5,Prevalence,16,Philippines,1,Male,32,90-94 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,28007.86357957618,34223.23929831014,21441.93396225391
+1,All Population,5,Prevalence,16,Philippines,2,Female,32,90-94 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,18330.59930684453,22539.24995926087,14695.55423702135
+1,All Population,5,Prevalence,16,Philippines,1,Male,41,50-74 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,6598.11928338027,7434.243082375539,5705.985218171681
+1,All Population,5,Prevalence,16,Philippines,2,Female,41,50-74 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,3899.32283492829,4531.850866792661,3301.8014041776305
+1,All Population,5,Prevalence,16,Philippines,1,Male,160,85+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,25758.47319709877,31196.48726304768,20544.6144703554
+1,All Population,5,Prevalence,16,Philippines,2,Female,160,85+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,16190.130062292079,19311.55751725622,13399.093071228952
+1,All Population,5,Prevalence,16,Philippines,1,Male,228,55+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,9274.475393886949,10429.12191139524,8085.39916554677
+1,All Population,5,Prevalence,16,Philippines,2,Female,228,55+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,5717.2997086648,6546.537600829951,4938.42262564032
+1,All Population,5,Prevalence,16,Philippines,1,Male,231,60+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,11243.88950939313,12691.486035311269,9727.29718934694
+1,All Population,5,Prevalence,16,Philippines,2,Female,231,60+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,6746.2841682964,7739.82384890662,5778.015264369949
+1,All Population,5,Prevalence,16,Philippines,1,Male,232,65-74 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,11670.391263856709,13512.259805823029,9797.54110148023
+1,All Population,5,Prevalence,16,Philippines,2,Female,232,65-74 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,6175.66967829576,7197.9097750829005,5147.51604226408
+1,All Population,5,Prevalence,16,Philippines,1,Male,234,75+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,20193.35090523825,23762.35292991183,16625.75698409585
+1,All Population,5,Prevalence,16,Philippines,2,Female,234,75+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,11614.52958392043,13675.5987131745,9699.44568031044
+1,All Population,5,Prevalence,16,Philippines,1,Male,235,95+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,30592.70592748391,38900.17251375618,22569.84187892246
+1,All Population,5,Prevalence,16,Philippines,2,Female,235,95+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,21266.33446093833,26641.210347408,16459.4977166781
+1,All Population,5,Prevalence,16,Philippines,1,Male,243,75-84 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,19164.9424141615,22550.10258709811,15786.615756041288
+1,All Population,5,Prevalence,16,Philippines,2,Female,243,75-84 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,10385.18155717485,12306.96224384005,8551.11909929271
+1,All Population,5,Prevalence,16,Philippines,1,Male,420,<70 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1268.1928530279101,1414.55611958717,1120.3752262081
+1,All Population,5,Prevalence,16,Philippines,2,Female,420,<70 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,938.84237871074,1059.84918088724,829.18499660871
+1,All Population,5,Prevalence,16,Philippines,1,Male,8,15-19 years,568,Major depressive disorder,3,Rate,2023,2392.10348360585,3285.19428626126,1511.40572205844
+1,All Population,5,Prevalence,16,Philippines,2,Female,8,15-19 years,568,Major depressive disorder,3,Rate,2023,3452.7944099626,4725.07607327577,2239.2709542541097
+1,All Population,5,Prevalence,16,Philippines,1,Male,9,20-24 years,568,Major depressive disorder,3,Rate,2023,2264.44475262172,3044.57594112629,1592.35569261083
+1,All Population,5,Prevalence,16,Philippines,2,Female,9,20-24 years,568,Major depressive disorder,3,Rate,2023,3265.8674692864097,4353.18495153511,2312.55610603992
+1,All Population,5,Prevalence,16,Philippines,1,Male,10,25-29 years,568,Major depressive disorder,3,Rate,2023,2195.74248748118,2941.93854148104,1634.94451797888
+1,All Population,5,Prevalence,16,Philippines,2,Female,10,25-29 years,568,Major depressive disorder,3,Rate,2023,3159.6980328407203,4191.03691816579,2409.9926540881397
+1,All Population,5,Prevalence,16,Philippines,1,Male,11,30-34 years,568,Major depressive disorder,3,Rate,2023,2173.41753791892,2981.7744184122903,1560.4618918748001
+1,All Population,5,Prevalence,16,Philippines,2,Female,11,30-34 years,568,Major depressive disorder,3,Rate,2023,3083.0457343288103,4120.90464186795,2252.97332927439
+1,All Population,5,Prevalence,16,Philippines,1,Male,12,35-39 years,568,Major depressive disorder,3,Rate,2023,2161.37354873574,2987.9695023285,1573.32181484614
+1,All Population,5,Prevalence,16,Philippines,2,Female,12,35-39 years,568,Major depressive disorder,3,Rate,2023,3048.31965057159,4153.03476927134,2251.98107411176
+1,All Population,5,Prevalence,16,Philippines,1,Male,13,40-44 years,568,Major depressive disorder,3,Rate,2023,2134.37315160534,3000.9729464911197,1484.87204192987
+1,All Population,5,Prevalence,16,Philippines,2,Female,13,40-44 years,568,Major depressive disorder,3,Rate,2023,3011.89188084554,4179.38215704207,2149.9515683406403
+1,All Population,5,Prevalence,16,Philippines,1,Male,14,45-49 years,568,Major depressive disorder,3,Rate,2023,2089.17306284889,2824.5745428260702,1479.1853819958199
+1,All Population,5,Prevalence,16,Philippines,2,Female,14,45-49 years,568,Major depressive disorder,3,Rate,2023,2951.82075738322,3882.3811491568904,2132.30688568121
+1,All Population,5,Prevalence,16,Philippines,1,Male,15,50-54 years,568,Major depressive disorder,3,Rate,2023,2057.19600956508,2855.33327806163,1452.52234437764
+1,All Population,5,Prevalence,16,Philippines,2,Female,15,50-54 years,568,Major depressive disorder,3,Rate,2023,2899.14563518967,3968.85256310905,2081.4057472062
+1,All Population,5,Prevalence,16,Philippines,1,Male,16,55-59 years,568,Major depressive disorder,3,Rate,2023,2031.0116241910598,2727.40584872195,1478.7439958142
+1,All Population,5,Prevalence,16,Philippines,2,Female,16,55-59 years,568,Major depressive disorder,3,Rate,2023,2871.08614313427,3794.62061871569,2129.53621199236
+1,All Population,5,Prevalence,16,Philippines,1,Male,17,60-64 years,568,Major depressive disorder,3,Rate,2023,2010.38226546125,2740.71999817416,1408.10933152585
+1,All Population,5,Prevalence,16,Philippines,2,Female,17,60-64 years,568,Major depressive disorder,3,Rate,2023,2854.86020840971,3800.5432456728204,2044.3201747323399
+1,All Population,5,Prevalence,16,Philippines,1,Male,18,65-69 years,568,Major depressive disorder,3,Rate,2023,2005.67859818215,2837.52794795011,1450.6875871204102
+1,All Population,5,Prevalence,16,Philippines,2,Female,18,65-69 years,568,Major depressive disorder,3,Rate,2023,2865.55684540835,3960.95054606884,2113.51734889298
+1,All Population,5,Prevalence,16,Philippines,1,Male,19,70-74 years,568,Major depressive disorder,3,Rate,2023,1970.03798236222,2814.5256281913003,1435.64120971476
+1,All Population,5,Prevalence,16,Philippines,2,Female,19,70-74 years,568,Major depressive disorder,3,Rate,2023,2860.55201514268,3994.84073770146,2119.2883207663103
+1,All Population,5,Prevalence,16,Philippines,1,Male,20,75-79 years,568,Major depressive disorder,3,Rate,2023,1928.60380474947,2758.30289535478,1403.33769800303
+1,All Population,5,Prevalence,16,Philippines,2,Female,20,75-79 years,568,Major depressive disorder,3,Rate,2023,2850.16704797259,3992.18142535175,2109.9613562979102
+1,All Population,5,Prevalence,16,Philippines,1,Male,21,80+ years,568,Major depressive disorder,3,Rate,2023,1874.1355119449101,2673.05484167887,1332.22681396414
+1,All Population,5,Prevalence,16,Philippines,2,Female,21,80+ years,568,Major depressive disorder,3,Rate,2023,2817.6305622795,3945.85888643694,2046.98534359097
+1,All Population,5,Prevalence,16,Philippines,1,Male,25,50-69 years,568,Major depressive disorder,3,Rate,2023,2031.11576346259,2729.20548424262,1486.89022361593
+1,All Population,5,Prevalence,16,Philippines,2,Female,25,50-69 years,568,Major depressive disorder,3,Rate,2023,2875.2792018886903,3801.44652315742,2135.487554243
+1,All Population,5,Prevalence,16,Philippines,1,Male,26,70+ years,568,Major depressive disorder,3,Rate,2023,1938.8717175382799,2783.7648077519602,1407.62119746109
+1,All Population,5,Prevalence,16,Philippines,2,Female,26,70+ years,568,Major depressive disorder,3,Rate,2023,2845.45332671207,4004.2672984657,2100.67854981478
+1,All Population,5,Prevalence,16,Philippines,1,Male,30,80-84 years,568,Major depressive disorder,3,Rate,2023,1886.38712267028,2672.74309956058,1319.5620129618098
+1,All Population,5,Prevalence,16,Philippines,2,Female,30,80-84 years,568,Major depressive disorder,3,Rate,2023,2833.9159759374897,3955.15960851216,2017.1548861688
+1,All Population,5,Prevalence,16,Philippines,1,Male,31,85-89 years,568,Major depressive disorder,3,Rate,2023,1854.88687354416,2700.1519452580997,1353.58881920724
+1,All Population,5,Prevalence,16,Philippines,2,Female,31,85-89 years,568,Major depressive disorder,3,Rate,2023,2800.90085711355,4002.18109496623,2081.65952674063
+1,All Population,5,Prevalence,16,Philippines,1,Male,32,90-94 years,568,Major depressive disorder,3,Rate,2023,1844.30101170544,2735.04950999941,1297.13531477962
+1,All Population,5,Prevalence,16,Philippines,2,Female,32,90-94 years,568,Major depressive disorder,3,Rate,2023,2780.34892580845,4048.77216750915,2001.42916522443
+1,All Population,5,Prevalence,16,Philippines,1,Male,41,50-74 years,568,Major depressive disorder,3,Rate,2023,2025.52890470403,2738.56642677953,1489.94850911219
+1,All Population,5,Prevalence,16,Philippines,2,Female,41,50-74 years,568,Major depressive disorder,3,Rate,2023,2873.6513440048,3821.5279636807204,2152.5659069302
+1,All Population,5,Prevalence,16,Philippines,1,Male,160,85+ years,568,Major depressive disorder,3,Rate,2023,1852.02533970136,2713.61661880056,1312.03863855483
+1,All Population,5,Prevalence,16,Philippines,2,Female,160,85+ years,568,Major depressive disorder,3,Rate,2023,2794.8694395387297,4013.56260980216,2004.13431569278
+1,All Population,5,Prevalence,16,Philippines,1,Male,228,55+ years,568,Major depressive disorder,3,Rate,2023,2000.03897755086,2741.21588630433,1448.32708201366
+1,All Population,5,Prevalence,16,Philippines,2,Female,228,55+ years,568,Major depressive disorder,3,Rate,2023,2858.6505451078397,3843.1371592719997,2124.0426512733698
+1,All Population,5,Prevalence,16,Philippines,1,Male,231,60+ years,568,Major depressive disorder,3,Rate,2023,1985.28391007305,2752.09631880058,1438.58267725167
+1,All Population,5,Prevalence,16,Philippines,2,Female,231,60+ years,568,Major depressive disorder,3,Rate,2023,2853.782696312,3888.9114415969802,2111.8301541650503
+1,All Population,5,Prevalence,16,Philippines,1,Male,232,65-74 years,568,Major depressive disorder,3,Rate,2023,1991.97277806832,2812.8127592210403,1444.90140926287
+1,All Population,5,Prevalence,16,Philippines,2,Female,232,65-74 years,568,Major depressive disorder,3,Rate,2023,2863.5073142064102,3992.50795097093,2117.62537725912
+1,All Population,5,Prevalence,16,Philippines,1,Male,234,75+ years,568,Major depressive disorder,3,Rate,2023,1904.7765570186,2713.49300416191,1372.2301203075901
+1,All Population,5,Prevalence,16,Philippines,2,Female,234,75+ years,568,Major depressive disorder,3,Rate,2023,2833.64625682009,3964.61256318414,2077.9845299325
+1,All Population,5,Prevalence,16,Philippines,1,Male,235,95+ years,568,Major depressive disorder,3,Rate,2023,1842.3749567318198,2692.95153573888,1249.95137269507
+1,All Population,5,Prevalence,16,Philippines,2,Female,235,95+ years,568,Major depressive disorder,3,Rate,2023,2778.78895769631,3975.6360577141795,1930.94543020269
+1,All Population,5,Prevalence,16,Philippines,1,Male,243,75-84 years,568,Major depressive disorder,3,Rate,2023,1914.5247344994498,2720.27909339737,1375.39889047839
+1,All Population,5,Prevalence,16,Philippines,2,Female,243,75-84 years,568,Major depressive disorder,3,Rate,2023,2844.06460606926,3965.78234421937,2075.1115881722503
+1,All Population,5,Prevalence,16,Philippines,1,Male,420,<70 years,568,Major depressive disorder,3,Rate,2023,1612.06167709136,2115.01948888714,1237.91699375892
+1,All Population,5,Prevalence,16,Philippines,2,Female,420,<70 years,568,Major depressive disorder,3,Rate,2023,2342.54599573737,2998.3134435863803,1832.98157706029
+1,All Population,5,Prevalence,16,Philippines,1,Male,8,15-19 years,571,Anxiety disorders,3,Rate,2023,2602.07674225505,4097.61904503946,1659.2297436964402
+1,All Population,5,Prevalence,16,Philippines,2,Female,8,15-19 years,571,Anxiety disorders,3,Rate,2023,3924.1181666412203,6620.7472090497,2372.73649474383
+1,All Population,5,Prevalence,16,Philippines,1,Male,9,20-24 years,571,Anxiety disorders,3,Rate,2023,2480.0151421516903,3798.90846464981,1579.29545520329
+1,All Population,5,Prevalence,16,Philippines,2,Female,9,20-24 years,571,Anxiety disorders,3,Rate,2023,3962.23311061418,6130.40490783875,2511.10928731167
+1,All Population,5,Prevalence,16,Philippines,1,Male,10,25-29 years,571,Anxiety disorders,3,Rate,2023,2412.91278672352,3625.4737382519497,1633.87939810009
+1,All Population,5,Prevalence,16,Philippines,2,Female,10,25-29 years,571,Anxiety disorders,3,Rate,2023,4011.91671490409,6114.45910409497,2659.36879049405
+1,All Population,5,Prevalence,16,Philippines,1,Male,11,30-34 years,571,Anxiety disorders,3,Rate,2023,2386.91828543447,3832.28975838368,1508.3729940099
+1,All Population,5,Prevalence,16,Philippines,2,Female,11,30-34 years,571,Anxiety disorders,3,Rate,2023,4100.14210819558,6738.339662772811,2558.78468393631
+1,All Population,5,Prevalence,16,Philippines,1,Male,12,35-39 years,571,Anxiety disorders,3,Rate,2023,2415.09152233224,3522.67246615727,1630.3156112416398
+1,All Population,5,Prevalence,16,Philippines,2,Female,12,35-39 years,571,Anxiety disorders,3,Rate,2023,4247.47953186567,6198.88402069502,2840.30817524813
+1,All Population,5,Prevalence,16,Philippines,1,Male,13,40-44 years,571,Anxiety disorders,3,Rate,2023,2460.58348007007,3607.30772444299,1674.7754118532898
+1,All Population,5,Prevalence,16,Philippines,2,Female,13,40-44 years,571,Anxiety disorders,3,Rate,2023,4397.71778305255,6515.0697071144905,2988.25354868557
+1,All Population,5,Prevalence,16,Philippines,1,Male,14,45-49 years,571,Anxiety disorders,3,Rate,2023,2597.9742799216497,3898.62909331344,1733.0097063845199
+1,All Population,5,Prevalence,16,Philippines,2,Female,14,45-49 years,571,Anxiety disorders,3,Rate,2023,4643.21767897964,6933.108802349921,3183.51634104102
+1,All Population,5,Prevalence,16,Philippines,1,Male,15,50-54 years,571,Anxiety disorders,3,Rate,2023,2759.03191838721,4419.75459009848,1737.6885112073599
+1,All Population,5,Prevalence,16,Philippines,2,Female,15,50-54 years,571,Anxiety disorders,3,Rate,2023,4898.08824550062,7790.360578322699,3114.21888839172
+1,All Population,5,Prevalence,16,Philippines,1,Male,16,55-59 years,571,Anxiety disorders,3,Rate,2023,2886.79291384079,4457.36744356813,1883.17684564313
+1,All Population,5,Prevalence,16,Philippines,2,Female,16,55-59 years,571,Anxiety disorders,3,Rate,2023,4999.02109875592,7657.406517650719,3312.1667700363696
+1,All Population,5,Prevalence,16,Philippines,1,Male,17,60-64 years,571,Anxiety disorders,3,Rate,2023,3011.90552418998,4564.83511152356,1792.6336078882498
+1,All Population,5,Prevalence,16,Philippines,2,Female,17,60-64 years,571,Anxiety disorders,3,Rate,2023,5051.31564601855,7604.730691468129,3065.290209719
+1,All Population,5,Prevalence,16,Philippines,1,Male,18,65-69 years,571,Anxiety disorders,3,Rate,2023,3157.47697047666,4807.71350912658,1993.6298529999501
+1,All Population,5,Prevalence,16,Philippines,2,Female,18,65-69 years,571,Anxiety disorders,3,Rate,2023,5075.99680361467,7587.88412993588,3230.4682547182
+1,All Population,5,Prevalence,16,Philippines,1,Male,19,70-74 years,571,Anxiety disorders,3,Rate,2023,3288.50576715493,5639.67857962964,2114.02656609027
+1,All Population,5,Prevalence,16,Philippines,2,Female,19,70-74 years,571,Anxiety disorders,3,Rate,2023,5052.902591162299,8442.289204556,3292.49262746508
+1,All Population,5,Prevalence,16,Philippines,1,Male,20,75-79 years,571,Anxiety disorders,3,Rate,2023,3330.37640809822,5334.30623675034,2178.84558519642
+1,All Population,5,Prevalence,16,Philippines,2,Female,20,75-79 years,571,Anxiety disorders,3,Rate,2023,4922.35832823481,7843.04371369568,3261.61423877126
+1,All Population,5,Prevalence,16,Philippines,1,Male,21,80+ years,571,Anxiety disorders,3,Rate,2023,3391.8489278050897,5052.74197730528,2227.53477725412
+1,All Population,5,Prevalence,16,Philippines,2,Female,21,80+ years,571,Anxiety disorders,3,Rate,2023,4775.51756498594,7100.10664392378,3215.6206283982697
+1,All Population,5,Prevalence,16,Philippines,1,Male,25,50-69 years,571,Anxiety disorders,3,Rate,2023,2915.49645433397,4414.89083444306,1981.6711388850001
+1,All Population,5,Prevalence,16,Philippines,2,Female,25,50-69 years,571,Anxiety disorders,3,Rate,2023,4992.76475002386,7520.66778443721,3440.58406235941
+1,All Population,5,Prevalence,16,Philippines,1,Male,26,70+ years,571,Anxiety disorders,3,Rate,2023,3321.3437195055,5255.9870406318705,2157.67297014051
+1,All Population,5,Prevalence,16,Philippines,2,Female,26,70+ years,571,Anxiety disorders,3,Rate,2023,4937.80426381268,7813.635416911629,3266.88737805552
+1,All Population,5,Prevalence,16,Philippines,1,Male,30,80-84 years,571,Anxiety disorders,3,Rate,2023,3353.81930082332,5133.39681210318,2151.7996106988
+1,All Population,5,Prevalence,16,Philippines,2,Female,30,80-84 years,571,Anxiety disorders,3,Rate,2023,4777.38171263196,7143.3191709799,3152.54866676706
+1,All Population,5,Prevalence,16,Philippines,1,Male,31,85-89 years,571,Anxiety disorders,3,Rate,2023,3429.72040254751,5203.31796019112,2274.51019601421
+1,All Population,5,Prevalence,16,Philippines,2,Female,31,85-89 years,571,Anxiety disorders,3,Rate,2023,4757.27579166971,7240.100021277809,3210.90901799396
+1,All Population,5,Prevalence,16,Philippines,1,Male,32,90-94 years,571,Anxiety disorders,3,Rate,2023,3526.31342061476,5542.42670962004,2106.15258416138
+1,All Population,5,Prevalence,16,Philippines,2,Female,32,90-94 years,571,Anxiety disorders,3,Rate,2023,4790.30051200046,7455.222943313709,2934.6122834278
+1,All Population,5,Prevalence,16,Philippines,1,Male,41,50-74 years,571,Anxiety disorders,3,Rate,2023,2949.6160688453897,4349.24286700853,1993.5710726370098
+1,All Population,5,Prevalence,16,Philippines,2,Female,41,50-74 years,571,Anxiety disorders,3,Rate,2023,4999.41203850508,7283.590208778749,3406.34555798077
+1,All Population,5,Prevalence,16,Philippines,1,Male,160,85+ years,571,Anxiety disorders,3,Rate,2023,3460.48003450391,5231.71230178345,2301.6303077335697
+1,All Population,5,Prevalence,16,Philippines,2,Female,160,85+ years,571,Anxiety disorders,3,Rate,2023,4772.91216028029,7242.1978009983595,3216.98177231938
+1,All Population,5,Prevalence,16,Philippines,1,Male,228,55+ years,571,Anxiety disorders,3,Rate,2023,3068.6876264006,4436.12499391027,2013.69355758589
+1,All Population,5,Prevalence,16,Philippines,2,Female,228,55+ years,571,Anxiety disorders,3,Rate,2023,5007.87167658371,7199.708721860839,3335.44923410832
+1,All Population,5,Prevalence,16,Philippines,1,Male,231,60+ years,571,Anxiety disorders,3,Rate,2023,3155.34049752436,4641.18533406577,2123.61206904347
+1,All Population,5,Prevalence,16,Philippines,2,Female,231,60+ years,571,Anxiety disorders,3,Rate,2023,5011.33618826459,7340.26103936508,3483.67440733348
+1,All Population,5,Prevalence,16,Philippines,1,Male,232,65-74 years,571,Anxiety disorders,3,Rate,2023,3207.86490782535,5008.0386578607795,2100.55823546856
+1,All Population,5,Prevalence,16,Philippines,2,Female,232,65-74 years,571,Anxiety disorders,3,Rate,2023,5066.53947809255,7855.32229881068,3390.7189843146202
+1,All Population,5,Prevalence,16,Philippines,1,Male,234,75+ years,571,Anxiety disorders,3,Rate,2023,3357.2676668522304,5086.29062242352,2289.32913150062
+1,All Population,5,Prevalence,16,Philippines,2,Female,234,75+ years,571,Anxiety disorders,3,Rate,2023,4847.79816813665,7084.644077095791,3371.3897621471106
+1,All Population,5,Prevalence,16,Philippines,1,Male,235,95+ years,571,Anxiety disorders,3,Rate,2023,3668.1133313243795,5666.45944608387,2267.52880397001
+1,All Population,5,Prevalence,16,Philippines,2,Female,235,95+ years,571,Anxiety disorders,3,Rate,2023,4919.59278034183,7486.83393595655,3132.30282931169
+1,All Population,5,Prevalence,16,Philippines,1,Male,243,75-84 years,571,Anxiety disorders,3,Rate,2023,3338.1945055252404,5040.88405202631,2210.0616243835602
+1,All Population,5,Prevalence,16,Philippines,2,Female,243,75-84 years,571,Anxiety disorders,3,Rate,2023,4867.91814286439,7089.6372641934,3298.6396828128995
+1,All Population,5,Prevalence,16,Philippines,1,Male,420,<70 years,571,Anxiety disorders,3,Rate,2023,2470.47667646458,3099.9086740983,1933.24074384618
+1,All Population,5,Prevalence,16,Philippines,2,Female,420,<70 years,571,Anxiety disorders,3,Rate,2023,3848.85054326827,4852.57937450298,2988.76853916976
+1,All Population,5,Prevalence,16,Philippines,1,Male,8,15-19 years,976,Diabetes mellitus type 2,3,Rate,2023,602.8461191559,788.98624320283,457.18274816154
+1,All Population,5,Prevalence,16,Philippines,2,Female,8,15-19 years,976,Diabetes mellitus type 2,3,Rate,2023,661.0402085750101,860.3566939179399,512.0657276414901
+1,All Population,5,Prevalence,16,Philippines,1,Male,9,20-24 years,976,Diabetes mellitus type 2,3,Rate,2023,1596.7011595248298,1992.9920670995,1256.77008767257
+1,All Population,5,Prevalence,16,Philippines,2,Female,9,20-24 years,976,Diabetes mellitus type 2,3,Rate,2023,1515.4730290713,1880.28225818095,1208.8179401146801
+1,All Population,5,Prevalence,16,Philippines,1,Male,10,25-29 years,976,Diabetes mellitus type 2,3,Rate,2023,2896.38250460237,3484.84287348804,2382.14816301261
+1,All Population,5,Prevalence,16,Philippines,2,Female,10,25-29 years,976,Diabetes mellitus type 2,3,Rate,2023,2522.35072046629,2991.58389531994,2091.29110449285
+1,All Population,5,Prevalence,16,Philippines,1,Male,11,30-34 years,976,Diabetes mellitus type 2,3,Rate,2023,4385.08440995419,5273.71148456707,3653.56095855155
+1,All Population,5,Prevalence,16,Philippines,2,Female,11,30-34 years,976,Diabetes mellitus type 2,3,Rate,2023,3635.85787105829,4393.39092775266,3053.05258143641
+1,All Population,5,Prevalence,16,Philippines,1,Male,12,35-39 years,976,Diabetes mellitus type 2,3,Rate,2023,6220.090557938341,7351.2120360501,5290.14744511981
+1,All Population,5,Prevalence,16,Philippines,2,Female,12,35-39 years,976,Diabetes mellitus type 2,3,Rate,2023,5040.0348973233795,5924.59852352945,4298.80620392988
+1,All Population,5,Prevalence,16,Philippines,1,Male,13,40-44 years,976,Diabetes mellitus type 2,3,Rate,2023,8371.26023039823,9789.713303010949,7209.186341075049
+1,All Population,5,Prevalence,16,Philippines,2,Female,13,40-44 years,976,Diabetes mellitus type 2,3,Rate,2023,6819.462085155779,7969.7548893045505,5767.93837713733
+1,All Population,5,Prevalence,16,Philippines,1,Male,14,45-49 years,976,Diabetes mellitus type 2,3,Rate,2023,10634.22243243288,12212.79384237903,9090.275107971931
+1,All Population,5,Prevalence,16,Philippines,2,Female,14,45-49 years,976,Diabetes mellitus type 2,3,Rate,2023,9165.84698109837,10432.22151170347,7782.784326532741
+1,All Population,5,Prevalence,16,Philippines,1,Male,15,50-54 years,976,Diabetes mellitus type 2,3,Rate,2023,12882.952458889298,14675.77327091025,11055.17016959755
+1,All Population,5,Prevalence,16,Philippines,2,Female,15,50-54 years,976,Diabetes mellitus type 2,3,Rate,2023,12012.5995024451,13910.014916628319,10179.1038978252
+1,All Population,5,Prevalence,16,Philippines,1,Male,16,55-59 years,976,Diabetes mellitus type 2,3,Rate,2023,14813.39452315534,16676.105440964133,13163.21963823976
+1,All Population,5,Prevalence,16,Philippines,2,Female,16,55-59 years,976,Diabetes mellitus type 2,3,Rate,2023,15102.489351525868,17117.5623146073,13252.00879675825
+1,All Population,5,Prevalence,16,Philippines,1,Male,17,60-64 years,976,Diabetes mellitus type 2,3,Rate,2023,16306.64194751335,18125.55390347427,14626.05015589824
+1,All Population,5,Prevalence,16,Philippines,2,Female,17,60-64 years,976,Diabetes mellitus type 2,3,Rate,2023,18017.79141905345,20017.49875760786,16109.179150003269
+1,All Population,5,Prevalence,16,Philippines,1,Male,18,65-69 years,976,Diabetes mellitus type 2,3,Rate,2023,17054.639432287062,18809.13477391869,15193.475360929551
+1,All Population,5,Prevalence,16,Philippines,2,Female,18,65-69 years,976,Diabetes mellitus type 2,3,Rate,2023,19674.418166115982,21547.75984621585,17723.79903722965
+1,All Population,5,Prevalence,16,Philippines,1,Male,19,70-74 years,976,Diabetes mellitus type 2,3,Rate,2023,17053.14220554596,18718.236259634043,15322.501286684228
+1,All Population,5,Prevalence,16,Philippines,2,Female,19,70-74 years,976,Diabetes mellitus type 2,3,Rate,2023,20027.67172079919,21787.90778038435,18390.44993299872
+1,All Population,5,Prevalence,16,Philippines,1,Male,20,75-79 years,976,Diabetes mellitus type 2,3,Rate,2023,15978.74415004883,17622.86023029262,14210.7051084987
+1,All Population,5,Prevalence,16,Philippines,2,Female,20,75-79 years,976,Diabetes mellitus type 2,3,Rate,2023,19089.56961079051,20985.492962942328,17415.780489435758
+1,All Population,5,Prevalence,16,Philippines,1,Male,21,80+ years,976,Diabetes mellitus type 2,3,Rate,2023,12778.637580067301,14308.93264954748,11139.97201255445
+1,All Population,5,Prevalence,16,Philippines,2,Female,21,80+ years,976,Diabetes mellitus type 2,3,Rate,2023,15538.77336940391,17255.06928757195,13877.13862229614
+1,All Population,5,Prevalence,16,Philippines,1,Male,25,50-69 years,976,Diabetes mellitus type 2,3,Rate,2023,14859.67638520356,16434.61511800306,13319.80999874031
+1,All Population,5,Prevalence,16,Philippines,2,Female,25,50-69 years,976,Diabetes mellitus type 2,3,Rate,2023,15611.61707758827,17345.81100520129,13938.777918085809
+1,All Population,5,Prevalence,16,Philippines,1,Male,26,70+ years,976,Diabetes mellitus type 2,3,Rate,2023,15871.51950301133,17469.609622479453,14118.69220475363
+1,All Population,5,Prevalence,16,Philippines,2,Female,26,70+ years,976,Diabetes mellitus type 2,3,Rate,2023,18489.47185291932,20217.84140486595,16877.66624248422
+1,All Population,5,Prevalence,16,Philippines,1,Male,30,80-84 years,976,Diabetes mellitus type 2,3,Rate,2023,13903.41383455197,15490.54616553454,12212.61180032705
+1,All Population,5,Prevalence,16,Philippines,2,Female,30,80-84 years,976,Diabetes mellitus type 2,3,Rate,2023,17036.851992068998,18892.935050073,15368.398065019608
+1,All Population,5,Prevalence,16,Philippines,1,Male,31,85-89 years,976,Diabetes mellitus type 2,3,Rate,2023,11518.48187547964,12981.769772169871,9964.20787505615
+1,All Population,5,Prevalence,16,Philippines,2,Female,31,85-89 years,976,Diabetes mellitus type 2,3,Rate,2023,14507.780075422188,16176.01255421814,12793.39515358803
+1,All Population,5,Prevalence,16,Philippines,1,Male,32,90-94 years,976,Diabetes mellitus type 2,3,Rate,2023,8960.20215896297,10341.217260892301,7430.89811699868
+1,All Population,5,Prevalence,16,Philippines,2,Female,32,90-94 years,976,Diabetes mellitus type 2,3,Rate,2023,11461.66465752894,13076.616975574809,9847.3916255123
+1,All Population,5,Prevalence,16,Philippines,1,Male,41,50-74 years,976,Diabetes mellitus type 2,3,Rate,2023,15060.31536568388,16621.15464878701,13509.53568763536
+1,All Population,5,Prevalence,16,Philippines,2,Female,41,50-74 years,976,Diabetes mellitus type 2,3,Rate,2023,16099.74216832219,17804.7682452309,14489.696571738239
+1,All Population,5,Prevalence,16,Philippines,1,Male,160,85+ years,976,Diabetes mellitus type 2,3,Rate,2023,10748.78229984537,12177.60868084954,9219.86990734726
+1,All Population,5,Prevalence,16,Philippines,2,Female,160,85+ years,976,Diabetes mellitus type 2,3,Rate,2023,13445.000860956241,15045.527039358361,11780.98123990276
+1,All Population,5,Prevalence,16,Philippines,1,Male,228,55+ years,976,Diabetes mellitus type 2,3,Rate,2023,15867.690267123031,17483.93085306439,14268.598109462691
+1,All Population,5,Prevalence,16,Philippines,2,Female,228,55+ years,976,Diabetes mellitus type 2,3,Rate,2023,17643.7606384785,19353.9878530254,16022.369680132058
+1,All Population,5,Prevalence,16,Philippines,1,Male,231,60+ years,976,Diabetes mellitus type 2,3,Rate,2023,16369.94650064782,18061.2335077974,14685.42677977657
+1,All Population,5,Prevalence,16,Philippines,2,Female,231,60+ years,976,Diabetes mellitus type 2,3,Rate,2023,18638.52778580633,20399.59038925568,16968.0642463763
+1,All Population,5,Prevalence,16,Philippines,1,Male,232,65-74 years,976,Diabetes mellitus type 2,3,Rate,2023,17054.0636644472,18764.25274917915,15200.02580496379
+1,All Population,5,Prevalence,16,Philippines,2,Female,232,65-74 years,976,Diabetes mellitus type 2,3,Rate,2023,19819.07925232429,21625.39053361853,18079.17831374494
+1,All Population,5,Prevalence,16,Philippines,1,Male,234,75+ years,976,Diabetes mellitus type 2,3,Rate,2023,14578.85206454249,16174.950552059288,12919.46674033887
+1,All Population,5,Prevalence,16,Philippines,2,Female,234,75+ years,976,Diabetes mellitus type 2,3,Rate,2023,17286.610198321257,19048.46907291429,15646.56234980546
+1,All Population,5,Prevalence,16,Philippines,1,Male,235,95+ years,976,Diabetes mellitus type 2,3,Rate,2023,6406.36032212271,7689.11187577979,5085.16406136585
+1,All Population,5,Prevalence,16,Philippines,2,Female,235,95+ years,976,Diabetes mellitus type 2,3,Rate,2023,7629.6441915756195,8934.70997315312,6202.87600559047
+1,All Population,5,Prevalence,16,Philippines,1,Male,243,75-84 years,976,Diabetes mellitus type 2,3,Rate,2023,15286.630988501049,16913.64057655368,13558.85470517145
+1,All Population,5,Prevalence,16,Philippines,2,Female,243,75-84 years,976,Diabetes mellitus type 2,3,Rate,2023,18318.75338493482,20157.08108950865,16667.104411611337
+1,All Population,5,Prevalence,16,Philippines,1,Male,420,<70 years,976,Diabetes mellitus type 2,3,Rate,2023,4477.466354239979,4956.45375992214,4009.2392077821696
+1,All Population,5,Prevalence,16,Philippines,2,Female,420,<70 years,976,Diabetes mellitus type 2,3,Rate,2023,4390.61252077751,4807.15131966627,3935.64800958743
+1,All Population,5,Prevalence,16,Philippines,1,Male,8,15-19 years,515,Asthma,3,Rate,2023,4900.89371503315,7763.12333499251,2963.68521406535
+1,All Population,5,Prevalence,16,Philippines,2,Female,8,15-19 years,515,Asthma,3,Rate,2023,4858.07424763074,7553.812165753369,2920.01056173238
+1,All Population,5,Prevalence,16,Philippines,1,Male,9,20-24 years,515,Asthma,3,Rate,2023,3651.8941695145504,5598.04750716483,2166.1845215642
+1,All Population,5,Prevalence,16,Philippines,2,Female,9,20-24 years,515,Asthma,3,Rate,2023,3387.00296408245,5174.60819987743,2026.5628507015601
+1,All Population,5,Prevalence,16,Philippines,1,Male,10,25-29 years,515,Asthma,3,Rate,2023,3392.9250688081697,5117.03488479723,2117.13512835825
+1,All Population,5,Prevalence,16,Philippines,2,Female,10,25-29 years,515,Asthma,3,Rate,2023,3301.9655576876403,4916.19821833415,2113.96864942647
+1,All Population,5,Prevalence,16,Philippines,1,Male,11,30-34 years,515,Asthma,3,Rate,2023,3588.23668981159,5319.96917348218,2326.88425985034
+1,All Population,5,Prevalence,16,Philippines,2,Female,11,30-34 years,515,Asthma,3,Rate,2023,3965.33319710856,5831.0734730595195,2579.32533011137
+1,All Population,5,Prevalence,16,Philippines,1,Male,12,35-39 years,515,Asthma,3,Rate,2023,3965.29296521783,5652.50467839496,2633.38787181581
+1,All Population,5,Prevalence,16,Philippines,2,Female,12,35-39 years,515,Asthma,3,Rate,2023,4665.75472064348,6633.142278187371,3053.5211764352402
+1,All Population,5,Prevalence,16,Philippines,1,Male,13,40-44 years,515,Asthma,3,Rate,2023,4446.64565983566,6593.256371580949,2858.66170724813
+1,All Population,5,Prevalence,16,Philippines,2,Female,13,40-44 years,515,Asthma,3,Rate,2023,5329.88831182113,7753.91077721386,3537.9198018612096
+1,All Population,5,Prevalence,16,Philippines,1,Male,14,45-49 years,515,Asthma,3,Rate,2023,4908.6355708792,7160.39972945645,3168.63065934819
+1,All Population,5,Prevalence,16,Philippines,2,Female,14,45-49 years,515,Asthma,3,Rate,2023,5807.40389976507,8614.20281128277,3760.5334254486297
+1,All Population,5,Prevalence,16,Philippines,1,Male,15,50-54 years,515,Asthma,3,Rate,2023,5345.42894263863,8165.3593529315,3307.8054852667897
+1,All Population,5,Prevalence,16,Philippines,2,Female,15,50-54 years,515,Asthma,3,Rate,2023,6180.42305635471,9323.0166111786,3765.90526572839
+1,All Population,5,Prevalence,16,Philippines,1,Male,16,55-59 years,515,Asthma,3,Rate,2023,5658.27105599136,8295.22248892132,3761.9823416223603
+1,All Population,5,Prevalence,16,Philippines,2,Female,16,55-59 years,515,Asthma,3,Rate,2023,6548.3786453685,9418.3321019808,4323.95261011359
+1,All Population,5,Prevalence,16,Philippines,1,Male,17,60-64 years,515,Asthma,3,Rate,2023,6145.05016025461,8904.71548545681,3765.87731708432
+1,All Population,5,Prevalence,16,Philippines,2,Female,17,60-64 years,515,Asthma,3,Rate,2023,7058.50569652098,10070.51596368844,4376.53889343031
+1,All Population,5,Prevalence,16,Philippines,1,Male,18,65-69 years,515,Asthma,3,Rate,2023,7680.8793918540205,10874.95789713534,5144.55019124306
+1,All Population,5,Prevalence,16,Philippines,2,Female,18,65-69 years,515,Asthma,3,Rate,2023,8107.18442293957,11342.74883624887,5353.95980467605
+1,All Population,5,Prevalence,16,Philippines,1,Male,19,70-74 years,515,Asthma,3,Rate,2023,9639.86978785368,14254.041338879038,5991.80033018547
+1,All Population,5,Prevalence,16,Philippines,2,Female,19,70-74 years,515,Asthma,3,Rate,2023,9407.92512720089,13946.57775084227,6010.46476620106
+1,All Population,5,Prevalence,16,Philippines,1,Male,20,75-79 years,515,Asthma,3,Rate,2023,10510.28218536011,15154.2697483845,6850.47970941889
+1,All Population,5,Prevalence,16,Philippines,2,Female,20,75-79 years,515,Asthma,3,Rate,2023,10260.49017487997,14827.827685060849,6768.274286172519
+1,All Population,5,Prevalence,16,Philippines,1,Male,21,80+ years,515,Asthma,3,Rate,2023,10433.55718378842,14516.564637222202,6989.16988642838
+1,All Population,5,Prevalence,16,Philippines,2,Female,21,80+ years,515,Asthma,3,Rate,2023,11036.23552196661,15441.873941708109,7443.2305433295805
+1,All Population,5,Prevalence,16,Philippines,1,Male,25,50-69 years,515,Asthma,3,Rate,2023,5988.33237554744,8209.56044124785,4195.26689824977
+1,All Population,5,Prevalence,16,Philippines,2,Female,25,50-69 years,515,Asthma,3,Rate,2023,6828.421218266891,9355.867634681,4790.08857550534
+1,All Population,5,Prevalence,16,Philippines,1,Male,26,70+ years,515,Asthma,3,Rate,2023,10039.51559316368,14096.725489227521,7001.02535875817
+1,All Population,5,Prevalence,16,Philippines,2,Female,26,70+ years,515,Asthma,3,Rate,2023,10107.399817674379,13765.022264871172,7218.5635749184
+1,All Population,5,Prevalence,16,Philippines,1,Male,30,80-84 years,515,Asthma,3,Rate,2023,10510.67030916243,14720.823058964768,6935.7963540645205
+1,All Population,5,Prevalence,16,Philippines,2,Female,30,80-84 years,515,Asthma,3,Rate,2023,10745.01146330164,15682.510371061,7193.14831144398
+1,All Population,5,Prevalence,16,Philippines,1,Male,31,85-89 years,515,Asthma,3,Rate,2023,10357.62193224898,14875.221974320011,6923.06051118628
+1,All Population,5,Prevalence,16,Philippines,2,Female,31,85-89 years,515,Asthma,3,Rate,2023,11278.06748186876,16442.80857106017,7525.551640392079
+1,All Population,5,Prevalence,16,Philippines,1,Male,32,90-94 years,515,Asthma,3,Rate,2023,10146.26328772938,14912.27072295836,6599.121287431691
+1,All Population,5,Prevalence,16,Philippines,2,Female,32,90-94 years,515,Asthma,3,Rate,2023,11771.55944462209,16965.71079803482,7925.32628091813
+1,All Population,5,Prevalence,16,Philippines,1,Male,41,50-74 years,515,Asthma,3,Rate,2023,6322.3429339962,8361.51073790962,4455.03427461503
+1,All Population,5,Prevalence,16,Philippines,2,Female,41,50-74 years,515,Asthma,3,Rate,2023,7113.544633017351,9332.1289977008,5000.33270402498
+1,All Population,5,Prevalence,16,Philippines,1,Male,160,85+ years,515,Asthma,3,Rate,2023,10294.39307529062,14838.152628605669,6835.33479578424
+1,All Population,5,Prevalence,16,Philippines,2,Female,160,85+ years,515,Asthma,3,Rate,2023,11443.26150752302,16540.29415386881,7743.68404372779
+1,All Population,5,Prevalence,16,Philippines,1,Male,228,55+ years,515,Asthma,3,Rate,2023,7154.88319846197,9371.176090855619,5130.99729611593
+1,All Population,5,Prevalence,16,Philippines,2,Female,228,55+ years,515,Asthma,3,Rate,2023,8004.620909501569,10298.4668632343,5787.3869539732805
+1,All Population,5,Prevalence,16,Philippines,1,Male,231,60+ years,515,Asthma,3,Rate,2023,7867.854660241661,10575.287182557699,5674.87024127689
+1,All Population,5,Prevalence,16,Philippines,2,Female,231,60+ years,515,Asthma,3,Rate,2023,8574.659208972931,11517.64656008102,6259.51759854229
+1,All Population,5,Prevalence,16,Philippines,1,Male,232,65-74 years,515,Asthma,3,Rate,2023,8434.22131242957,11827.621825583059,5734.83391309884
+1,All Population,5,Prevalence,16,Philippines,2,Female,232,65-74 years,515,Asthma,3,Rate,2023,8639.85156997662,12064.1446227261,5688.970751468541
+1,All Population,5,Prevalence,16,Philippines,1,Male,234,75+ years,515,Asthma,3,Rate,2023,10476.71870235982,14560.37746722232,7125.28180150258
+1,All Population,5,Prevalence,16,Philippines,2,Female,234,75+ years,515,Asthma,3,Rate,2023,10654.38418628708,14875.62233260009,7546.66485935795
+1,All Population,5,Prevalence,16,Philippines,1,Male,235,95+ years,515,Asthma,3,Rate,2023,9944.93871649776,15934.56971577611,6205.42185180944
+1,All Population,5,Prevalence,16,Philippines,2,Female,235,95+ years,515,Asthma,3,Rate,2023,12243.42613355491,20268.03613757213,7485.98337671036
+1,All Population,5,Prevalence,16,Philippines,1,Male,243,75-84 years,515,Asthma,3,Rate,2023,10510.41162287176,14685.87277762453,7068.247416519111
+1,All Population,5,Prevalence,16,Philippines,2,Female,243,75-84 years,515,Asthma,3,Rate,2023,10442.43281885676,14497.076082533462,7176.020663712129
+1,All Population,5,Prevalence,16,Philippines,1,Male,420,<70 years,515,Asthma,3,Rate,2023,5542.77859836729,6959.37358376791,4473.73011286607
+1,All Population,5,Prevalence,16,Philippines,2,Female,420,<70 years,515,Asthma,3,Rate,2023,5325.97930473812,6507.74963737088,4395.00114246317
+1,All Population,6,Incidence,16,Philippines,1,Male,8,15-19 years,493,Ischemic heart disease,3,Rate,2023,2.18370148093,5.6049680708,0.48392548693
+1,All Population,6,Incidence,16,Philippines,2,Female,8,15-19 years,493,Ischemic heart disease,3,Rate,2023,2.86591397612,6.09796772645,0.8844267118899999
+1,All Population,6,Incidence,16,Philippines,1,Male,9,20-24 years,493,Ischemic heart disease,3,Rate,2023,5.43030426234,10.678819287060001,2.6801929310399997
+1,All Population,6,Incidence,16,Philippines,2,Female,9,20-24 years,493,Ischemic heart disease,3,Rate,2023,6.20526876073,11.17457417487,3.3218564284
+1,All Population,6,Incidence,16,Philippines,1,Male,10,25-29 years,493,Ischemic heart disease,3,Rate,2023,7.6013136263900005,13.5692705435,3.39687682707
+1,All Population,6,Incidence,16,Philippines,2,Female,10,25-29 years,493,Ischemic heart disease,3,Rate,2023,7.1794605349800005,12.93965407414,3.4858809745
+1,All Population,6,Incidence,16,Philippines,1,Male,11,30-34 years,493,Ischemic heart disease,3,Rate,2023,15.33639685551,23.15675348529,9.71748824643
+1,All Population,6,Incidence,16,Philippines,2,Female,11,30-34 years,493,Ischemic heart disease,3,Rate,2023,11.63889830257,18.20669838676,7.27179419182
+1,All Population,6,Incidence,16,Philippines,1,Male,12,35-39 years,493,Ischemic heart disease,3,Rate,2023,28.654404050700002,46.2159792205,16.74309557639
+1,All Population,6,Incidence,16,Philippines,2,Female,12,35-39 years,493,Ischemic heart disease,3,Rate,2023,19.54475401657,32.47207579303,11.14530367053
+1,All Population,6,Incidence,16,Philippines,1,Male,13,40-44 years,493,Ischemic heart disease,3,Rate,2023,61.79075950871,81.63621343181,42.59588490468
+1,All Population,6,Incidence,16,Philippines,2,Female,13,40-44 years,493,Ischemic heart disease,3,Rate,2023,36.29718084089,49.44469860636,24.9177781283
+1,All Population,6,Incidence,16,Philippines,1,Male,14,45-49 years,493,Ischemic heart disease,3,Rate,2023,121.67907905236001,177.05913663212,72.07249101361
+1,All Population,6,Incidence,16,Philippines,2,Female,14,45-49 years,493,Ischemic heart disease,3,Rate,2023,65.30919040232,97.15499975314,40.29657439627
+1,All Population,6,Incidence,16,Philippines,1,Male,15,50-54 years,493,Ischemic heart disease,3,Rate,2023,206.88067201786998,274.97334047262,143.14412480792
+1,All Population,6,Incidence,16,Philippines,2,Female,15,50-54 years,493,Ischemic heart disease,3,Rate,2023,113.52451685045001,151.32458135208,78.04772485699
+1,All Population,6,Incidence,16,Philippines,1,Male,16,55-59 years,493,Ischemic heart disease,3,Rate,2023,323.09598819624,482.13821617224,207.17724600344
+1,All Population,6,Incidence,16,Philippines,2,Female,16,55-59 years,493,Ischemic heart disease,3,Rate,2023,185.42170965616,285.29643926477,118.19411742631
+1,All Population,6,Incidence,16,Philippines,1,Male,17,60-64 years,493,Ischemic heart disease,3,Rate,2023,506.3924050774,689.01685064546,376.34999259376
+1,All Population,6,Incidence,16,Philippines,2,Female,17,60-64 years,493,Ischemic heart disease,3,Rate,2023,312.07885236452,427.0073343311,230.36001536115
+1,All Population,6,Incidence,16,Philippines,1,Male,18,65-69 years,493,Ischemic heart disease,3,Rate,2023,774.5747803125801,1118.87499474414,483.12047880219995
+1,All Population,6,Incidence,16,Philippines,2,Female,18,65-69 years,493,Ischemic heart disease,3,Rate,2023,509.82783830995004,716.0510960624399,327.84736182889003
+1,All Population,6,Incidence,16,Philippines,1,Male,19,70-74 years,493,Ischemic heart disease,3,Rate,2023,1203.45054741348,1618.68224764493,858.26873623496
+1,All Population,6,Incidence,16,Philippines,2,Female,19,70-74 years,493,Ischemic heart disease,3,Rate,2023,813.77844407975,1087.67149180925,590.44730109839
+1,All Population,6,Incidence,16,Philippines,1,Male,20,75-79 years,493,Ischemic heart disease,3,Rate,2023,1838.1331590087102,2739.89647515899,1166.63221268347
+1,All Population,6,Incidence,16,Philippines,2,Female,20,75-79 years,493,Ischemic heart disease,3,Rate,2023,1271.6863771378498,1898.8718185061398,818.3107933421601
+1,All Population,6,Incidence,16,Philippines,1,Male,21,80+ years,493,Ischemic heart disease,3,Rate,2023,3059.03930848472,3836.28008743782,2386.9618204195303
+1,All Population,6,Incidence,16,Philippines,2,Female,21,80+ years,493,Ischemic heart disease,3,Rate,2023,2788.76660713197,3428.0064875884004,2180.12411362386
+1,All Population,6,Incidence,16,Philippines,1,Male,25,50-69 years,493,Ischemic heart disease,3,Rate,2023,397.9438367089,520.43408599442,309.40240557938
+1,All Population,6,Incidence,16,Philippines,2,Female,25,50-69 years,493,Ischemic heart disease,3,Rate,2023,249.92609200592,327.56968645623,192.89900769936
+1,All Population,6,Incidence,16,Philippines,1,Male,26,70+ years,493,Ischemic heart disease,3,Rate,2023,1761.60872464706,2278.5390423244603,1383.63515422595
+1,All Population,6,Incidence,16,Philippines,2,Female,26,70+ years,493,Ischemic heart disease,3,Rate,2023,1503.01996943828,1866.17715695995,1215.28035992779
+1,All Population,6,Incidence,16,Philippines,1,Male,30,80-84 years,493,Ischemic heart disease,3,Rate,2023,2618.14428584018,3512.77735283836,1877.12902664214
+1,All Population,6,Incidence,16,Philippines,2,Female,30,80-84 years,493,Ischemic heart disease,3,Rate,2023,2033.3610289274902,2706.34903682823,1535.8095233528202
+1,All Population,6,Incidence,16,Philippines,1,Male,31,85-89 years,493,Ischemic heart disease,3,Rate,2023,3444.43790184331,4604.9069049463205,2489.81072302535
+1,All Population,6,Incidence,16,Philippines,2,Female,31,85-89 years,493,Ischemic heart disease,3,Rate,2023,3152.37151942562,4305.064204080109,2218.87939865696
+1,All Population,6,Incidence,16,Philippines,1,Male,32,90-94 years,493,Ischemic heart disease,3,Rate,2023,4782.17592081266,6152.78548976496,3599.89082491831
+1,All Population,6,Incidence,16,Philippines,2,Female,32,90-94 years,493,Ischemic heart disease,3,Rate,2023,5080.782275372269,6450.2560086786,3939.75149246497
+1,All Population,6,Incidence,16,Philippines,1,Male,41,50-74 years,493,Ischemic heart disease,3,Rate,2023,471.62451306454,601.36294114018,374.19748224886996
+1,All Population,6,Incidence,16,Philippines,2,Female,41,50-74 years,493,Ischemic heart disease,3,Rate,2023,312.25106367259,399.24997558338004,244.26136678372
+1,All Population,6,Incidence,16,Philippines,1,Male,160,85+ years,493,Ischemic heart disease,3,Rate,2023,3854.7114131991,5020.67403583703,2923.16485743865
+1,All Population,6,Incidence,16,Philippines,2,Female,160,85+ years,493,Ischemic heart disease,3,Rate,2023,3844.55060167213,4965.206749189801,2977.00591615101
+1,All Population,6,Incidence,16,Philippines,1,Male,228,55+ years,493,Ischemic heart disease,3,Rate,2023,780.61469601394,961.5934880522999,636.64648082374
+1,All Population,6,Incidence,16,Philippines,2,Female,228,55+ years,493,Ischemic heart disease,3,Rate,2023,662.7201134978301,795.13536052932,554.55739113274
+1,All Population,6,Incidence,16,Philippines,1,Male,231,60+ years,493,Ischemic heart disease,3,Rate,2023,998.57215649922,1237.38522656004,810.60480325239
+1,All Population,6,Incidence,16,Philippines,2,Female,231,60+ years,493,Ischemic heart disease,3,Rate,2023,849.55603851356,1014.42085175201,712.26476544741
+1,All Population,6,Incidence,16,Philippines,1,Male,232,65-74 years,493,Ischemic heart disease,3,Rate,2023,939.50161953337,1306.4311211248698,662.6950198337099
+1,All Population,6,Incidence,16,Philippines,2,Female,232,65-74 years,493,Ischemic heart disease,3,Rate,2023,634.29884278084,873.47452063004,446.25852038015
+1,All Population,6,Incidence,16,Philippines,1,Male,234,75+ years,493,Ischemic heart disease,3,Rate,2023,2372.22063966638,3109.19158477621,1785.21386430937
+1,All Population,6,Incidence,16,Philippines,2,Female,234,75+ years,493,Ischemic heart disease,3,Rate,2023,2042.00207372955,2556.96948567,1626.5577636545602
+1,All Population,6,Incidence,16,Philippines,1,Male,235,95+ years,493,Ischemic heart disease,3,Rate,2023,6325.84564778128,8930.83252287283,4419.45490927699
+1,All Population,6,Incidence,16,Philippines,2,Female,235,95+ years,493,Ischemic heart disease,3,Rate,2023,7919.70733390115,11421.50579366128,5197.43814122616
+1,All Population,6,Incidence,16,Philippines,1,Male,243,75-84 years,493,Ischemic heart disease,3,Rate,2023,2098.26329973984,2966.60065749014,1441.0026589281401
+1,All Population,6,Incidence,16,Philippines,2,Female,243,75-84 years,493,Ischemic heart disease,3,Rate,2023,1557.70291203178,2184.2461816617897,1101.9761735555
+1,All Population,6,Incidence,16,Philippines,1,Male,420,<70 years,493,Ischemic heart disease,3,Rate,2023,71.40061085927,89.26138025915999,56.98805792369
+1,All Population,6,Incidence,16,Philippines,2,Female,420,<70 years,493,Ischemic heart disease,3,Rate,2023,47.771520316709996,59.472651211190005,38.23451835173
+1,All Population,6,Incidence,16,Philippines,1,Male,8,15-19 years,494,Stroke,3,Rate,2023,17.87323869407,24.98543364484,12.4407738219
+1,All Population,6,Incidence,16,Philippines,2,Female,8,15-19 years,494,Stroke,3,Rate,2023,17.56015222091,24.00519046541,12.00178240323
+1,All Population,6,Incidence,16,Philippines,1,Male,9,20-24 years,494,Stroke,3,Rate,2023,25.697246630989998,32.84505486682,18.86694047911
+1,All Population,6,Incidence,16,Philippines,2,Female,9,20-24 years,494,Stroke,3,Rate,2023,22.973358993559998,30.92357597419,17.11834070896
+1,All Population,6,Incidence,16,Philippines,1,Male,10,25-29 years,494,Stroke,3,Rate,2023,37.28880294403,49.28592366875,27.82697638816
+1,All Population,6,Incidence,16,Philippines,2,Female,10,25-29 years,494,Stroke,3,Rate,2023,30.98627625191,42.53107371923,22.768261563750002
+1,All Population,6,Incidence,16,Philippines,1,Male,11,30-34 years,494,Stroke,3,Rate,2023,58.944781892529996,72.62492222519,46.48766576156
+1,All Population,6,Incidence,16,Philippines,2,Female,11,30-34 years,494,Stroke,3,Rate,2023,46.24202355952,57.933560756670005,36.2199606228
+1,All Population,6,Incidence,16,Philippines,1,Male,12,35-39 years,494,Stroke,3,Rate,2023,90.80904293337,120.71995783742,71.01023676327999
+1,All Population,6,Incidence,16,Philippines,2,Female,12,35-39 years,494,Stroke,3,Rate,2023,68.84117845839,88.93586337475,52.4879455788
+1,All Population,6,Incidence,16,Philippines,1,Male,13,40-44 years,494,Stroke,3,Rate,2023,142.82003599164,173.08207869113,114.75998527487
+1,All Population,6,Incidence,16,Philippines,2,Female,13,40-44 years,494,Stroke,3,Rate,2023,103.42811275835,125.14533396728,81.93325257454
+1,All Population,6,Incidence,16,Philippines,1,Male,14,45-49 years,494,Stroke,3,Rate,2023,215.61627313995,275.44819555352996,163.26145583328
+1,All Population,6,Incidence,16,Philippines,2,Female,14,45-49 years,494,Stroke,3,Rate,2023,151.0874201303,194.85251756755,113.62498000423
+1,All Population,6,Incidence,16,Philippines,1,Male,15,50-54 years,494,Stroke,3,Rate,2023,307.37324092767,383.16943049507,243.77800641837
+1,All Population,6,Incidence,16,Philippines,2,Female,15,50-54 years,494,Stroke,3,Rate,2023,205.9422448283,260.95534141439,162.3368437434
+1,All Population,6,Incidence,16,Philippines,1,Male,16,55-59 years,494,Stroke,3,Rate,2023,419.26439471359004,535.8943057557,316.08247002915
+1,All Population,6,Incidence,16,Philippines,2,Female,16,55-59 years,494,Stroke,3,Rate,2023,267.18443099338,343.85002860272,210.26326689729
+1,All Population,6,Incidence,16,Philippines,1,Male,17,60-64 years,494,Stroke,3,Rate,2023,578.05173793041,718.77117469261,449.84667072235
+1,All Population,6,Incidence,16,Philippines,2,Female,17,60-64 years,494,Stroke,3,Rate,2023,367.99661494037,455.05515842766,287.75612870718004
+1,All Population,6,Incidence,16,Philippines,1,Male,18,65-69 years,494,Stroke,3,Rate,2023,786.98882776539,1019.0163044762401,568.97765975556
+1,All Population,6,Incidence,16,Philippines,2,Female,18,65-69 years,494,Stroke,3,Rate,2023,507.18623090203,674.64163169035,375.24097823689
+1,All Population,6,Incidence,16,Philippines,1,Male,19,70-74 years,494,Stroke,3,Rate,2023,1112.54248394541,1438.1880562787999,870.1563898906301
+1,All Population,6,Incidence,16,Philippines,2,Female,19,70-74 years,494,Stroke,3,Rate,2023,753.5263720166499,955.5674528866799,600.74291612552
+1,All Population,6,Incidence,16,Philippines,1,Male,20,75-79 years,494,Stroke,3,Rate,2023,1542.8385590656299,1973.2060961215498,1192.0612657711501
+1,All Population,6,Incidence,16,Philippines,2,Female,20,75-79 years,494,Stroke,3,Rate,2023,1109.0282377736398,1416.22553117502,848.3120446528899
+1,All Population,6,Incidence,16,Philippines,1,Male,21,80+ years,494,Stroke,3,Rate,2023,1908.03741530856,2294.4782551867897,1578.6686231284202
+1,All Population,6,Incidence,16,Philippines,2,Female,21,80+ years,494,Stroke,3,Rate,2023,1839.2442974164198,2165.50035267349,1544.01012864254
+1,All Population,6,Incidence,16,Philippines,1,Male,25,50-69 years,494,Stroke,3,Rate,2023,476.55108867861,569.03124952547,385.00437971398
+1,All Population,6,Incidence,16,Philippines,2,Female,25,50-69 years,494,Stroke,3,Rate,2023,313.98529123789,360.20921735562,260.59682271848
+1,All Population,6,Incidence,16,Philippines,1,Male,26,70+ years,494,Stroke,3,Rate,2023,1394.3283329121,1687.24306657168,1159.18265673814
+1,All Population,6,Incidence,16,Philippines,2,Female,26,70+ years,494,Stroke,3,Rate,2023,1161.09127365416,1361.30664232425,982.75299188347
+1,All Population,6,Incidence,16,Philippines,1,Male,30,80-84 years,494,Stroke,3,Rate,2023,1841.1088396840798,2333.42806132332,1424.92952654962
+1,All Population,6,Incidence,16,Philippines,2,Female,30,80-84 years,494,Stroke,3,Rate,2023,1555.11737313375,1923.08471852516,1252.81991684124
+1,All Population,6,Incidence,16,Philippines,1,Male,31,85-89 years,494,Stroke,3,Rate,2023,1983.57559011427,2439.83554585135,1603.0377596676901
+1,All Population,6,Incidence,16,Philippines,2,Female,31,85-89 years,494,Stroke,3,Rate,2023,2065.68620857233,2472.84431974233,1687.17147658724
+1,All Population,6,Incidence,16,Philippines,1,Male,32,90-94 years,494,Stroke,3,Rate,2023,2139.0908073853802,2613.0918316729803,1647.24421489933
+1,All Population,6,Incidence,16,Philippines,2,Female,32,90-94 years,494,Stroke,3,Rate,2023,2579.54520343487,3194.42474879794,1964.31821062123
+1,All Population,6,Incidence,16,Philippines,1,Male,41,50-74 years,494,Stroke,3,Rate,2023,534.72599341484,631.24306350205,432.46177585619
+1,All Population,6,Incidence,16,Philippines,2,Female,41,50-74 years,494,Stroke,3,Rate,2023,362.56961531691,422.14196198981006,306.48342380094005
+1,All Population,6,Incidence,16,Philippines,1,Male,160,85+ years,494,Stroke,3,Rate,2023,2028.8217242654598,2439.42470721273,1639.4482312944901
+1,All Population,6,Incidence,16,Philippines,2,Female,160,85+ years,494,Stroke,3,Rate,2023,2236.35105401274,2624.57466298606,1847.0254759449901
+1,All Population,6,Incidence,16,Philippines,1,Male,228,55+ years,494,Stroke,3,Rate,2023,750.11320355593,879.28633660905,636.6728514622099
+1,All Population,6,Incidence,16,Philippines,2,Female,228,55+ years,494,Stroke,3,Rate,2023,598.26319082002,681.8642575421101,519.44386746651
+1,All Population,6,Incidence,16,Philippines,1,Male,231,60+ years,494,Stroke,3,Rate,2023,907.72635674003,1087.03422940725,770.41754768034
+1,All Population,6,Incidence,16,Philippines,2,Female,231,60+ years,494,Stroke,3,Rate,2023,727.86221283098,844.08450937798,626.83563776347
+1,All Population,6,Incidence,16,Philippines,1,Male,232,65-74 years,494,Stroke,3,Rate,2023,912.18250768228,1167.89839091496,707.2919661513899
+1,All Population,6,Incidence,16,Philippines,2,Female,232,65-74 years,494,Stroke,3,Rate,2023,608.06513761907,765.36390985883,489.06800117727
+1,All Population,6,Incidence,16,Philippines,1,Male,234,75+ years,494,Stroke,3,Rate,2023,1702.59542256702,2081.16758793785,1407.2567734622498
+1,All Population,6,Incidence,16,Philippines,2,Female,234,75+ years,494,Stroke,3,Rate,2023,1479.8042069841401,1754.3075356210102,1237.5910400671
+1,All Population,6,Incidence,16,Philippines,1,Male,235,95+ years,494,Stroke,3,Rate,2023,2253.10227275946,3058.0405644829298,1609.2755009781401
+1,All Population,6,Incidence,16,Philippines,2,Female,235,95+ years,494,Stroke,3,Rate,2023,3042.1586690953,3984.4634521415805,2234.0523971256202
+1,All Population,6,Incidence,16,Philippines,1,Male,243,75-84 years,494,Stroke,3,Rate,2023,1642.3103324855401,2041.77969278093,1303.9951560632999
+1,All Population,6,Incidence,16,Philippines,2,Female,243,75-84 years,494,Stroke,3,Rate,2023,1276.53921959474,1582.84932245533,989.71844600517
+1,All Population,6,Incidence,16,Philippines,1,Male,420,<70 years,494,Stroke,3,Rate,2023,111.31160080528,125.81254956781001,97.90830138507
+1,All Population,6,Incidence,16,Philippines,2,Female,420,<70 years,494,Stroke,3,Rate,2023,82.64927209683,91.85302059875,73.41603253611
+1,All Population,6,Incidence,16,Philippines,1,Male,8,15-19 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,23.29530941693,30.17489546533,16.19216377736
+1,All Population,6,Incidence,16,Philippines,2,Female,8,15-19 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,23.16405941516,30.4881015518,15.72946770056
+1,All Population,6,Incidence,16,Philippines,1,Male,9,20-24 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,32.57161880452,42.5708354484,23.318602018710003
+1,All Population,6,Incidence,16,Philippines,2,Female,9,20-24 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,31.68631684846,41.85041868657,21.25060510701
+1,All Population,6,Incidence,16,Philippines,1,Male,10,25-29 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,36.32678459196,43.59537991744,27.411615974469996
+1,All Population,6,Incidence,16,Philippines,2,Female,10,25-29 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,35.42118800643,43.28136100842,24.865418660969997
+1,All Population,6,Incidence,16,Philippines,1,Male,11,30-34 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,38.31057373637,45.665781555230005,29.034876907319997
+1,All Population,6,Incidence,16,Philippines,2,Female,11,30-34 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,37.46555860641,45.65417266664,27.76896376592
+1,All Population,6,Incidence,16,Philippines,1,Male,12,35-39 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,41.27383806411,47.01249798429,32.81104209896
+1,All Population,6,Incidence,16,Philippines,2,Female,12,35-39 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,39.57644227712,46.47903101175,30.47477883639
+1,All Population,6,Incidence,16,Philippines,1,Male,13,40-44 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,109.85343851664001,160.68883613623998,71.5187486186
+1,All Population,6,Incidence,16,Philippines,2,Female,13,40-44 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,62.387460138760005,86.5259422546,41.70884363511
+1,All Population,6,Incidence,16,Philippines,1,Male,14,45-49 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,242.93670567824,321.56803395221,177.11887845236
+1,All Population,6,Incidence,16,Philippines,2,Female,14,45-49 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,109.33417803725999,159.65538763041,74.06341349865
+1,All Population,6,Incidence,16,Philippines,1,Male,15,50-54 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,330.89220279579996,406.16120852181996,248.25366591718
+1,All Population,6,Incidence,16,Philippines,2,Female,15,50-54 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,155.66504338799,221.9028885222,103.65089326308001
+1,All Population,6,Incidence,16,Philippines,1,Male,16,55-59 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,371.88715296822,433.67861944701997,289.20329144272
+1,All Population,6,Incidence,16,Philippines,2,Female,16,55-59 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,198.48656322125,268.82903456985997,130.6116149774
+1,All Population,6,Incidence,16,Philippines,1,Male,17,60-64 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,578.5217737660599,773.9836826828499,426.99420805991
+1,All Population,6,Incidence,16,Philippines,2,Female,17,60-64 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,254.62422668302,341.04832979873,179.01169382916
+1,All Population,6,Incidence,16,Philippines,1,Male,18,65-69 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,894.30725945372,1168.2573912380599,625.82621206991
+1,All Population,6,Incidence,16,Philippines,2,Female,18,65-69 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,340.47924034314997,482.93142621866,229.68488890024997
+1,All Population,6,Incidence,16,Philippines,1,Male,19,70-74 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1134.2219422626001,1510.9889215814,818.19029963931
+1,All Population,6,Incidence,16,Philippines,2,Female,19,70-74 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,463.09687602843,656.592454492,318.92232308762
+1,All Population,6,Incidence,16,Philippines,1,Male,20,75-79 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1286.86575695397,1645.32253758615,938.2053775530801
+1,All Population,6,Incidence,16,Philippines,2,Female,20,75-79 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,612.03787268774,850.61905429077,439.70259579875
+1,All Population,6,Incidence,16,Philippines,1,Male,21,80+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1455.13422337235,1870.3244677238902,1092.4176741670801
+1,All Population,6,Incidence,16,Philippines,2,Female,21,80+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,864.1876198169701,1154.14389934021,646.3268466746
+1,All Population,6,Incidence,16,Philippines,1,Male,25,50-69 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,488.81197722904,567.42465288051,407.73117275899995
+1,All Population,6,Incidence,16,Philippines,2,Female,25,50-69 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,223.26794919641,274.98636237764,175.06947661658
+1,All Population,6,Incidence,16,Philippines,1,Male,26,70+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1242.27145738622,1524.31786580734,1006.32712722607
+1,All Population,6,Incidence,16,Philippines,2,Female,26,70+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,618.52568226088,764.93253865874,500.94737216011
+1,All Population,6,Incidence,16,Philippines,1,Male,30,80-84 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1416.00344139273,1951.31607888479,1003.91688471098
+1,All Population,6,Incidence,16,Philippines,2,Female,30,80-84 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,777.07820681923,1087.58397442475,535.3720574903999
+1,All Population,6,Incidence,16,Philippines,1,Male,31,85-89 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1510.30923494832,2079.63652565026,1001.3909645873099
+1,All Population,6,Incidence,16,Philippines,2,Female,31,85-89 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,938.12251828632,1328.34925778622,633.67177226151
+1,All Population,6,Incidence,16,Philippines,1,Male,32,90-94 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1562.46233205121,2159.93654291742,1013.06557498506
+1,All Population,6,Incidence,16,Philippines,2,Female,32,90-94 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1082.39028022714,1515.53078555223,716.43951811651
+1,All Population,6,Incidence,16,Philippines,1,Male,41,50-74 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,547.84840997179,629.6024940083901,465.30392718533
+1,All Population,6,Incidence,16,Philippines,2,Female,41,50-74 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,249.77724904180002,302.58036539653,200.02145727434998
+1,All Population,6,Incidence,16,Philippines,1,Male,160,85+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1525.7525566665001,2091.55783866157,1096.89035892278
+1,All Population,6,Incidence,16,Philippines,2,Female,160,85+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,985.93509782131,1339.16781419581,722.55522776212
+1,All Population,6,Incidence,16,Philippines,1,Male,228,55+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,720.9055933073399,822.46928037148,621.32757417873
+1,All Population,6,Incidence,16,Philippines,2,Female,228,55+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,361.58322407344997,424.42594598598,306.72442057528
+1,All Population,6,Incidence,16,Philippines,1,Male,231,60+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,887.1745821355701,1043.88953628476,737.0337968826
+1,All Population,6,Incidence,16,Philippines,2,Female,231,60+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,425.42654567695,507.04029248936,352.19437112656
+1,All Population,6,Incidence,16,Philippines,1,Male,232,65-74 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,986.56794040988,1248.76525735638,738.57276448843
+1,All Population,6,Incidence,16,Philippines,2,Female,232,65-74 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,390.69246574844004,529.93978163418,283.94660470634
+1,All Population,6,Incidence,16,Philippines,1,Male,234,75+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1360.4750850273,1689.04931876393,1065.48087178313
+1,All Population,6,Incidence,16,Philippines,2,Female,234,75+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,740.0699333955799,960.0917707797399,589.04415341527
+1,All Population,6,Incidence,16,Philippines,1,Male,235,95+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1607.90409103761,2469.16325730509,960.853676652
+1,All Population,6,Incidence,16,Philippines,2,Female,235,95+ years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1210.09115919402,1885.33170850659,707.72736631247
+1,All Population,6,Incidence,16,Philippines,1,Male,243,75-84 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,1329.93258365836,1686.5718839032,974.10787821328
+1,All Population,6,Incidence,16,Philippines,2,Female,243,75-84 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,674.0121872787699,894.63452116112,493.13371296773
+1,All Population,6,Incidence,16,Philippines,1,Male,420,<70 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,103.90313835622,118.82524644283,91.00657262116
+1,All Population,6,Incidence,16,Philippines,2,Female,420,<70 years,509,Chronic obstructive pulmonary disease,3,Rate,2023,58.214076434860004,67.04667187157,49.262014338600004
+1,All Population,6,Incidence,16,Philippines,1,Male,8,15-19 years,976,Diabetes mellitus type 2,3,Rate,2023,147.41477597239,197.37234377487,105.79350117782
+1,All Population,6,Incidence,16,Philippines,2,Female,8,15-19 years,976,Diabetes mellitus type 2,3,Rate,2023,141.05214421149,183.07490894197,103.67810810578001
+1,All Population,6,Incidence,16,Philippines,1,Male,9,20-24 years,976,Diabetes mellitus type 2,3,Rate,2023,243.34222738635003,307.69737470236,179.56926725447
+1,All Population,6,Incidence,16,Philippines,2,Female,9,20-24 years,976,Diabetes mellitus type 2,3,Rate,2023,199.09257671147998,256.71188982403,144.28008072741
+1,All Population,6,Incidence,16,Philippines,1,Male,10,25-29 years,976,Diabetes mellitus type 2,3,Rate,2023,277.85007315945,377.58329461626,194.19307225595
+1,All Population,6,Incidence,16,Philippines,2,Female,10,25-29 years,976,Diabetes mellitus type 2,3,Rate,2023,208.7976624442,284.93678980010003,143.79248264951
+1,All Population,6,Incidence,16,Philippines,1,Male,11,30-34 years,976,Diabetes mellitus type 2,3,Rate,2023,337.53599669195,444.61269271678,238.93804830098
+1,All Population,6,Incidence,16,Philippines,2,Female,11,30-34 years,976,Diabetes mellitus type 2,3,Rate,2023,254.39830705008998,338.25114113286,178.93566652851
+1,All Population,6,Incidence,16,Philippines,1,Male,12,35-39 years,976,Diabetes mellitus type 2,3,Rate,2023,425.13355424883997,573.28479102891,305.35859116214
+1,All Population,6,Incidence,16,Philippines,2,Female,12,35-39 years,976,Diabetes mellitus type 2,3,Rate,2023,328.63648223419,443.51460604182,234.31833574615
+1,All Population,6,Incidence,16,Philippines,1,Male,13,40-44 years,976,Diabetes mellitus type 2,3,Rate,2023,492.41348246898,625.91073759803,375.29246235969003
+1,All Population,6,Incidence,16,Philippines,2,Female,13,40-44 years,976,Diabetes mellitus type 2,3,Rate,2023,440.62892728763006,553.19584745735,337.1093646548
+1,All Population,6,Incidence,16,Philippines,1,Male,14,45-49 years,976,Diabetes mellitus type 2,3,Rate,2023,539.15583385979,713.86029893767,386.92293478916
+1,All Population,6,Incidence,16,Philippines,2,Female,14,45-49 years,976,Diabetes mellitus type 2,3,Rate,2023,583.4642734084,782.74309167477,400.65720622354996
+1,All Population,6,Incidence,16,Philippines,1,Male,15,50-54 years,976,Diabetes mellitus type 2,3,Rate,2023,554.97950209975,719.54549123468,399.61086510382995
+1,All Population,6,Incidence,16,Philippines,2,Female,15,50-54 years,976,Diabetes mellitus type 2,3,Rate,2023,699.16265071475,862.50636483793,527.36432673581
+1,All Population,6,Incidence,16,Philippines,1,Male,16,55-59 years,976,Diabetes mellitus type 2,3,Rate,2023,542.3600789337601,682.7831560638799,405.25352924313995
+1,All Population,6,Incidence,16,Philippines,2,Female,16,55-59 years,976,Diabetes mellitus type 2,3,Rate,2023,788.08295933548,962.9019823853,611.18925408306
+1,All Population,6,Incidence,16,Philippines,1,Male,17,60-64 years,976,Diabetes mellitus type 2,3,Rate,2023,486.9222143353,627.1615406127299,351.98700030984
+1,All Population,6,Incidence,16,Philippines,2,Female,17,60-64 years,976,Diabetes mellitus type 2,3,Rate,2023,709.07606262511,886.2478579439301,525.24804576517
+1,All Population,6,Incidence,16,Philippines,1,Male,18,65-69 years,976,Diabetes mellitus type 2,3,Rate,2023,392.13651054108004,495.71108337525,293.60202900986
+1,All Population,6,Incidence,16,Philippines,2,Female,18,65-69 years,976,Diabetes mellitus type 2,3,Rate,2023,488.63223956437,608.0460849715,376.05930129774
+1,All Population,6,Incidence,16,Philippines,1,Male,19,70-74 years,976,Diabetes mellitus type 2,3,Rate,2023,271.96871323677,383.90475579268997,171.81850513154
+1,All Population,6,Incidence,16,Philippines,2,Female,19,70-74 years,976,Diabetes mellitus type 2,3,Rate,2023,299.81252450831,425.24953096389993,183.68860729442
+1,All Population,6,Incidence,16,Philippines,1,Male,20,75-79 years,976,Diabetes mellitus type 2,3,Rate,2023,120.8957159761,157.91634993366,86.38051994118001
+1,All Population,6,Incidence,16,Philippines,2,Female,20,75-79 years,976,Diabetes mellitus type 2,3,Rate,2023,129.30998437834,170.37474818308,89.70993335304
+1,All Population,6,Incidence,16,Philippines,1,Male,21,80+ years,976,Diabetes mellitus type 2,3,Rate,2023,33.10115288951,49.17622893749,21.571754252090003
+1,All Population,6,Incidence,16,Philippines,2,Female,21,80+ years,976,Diabetes mellitus type 2,3,Rate,2023,31.21176024471,46.66063799634,20.15335920939
+1,All Population,6,Incidence,16,Philippines,1,Male,25,50-69 years,976,Diabetes mellitus type 2,3,Rate,2023,509.91583851213,603.9216343021,419.23645880399005
+1,All Population,6,Incidence,16,Philippines,2,Female,25,50-69 years,976,Diabetes mellitus type 2,3,Rate,2023,687.86374484651,789.7679231051899,587.3457934816
+1,All Population,6,Incidence,16,Philippines,1,Male,26,70+ years,976,Diabetes mellitus type 2,3,Rate,2023,181.48112603131,249.19747533336,120.31532654930999
+1,All Population,6,Incidence,16,Philippines,2,Female,26,70+ years,976,Diabetes mellitus type 2,3,Rate,2023,176.17955801860998,239.67302836636998,115.22068263538
+1,All Population,6,Incidence,16,Philippines,1,Male,30,80-84 years,976,Diabetes mellitus type 2,3,Rate,2023,38.24903121028,56.9935339067,23.1983760821
+1,All Population,6,Incidence,16,Philippines,2,Female,30,80-84 years,976,Diabetes mellitus type 2,3,Rate,2023,37.186082330839994,55.26136861285,22.82822731436
+1,All Population,6,Incidence,16,Philippines,1,Male,31,85-89 years,976,Diabetes mellitus type 2,3,Rate,2023,25.23172708848,36.29675392707,15.889091408439999
+1,All Population,6,Incidence,16,Philippines,2,Female,31,85-89 years,976,Diabetes mellitus type 2,3,Rate,2023,24.355928561760003,35.260554220820005,15.31067881177
+1,All Population,6,Incidence,16,Philippines,1,Male,32,90-94 years,976,Diabetes mellitus type 2,3,Rate,2023,19.52601657737,29.20663403378,12.01249120646
+1,All Population,6,Incidence,16,Philippines,2,Female,32,90-94 years,976,Diabetes mellitus type 2,3,Rate,2023,18.79421605744,28.22207115627,11.54174353212
+1,All Population,6,Incidence,16,Philippines,1,Male,41,50-74 years,976,Diabetes mellitus type 2,3,Rate,2023,488.15052620104,570.9636051205799,405.9278859113
+1,All Population,6,Incidence,16,Philippines,2,Female,41,50-74 years,976,Diabetes mellitus type 2,3,Rate,2023,644.97081157446,735.4834940642199,559.88195716553
+1,All Population,6,Incidence,16,Philippines,1,Male,160,85+ years,976,Diabetes mellitus type 2,3,Rate,2023,23.81090698533,34.33858231557,15.31388209755
+1,All Population,6,Incidence,16,Philippines,2,Female,160,85+ years,976,Diabetes mellitus type 2,3,Rate,2023,22.86181708998,32.84313254474,14.73164664749
+1,All Population,6,Incidence,16,Philippines,1,Male,228,55+ years,976,Diabetes mellitus type 2,3,Rate,2023,418.12686566708004,505.71567754967,332.30666208443
+1,All Population,6,Incidence,16,Philippines,2,Female,228,55+ years,976,Diabetes mellitus type 2,3,Rate,2023,533.9540110909601,623.75488374278,433.12387422369
+1,All Population,6,Incidence,16,Philippines,1,Male,231,60+ years,976,Diabetes mellitus type 2,3,Rate,2023,358.94337172715,436.28258633531,282.41560936900004
+1,All Population,6,Incidence,16,Philippines,2,Female,231,60+ years,976,Diabetes mellitus type 2,3,Rate,2023,434.47658410529,519.35959334356,338.76322321721
+1,All Population,6,Incidence,16,Philippines,1,Male,232,65-74 years,976,Diabetes mellitus type 2,3,Rate,2023,345.92523793993996,452.56059675324997,251.81217504371
+1,All Population,6,Incidence,16,Philippines,2,Female,232,65-74 years,976,Diabetes mellitus type 2,3,Rate,2023,411.30855883864,531.61274241547,307.8995601739
+1,All Population,6,Incidence,16,Philippines,1,Male,234,75+ years,976,Diabetes mellitus type 2,3,Rate,2023,82.48983438194,107.20810289044,61.22113342934
+1,All Population,6,Incidence,16,Philippines,2,Female,234,75+ years,976,Diabetes mellitus type 2,3,Rate,2023,79.49943358222,103.49066273203,58.12650246070999
+1,All Population,6,Incidence,16,Philippines,1,Male,235,95+ years,976,Diabetes mellitus type 2,3,Rate,2023,21.73525835952,36.775839867500004,11.81048959761
+1,All Population,6,Incidence,16,Philippines,2,Female,235,95+ years,976,Diabetes mellitus type 2,3,Rate,2023,21.31737911847,36.49388170965,11.605407080800001
+1,All Population,6,Incidence,16,Philippines,1,Male,243,75-84 years,976,Diabetes mellitus type 2,3,Rate,2023,93.33342487594,122.3121708433,68.70594587919001
+1,All Population,6,Incidence,16,Philippines,2,Female,243,75-84 years,976,Diabetes mellitus type 2,3,Rate,2023,94.71652747043001,125.38573931066,68.32713224637
+1,All Population,6,Incidence,16,Philippines,1,Male,420,<70 years,976,Diabetes mellitus type 2,3,Rate,2023,252.97899572115,276.15921548766,229.99785675207
+1,All Population,6,Incidence,16,Philippines,2,Female,420,<70 years,976,Diabetes mellitus type 2,3,Rate,2023,259.6725864813,283.06147536783,236.67429838989
+1,All Population,6,Incidence,16,Philippines,1,Male,8,15-19 years,568,Major depressive disorder,3,Rate,2023,2422.57350562759,3186.7856139670303,1785.03689171031
+1,All Population,6,Incidence,16,Philippines,2,Female,8,15-19 years,568,Major depressive disorder,3,Rate,2023,3485.2398305096,4552.1203074846,2579.25731665255
+1,All Population,6,Incidence,16,Philippines,1,Male,9,20-24 years,568,Major depressive disorder,3,Rate,2023,2293.77619624654,2960.33444861633,1765.6904012652901
+1,All Population,6,Incidence,16,Philippines,2,Female,9,20-24 years,568,Major depressive disorder,3,Rate,2023,3328.2613220182297,4273.17097391806,2571.51448228207
+1,All Population,6,Incidence,16,Philippines,1,Male,10,25-29 years,568,Major depressive disorder,3,Rate,2023,2237.7523515501903,2845.16195909712,1798.5095031802598
+1,All Population,6,Incidence,16,Philippines,2,Female,10,25-29 years,568,Major depressive disorder,3,Rate,2023,3225.39044532858,4080.54961081756,2594.40393595349
+1,All Population,6,Incidence,16,Philippines,1,Male,11,30-34 years,568,Major depressive disorder,3,Rate,2023,2248.1740219549897,2785.75606294004,1820.0897000748398
+1,All Population,6,Incidence,16,Philippines,2,Female,11,30-34 years,568,Major depressive disorder,3,Rate,2023,3175.97138075707,3931.1723151943097,2579.4853936965596
+1,All Population,6,Incidence,16,Philippines,1,Male,12,35-39 years,568,Major depressive disorder,3,Rate,2023,2211.4529308619904,2661.41907165742,1810.7940776088499
+1,All Population,6,Incidence,16,Philippines,2,Female,12,35-39 years,568,Major depressive disorder,3,Rate,2023,3124.21313154055,3752.0954597973605,2566.7843907859497
+1,All Population,6,Incidence,16,Philippines,1,Male,13,40-44 years,568,Major depressive disorder,3,Rate,2023,2182.43391447492,2619.1328818636803,1767.9015611971001
+1,All Population,6,Incidence,16,Philippines,2,Female,13,40-44 years,568,Major depressive disorder,3,Rate,2023,3087.72341883924,3699.0040593362,2514.86258581307
+1,All Population,6,Incidence,16,Philippines,1,Male,14,45-49 years,568,Major depressive disorder,3,Rate,2023,2143.2509493451603,2611.51000503066,1653.5416907056
+1,All Population,6,Incidence,16,Philippines,2,Female,14,45-49 years,568,Major depressive disorder,3,Rate,2023,3037.23920992385,3683.2199475754,2352.40310236723
+1,All Population,6,Incidence,16,Philippines,1,Male,15,50-54 years,568,Major depressive disorder,3,Rate,2023,2130.19592324629,2585.6314360855,1701.9762965773
+1,All Population,6,Incidence,16,Philippines,2,Female,15,50-54 years,568,Major depressive disorder,3,Rate,2023,3005.6452354755197,3626.4105580690502,2407.40876557017
+1,All Population,6,Incidence,16,Philippines,1,Male,16,55-59 years,568,Major depressive disorder,3,Rate,2023,2075.72455978853,2639.12607184778,1644.96760804939
+1,All Population,6,Incidence,16,Philippines,2,Female,16,55-59 years,568,Major depressive disorder,3,Rate,2023,2951.18588934558,3738.88136061807,2351.45136016459
+1,All Population,6,Incidence,16,Philippines,1,Male,17,60-64 years,568,Major depressive disorder,3,Rate,2023,2053.35883900275,2564.2759181498,1650.01676118899
+1,All Population,6,Incidence,16,Philippines,2,Female,17,60-64 years,568,Major depressive disorder,3,Rate,2023,2932.6669786052003,3651.0603277178902,2370.97457457548
+1,All Population,6,Incidence,16,Philippines,1,Male,18,65-69 years,568,Major depressive disorder,3,Rate,2023,2035.3687727537501,2532.14107455642,1617.92812100271
+1,All Population,6,Incidence,16,Philippines,2,Female,18,65-69 years,568,Major depressive disorder,3,Rate,2023,2931.86844443446,3637.5646432845297,2344.13225148952
+1,All Population,6,Incidence,16,Philippines,1,Male,19,70-74 years,568,Major depressive disorder,3,Rate,2023,1978.79732694331,2428.9962666096903,1585.48586948065
+1,All Population,6,Incidence,16,Philippines,2,Female,19,70-74 years,568,Major depressive disorder,3,Rate,2023,2914.72223995278,3566.34829390974,2343.80005617912
+1,All Population,6,Incidence,16,Philippines,1,Male,20,75-79 years,568,Major depressive disorder,3,Rate,2023,1948.9352975804597,2444.64384729603,1530.56822699192
+1,All Population,6,Incidence,16,Philippines,2,Female,20,75-79 years,568,Major depressive disorder,3,Rate,2023,2921.29215550231,3641.02239657207,2308.81006111135
+1,All Population,6,Incidence,16,Philippines,1,Male,21,80+ years,568,Major depressive disorder,3,Rate,2023,1890.61614346883,2378.96456870048,1498.51866274389
+1,All Population,6,Incidence,16,Philippines,2,Female,21,80+ years,568,Major depressive disorder,3,Rate,2023,2879.7847068285,3592.96009527158,2295.69948299225
+1,All Population,6,Incidence,16,Philippines,1,Male,25,50-69 years,568,Major depressive disorder,3,Rate,2023,2082.5628207937702,2550.30928347523,1713.82744993988
+1,All Population,6,Incidence,16,Philippines,2,Female,25,50-69 years,568,Major depressive disorder,3,Rate,2023,2960.78274737227,3617.83545695767,2449.60881605587
+1,All Population,6,Incidence,16,Philippines,1,Male,26,70+ years,568,Major depressive disorder,3,Rate,2023,1952.35297877544,2402.3457745159,1561.30576608755
+1,All Population,6,Incidence,16,Philippines,2,Female,26,70+ years,568,Major depressive disorder,3,Rate,2023,2906.5819223008702,3567.15533964036,2340.82071409592
+1,All Population,6,Incidence,16,Philippines,1,Male,30,80-84 years,568,Major depressive disorder,3,Rate,2023,1900.4441872165,2428.84145621558,1501.25619434201
+1,All Population,6,Incidence,16,Philippines,2,Female,30,80-84 years,568,Major depressive disorder,3,Rate,2023,2897.78600900248,3685.58355321126,2302.57434004584
+1,All Population,6,Incidence,16,Philippines,1,Male,31,85-89 years,568,Major depressive disorder,3,Rate,2023,1875.1213391459899,2329.91607885625,1474.53463307308
+1,All Population,6,Incidence,16,Philippines,2,Female,31,85-89 years,568,Major depressive disorder,3,Rate,2023,2859.2572089227,3542.70701339903,2251.13364409645
+1,All Population,6,Incidence,16,Philippines,1,Male,32,90-94 years,568,Major depressive disorder,3,Rate,2023,1867.04697633117,2329.02113975968,1485.47103137957
+1,All Population,6,Incidence,16,Philippines,2,Female,32,90-94 years,568,Major depressive disorder,3,Rate,2023,2842.88066232238,3536.14581653019,2269.27057656561
+1,All Population,6,Incidence,16,Philippines,1,Male,41,50-74 years,568,Major depressive disorder,3,Rate,2023,2073.07126514603,2506.9289722189696,1699.8763536868798
+1,All Population,6,Incidence,16,Philippines,2,Female,41,50-74 years,568,Major depressive disorder,3,Rate,2023,2955.69148578701,3559.70897548142,2436.84994600098
+1,All Population,6,Incidence,16,Philippines,1,Male,160,85+ years,568,Major depressive disorder,3,Rate,2023,1872.8797212996,2311.0572968248302,1490.81110108633
+1,All Population,6,Incidence,16,Philippines,2,Female,160,85+ years,568,Major depressive disorder,3,Rate,2023,2854.6253920649597,3479.00735772121,2268.82094272503
+1,All Population,6,Incidence,16,Philippines,1,Male,228,55+ years,568,Major depressive disorder,3,Rate,2023,2034.4263868507,2436.55627014407,1633.75903599139
+1,All Population,6,Incidence,16,Philippines,2,Female,228,55+ years,568,Major depressive disorder,3,Rate,2023,2930.0723744533097,3468.90444467306,2373.46906544265
+1,All Population,6,Incidence,16,Philippines,1,Male,231,60+ years,568,Major depressive disorder,3,Rate,2023,2014.7523391179902,2417.34668275939,1617.3792641279501
+1,All Population,6,Incidence,16,Philippines,2,Female,231,60+ years,568,Major depressive disorder,3,Rate,2023,2921.8076011930602,3473.29431031648,2373.73387416784
+1,All Population,6,Incidence,16,Philippines,1,Male,232,65-74 years,568,Major depressive disorder,3,Rate,2023,2013.6138720030401,2481.57805889941,1591.9330815513201
+1,All Population,6,Incidence,16,Philippines,2,Female,232,65-74 years,568,Major depressive disorder,3,Rate,2023,2924.84689141175,3595.8957897381897,2317.09188187996
+1,All Population,6,Incidence,16,Philippines,1,Male,234,75+ years,568,Major depressive disorder,3,Rate,2023,1923.4234839927099,2419.16664759301,1524.38207351318
+1,All Population,6,Incidence,16,Philippines,2,Female,234,75+ years,568,Major depressive disorder,3,Rate,2023,2900.21625021612,3627.3238837659496,2317.07553693726
+1,All Population,6,Incidence,16,Philippines,1,Male,235,95+ years,568,Major depressive disorder,3,Rate,2023,1864.0017608741298,2457.95677118734,1463.69285772552
+1,All Population,6,Incidence,16,Philippines,2,Female,235,95+ years,568,Major depressive disorder,3,Rate,2023,2845.35386912893,3729.2138150882697,2243.7863525744497
+1,All Population,6,Incidence,16,Philippines,1,Male,243,75-84 years,568,Major depressive disorder,3,Rate,2023,1932.7637342151702,2424.8956720872397,1533.22991612016
+1,All Population,6,Incidence,16,Philippines,2,Female,243,75-84 years,568,Major depressive disorder,3,Rate,2023,2912.46535976375,3628.63460801628,2322.97427655824
+1,All Population,6,Incidence,16,Philippines,1,Male,420,<70 years,568,Major depressive disorder,3,Rate,2023,1726.1433952524399,2024.37215220436,1472.68441368655
+1,All Population,6,Incidence,16,Philippines,2,Female,420,<70 years,568,Major depressive disorder,3,Rate,2023,2511.90301461508,2929.49516257091,2154.17780752321
+1,All Population,6,Incidence,16,Philippines,1,Male,8,15-19 years,515,Asthma,3,Rate,2023,905.4581571877101,1507.57389760486,425.26940785544
+1,All Population,6,Incidence,16,Philippines,2,Female,8,15-19 years,515,Asthma,3,Rate,2023,921.9390640240299,1482.0468407118099,441.59157942933996
+1,All Population,6,Incidence,16,Philippines,1,Male,9,20-24 years,515,Asthma,3,Rate,2023,638.81528117418,1210.45993111869,276.07965930346
+1,All Population,6,Incidence,16,Philippines,2,Female,9,20-24 years,515,Asthma,3,Rate,2023,550.50395563117,1058.88058036305,250.1259841372
+1,All Population,6,Incidence,16,Philippines,1,Male,10,25-29 years,515,Asthma,3,Rate,2023,577.8241290446999,879.9176306786,337.16023808962
+1,All Population,6,Incidence,16,Philippines,2,Female,10,25-29 years,515,Asthma,3,Rate,2023,596.97850664935,906.52474011564,343.10140278504
+1,All Population,6,Incidence,16,Philippines,1,Male,11,30-34 years,515,Asthma,3,Rate,2023,543.8098276568,857.51608733692,302.19073058291997
+1,All Population,6,Incidence,16,Philippines,2,Female,11,30-34 years,515,Asthma,3,Rate,2023,617.20261735257,931.4746987019,352.29759569627
+1,All Population,6,Incidence,16,Philippines,1,Male,12,35-39 years,515,Asthma,3,Rate,2023,540.1636939648299,917.19720633241,307.28870469841996
+1,All Population,6,Incidence,16,Philippines,2,Female,12,35-39 years,515,Asthma,3,Rate,2023,614.91367031961,1045.5048412892,350.1136827545
+1,All Population,6,Incidence,16,Philippines,1,Male,13,40-44 years,515,Asthma,3,Rate,2023,537.4276269813,961.85921785242,266.40875879603
+1,All Population,6,Incidence,16,Philippines,2,Female,13,40-44 years,515,Asthma,3,Rate,2023,598.19416185097,1028.4075326524899,308.44589592064
+1,All Population,6,Incidence,16,Philippines,1,Male,14,45-49 years,515,Asthma,3,Rate,2023,536.9103868753899,953.05084971739,243.49839794949997
+1,All Population,6,Incidence,16,Philippines,2,Female,14,45-49 years,515,Asthma,3,Rate,2023,568.0389252789901,1027.67524997379,249.54242998915
+1,All Population,6,Incidence,16,Philippines,1,Male,15,50-54 years,515,Asthma,3,Rate,2023,527.03575066855,929.2407018301601,307.30499174676004
+1,All Population,6,Incidence,16,Philippines,2,Female,15,50-54 years,515,Asthma,3,Rate,2023,560.9499415156599,975.5380455434399,327.01431722052
+1,All Population,6,Incidence,16,Philippines,1,Male,16,55-59 years,515,Asthma,3,Rate,2023,508.18088601825997,963.01776167051,192.26758892999
+1,All Population,6,Incidence,16,Philippines,2,Female,16,55-59 years,515,Asthma,3,Rate,2023,576.76985331924,1097.4923442404,219.26320333796002
+1,All Population,6,Incidence,16,Philippines,1,Male,17,60-64 years,515,Asthma,3,Rate,2023,694.32777448901,1142.8260056707,367.08888123386
+1,All Population,6,Incidence,16,Philippines,2,Female,17,60-64 years,515,Asthma,3,Rate,2023,704.4636263328799,1215.5170194985399,340.82724307297997
+1,All Population,6,Incidence,16,Philippines,1,Male,18,65-69 years,515,Asthma,3,Rate,2023,1070.63747264104,1754.24042879332,448.50093719555
+1,All Population,6,Incidence,16,Philippines,2,Female,18,65-69 years,515,Asthma,3,Rate,2023,938.52115111175,1625.18853167531,390.47019486832
+1,All Population,6,Incidence,16,Philippines,1,Male,19,70-74 years,515,Asthma,3,Rate,2023,1160.8776381924001,1847.37877983087,501.32334248857
+1,All Population,6,Incidence,16,Philippines,2,Female,19,70-74 years,515,Asthma,3,Rate,2023,1036.88885526587,1708.22597403471,431.46309045965
+1,All Population,6,Incidence,16,Philippines,1,Male,20,75-79 years,515,Asthma,3,Rate,2023,1008.69106419549,1572.6950839577698,585.98806173567
+1,All Population,6,Incidence,16,Philippines,2,Female,20,75-79 years,515,Asthma,3,Rate,2023,1022.73439851753,1639.0578999313,586.71980003953
+1,All Population,6,Incidence,16,Philippines,1,Male,21,80+ years,515,Asthma,3,Rate,2023,962.15670260805,1487.53418189141,558.24307167027
+1,All Population,6,Incidence,16,Philippines,2,Female,21,80+ years,515,Asthma,3,Rate,2023,1124.8628419622698,1679.10539771405,702.88926189727
+1,All Population,6,Incidence,16,Philippines,1,Male,25,50-69 years,515,Asthma,3,Rate,2023,647.13597301784,894.75234371742,422.43918368360994
+1,All Population,6,Incidence,16,Philippines,2,Female,25,50-69 years,515,Asthma,3,Rate,2023,666.05753070635,957.54570958784,424.77226644607
+1,All Population,6,Incidence,16,Philippines,1,Male,26,70+ years,515,Asthma,3,Rate,2023,1078.47790158887,1500.8076432063901,666.48384074749
+1,All Population,6,Incidence,16,Philippines,2,Female,26,70+ years,515,Asthma,3,Rate,2023,1058.04633711616,1494.86722100168,674.5133497621899
+1,All Population,6,Incidence,16,Philippines,1,Male,30,80-84 years,515,Asthma,3,Rate,2023,947.7766087203,1651.9322539427599,474.59426084979
+1,All Population,6,Incidence,16,Philippines,2,Female,30,80-84 years,515,Asthma,3,Rate,2023,1065.57944572233,1777.60145865134,541.38830486421
+1,All Population,6,Incidence,16,Philippines,1,Male,31,85-89 years,515,Asthma,3,Rate,2023,979.3005809327,1475.1497727981,620.92587906887
+1,All Population,6,Incidence,16,Philippines,2,Female,31,85-89 years,515,Asthma,3,Rate,2023,1174.0280681060601,1734.58430202982,746.91414748096
+1,All Population,6,Incidence,16,Philippines,1,Male,32,90-94 years,515,Asthma,3,Rate,2023,1009.18120561198,1651.62096996881,576.79735150629
+1,All Population,6,Incidence,16,Philippines,2,Female,32,90-94 years,515,Asthma,3,Rate,2023,1275.42650228569,2085.25793391016,723.54669675315
+1,All Population,6,Incidence,16,Philippines,1,Male,41,50-74 years,515,Asthma,3,Rate,2023,694.12854658563,954.6412125454,477.68822602341004
+1,All Population,6,Incidence,16,Philippines,2,Female,41,50-74 years,515,Asthma,3,Rate,2023,707.0470764824399,992.16546001727,477.92825133917
+1,All Population,6,Incidence,16,Philippines,1,Male,160,85+ years,515,Asthma,3,Rate,2023,988.1080946220301,1512.1895266517502,626.99822267836
+1,All Population,6,Incidence,16,Philippines,2,Female,160,85+ years,515,Asthma,3,Rate,2023,1207.71960486953,1846.83680722445,746.43917091055
+1,All Population,6,Incidence,16,Philippines,1,Male,228,55+ years,515,Asthma,3,Rate,2023,791.7225941695799,1095.47853231647,558.6679172384
+1,All Population,6,Incidence,16,Philippines,2,Female,228,55+ years,515,Asthma,3,Rate,2023,815.78786201891,1123.69807134114,592.65514279293
+1,All Population,6,Incidence,16,Philippines,1,Male,231,60+ years,515,Asthma,3,Rate,2023,926.7991049096499,1320.7324075233,626.23041007884
+1,All Population,6,Incidence,16,Philippines,2,Female,231,60+ years,515,Asthma,3,Rate,2023,909.3501919814299,1275.13535611179,657.66481162238
+1,All Population,6,Incidence,16,Philippines,1,Male,232,65-74 years,515,Asthma,3,Rate,2023,1105.33988862446,1778.16847164931,460.20512323131004
+1,All Population,6,Incidence,16,Philippines,2,Female,232,65-74 years,515,Asthma,3,Rate,2023,978.8037717452901,1639.1975448246098,415.90728166874
+1,All Population,6,Incidence,16,Philippines,1,Male,234,75+ years,515,Asthma,3,Rate,2023,988.3345282284,1567.45730519666,604.44136491185
+1,All Population,6,Incidence,16,Philippines,2,Female,234,75+ years,515,Asthma,3,Rate,2023,1074.59134154438,1648.61936513672,651.26817032459
+1,All Population,6,Incidence,16,Philippines,1,Male,235,95+ years,515,Asthma,3,Rate,2023,1034.13197348132,1976.09620764979,430.92064576413003
+1,All Population,6,Incidence,16,Philippines,2,Female,235,95+ years,515,Asthma,3,Rate,2023,1367.0262065585,2539.79648536247,581.2075879468
+1,All Population,6,Incidence,16,Philippines,1,Male,243,75-84 years,515,Asthma,3,Rate,2023,988.37637209656,1591.36671812695,575.02186473575
+1,All Population,6,Incidence,16,Philippines,2,Female,243,75-84 years,515,Asthma,3,Rate,2023,1038.82314705353,1701.6004321722698,589.9305624835599
+1,All Population,6,Incidence,16,Philippines,1,Male,420,<70 years,515,Asthma,3,Rate,2023,1437.38646653824,1808.3819367686501,1127.85467274054
+1,All Population,6,Incidence,16,Philippines,2,Female,420,<70 years,515,Asthma,3,Rate,2023,1236.82735734116,1518.98059466896,983.68997550896
+1,All Population,6,Incidence,16,Philippines,1,Male,8,15-19 years,571,Anxiety disorders,3,Rate,2023,237.88256719999,363.768665,137.46538999998998
+1,All Population,6,Incidence,16,Philippines,2,Female,8,15-19 years,571,Anxiety disorders,3,Rate,2023,383.56045439999997,608.2483575,212.5409775
+1,All Population,6,Incidence,16,Philippines,1,Male,9,20-24 years,571,Anxiety disorders,3,Rate,2023,246.33244399999,415.1554375,154.41729999999
+1,All Population,6,Incidence,16,Philippines,2,Female,9,20-24 years,571,Anxiety disorders,3,Rate,2023,401.14834039999,695.8933525,244.8129725
+1,All Population,6,Incidence,16,Philippines,1,Male,10,25-29 years,571,Anxiety disorders,3,Rate,2023,246.2846188,433.88015749999,151.56471249999998
+1,All Population,6,Incidence,16,Philippines,2,Female,10,25-29 years,571,Anxiety disorders,3,Rate,2023,405.64514959999997,732.9716575,242.2325775
+1,All Population,6,Incidence,16,Philippines,1,Male,11,30-34 years,571,Anxiety disorders,3,Rate,2023,247.95504759999002,408.09526250000005,151.490845
+1,All Population,6,Incidence,16,Philippines,2,Female,11,30-34 years,571,Anxiety disorders,3,Rate,2023,412.4056196,690.22431499999,247.02626249999
+1,All Population,6,Incidence,16,Philippines,1,Male,12,35-39 years,571,Anxiety disorders,3,Rate,2023,251.16514679999,394.19783750000005,164.54463750000002
+1,All Population,6,Incidence,16,Philippines,2,Female,12,35-39 years,571,Anxiety disorders,3,Rate,2023,421.1685612,669.0843475,271.9480425
+1,All Population,6,Incidence,16,Philippines,1,Male,13,40-44 years,571,Anxiety disorders,3,Rate,2023,262.17023399999,384.04945499999997,161.3630475
+1,All Population,6,Incidence,16,Philippines,2,Female,13,40-44 years,571,Anxiety disorders,3,Rate,2023,439.4708132,652.39501499999,267.209285
+1,All Population,6,Incidence,16,Philippines,1,Male,14,45-49 years,571,Anxiety disorders,3,Rate,2023,280.60097639999003,497.48860749999994,162.05284
+1,All Population,6,Incidence,16,Philippines,2,Female,14,45-49 years,571,Anxiety disorders,3,Rate,2023,466.71146159999006,838.2045125,265.71858749999996
+1,All Population,6,Incidence,16,Philippines,1,Male,15,50-54 years,571,Anxiety disorders,3,Rate,2023,295.27497679999,475.04038749999,175.44095
+1,All Population,6,Incidence,16,Philippines,2,Female,15,50-54 years,571,Anxiety disorders,3,Rate,2023,479.8685724,786.5483274999999,282.09249249999
+1,All Population,6,Incidence,16,Philippines,1,Male,16,55-59 years,571,Anxiety disorders,3,Rate,2023,306.03344439999,478.06248499999003,168.98010749999
+1,All Population,6,Incidence,16,Philippines,2,Female,16,55-59 years,571,Anxiety disorders,3,Rate,2023,478.74590799999,755.13610749999,262.90826999999996
+1,All Population,6,Incidence,16,Philippines,1,Male,17,60-64 years,571,Anxiety disorders,3,Rate,2023,319.72971599999,490.93235499998997,178.63892499999
+1,All Population,6,Incidence,16,Philippines,2,Female,17,60-64 years,571,Anxiety disorders,3,Rate,2023,478.72940040000003,735.5811024999999,260.846525
+1,All Population,6,Incidence,16,Philippines,1,Male,18,65-69 years,571,Anxiety disorders,3,Rate,2023,336.3392124,609.39758499999,204.14495499999998
+1,All Population,6,Incidence,16,Philippines,2,Female,18,65-69 years,571,Anxiety disorders,3,Rate,2023,479.8851176,865.434925,292.9800625
+1,All Population,6,Incidence,16,Philippines,1,Male,19,70-74 years,571,Anxiety disorders,3,Rate,2023,345.2765284,638.45904249999,218.101965
+1,All Population,6,Incidence,16,Philippines,2,Female,19,70-74 years,571,Anxiety disorders,3,Rate,2023,472.9654124,881.2895024999901,298.14886999999
+1,All Population,6,Incidence,16,Philippines,1,Male,20,75-79 years,571,Anxiety disorders,3,Rate,2023,346.11677759999,561.10426499999,208.8298775
+1,All Population,6,Incidence,16,Philippines,2,Female,20,75-79 years,571,Anxiety disorders,3,Rate,2023,457.52440639999,747.1954525,275.9921825
+1,All Population,6,Incidence,16,Philippines,1,Male,21,80+ years,571,Anxiety disorders,3,Rate,2023,356.11570419711,562.41216700674,227.32435941344
+1,All Population,6,Incidence,16,Philippines,2,Female,21,80+ years,571,Anxiety disorders,3,Rate,2023,455.20421516283005,715.6194727482,290.97794502971
+1,All Population,6,Incidence,16,Philippines,1,Male,25,50-69 years,571,Anxiety disorders,3,Rate,2023,310.37347519498,453.51345114333,209.68674269554
+1,All Population,6,Incidence,16,Philippines,2,Female,25,50-69 years,571,Anxiety disorders,3,Rate,2023,479.30362376051,709.9785231250901,319.48725939671
+1,All Population,6,Incidence,16,Philippines,1,Male,26,70+ years,571,Anxiety disorders,3,Rate,2023,347.76666942277,588.67481903257,222.99140237894997
+1,All Population,6,Incidence,16,Philippines,2,Female,26,70+ years,571,Anxiety disorders,3,Rate,2023,463.63927577062003,780.30104993437,293.47617152733
+1,All Population,6,Incidence,16,Philippines,1,Male,30,80-84 years,571,Anxiety disorders,3,Rate,2023,351.43128119999,571.87382499999,209.0695175
+1,All Population,6,Incidence,16,Philippines,2,Female,30,80-84 years,571,Anxiety disorders,3,Rate,2023,452.11908359999,738.1178249999899,267.85787999999
+1,All Population,6,Incidence,16,Philippines,1,Male,31,85-89 years,571,Anxiety disorders,3,Rate,2023,360.5796876,560.70640749999,226.7822575
+1,All Population,6,Incidence,16,Philippines,2,Female,31,85-89 years,571,Anxiety disorders,3,Rate,2023,455.76828,709.7593625,285.87142
+1,All Population,6,Incidence,16,Philippines,1,Male,32,90-94 years,571,Anxiety disorders,3,Rate,2023,373.45569399999,593.480885,193.2822625
+1,All Population,6,Incidence,16,Philippines,2,Female,32,90-94 years,571,Anxiety disorders,3,Rate,2023,466.08876759999,740.08175999999,241.4872475
+1,All Population,6,Incidence,16,Philippines,1,Male,41,50-74 years,571,Anxiety disorders,3,Rate,2023,313.56609982845,468.21962402623996,216.04228699638003
+1,All Population,6,Incidence,16,Philippines,2,Female,41,50-74 years,571,Anxiety disorders,3,Rate,2023,478.60303460448,724.19664245863,325.56804896297
+1,All Population,6,Incidence,16,Philippines,1,Male,160,85+ years,571,Anxiety disorders,3,Rate,2023,364.56956399152,550.2835207229,218.71569134319
+1,All Population,6,Incidence,16,Philippines,2,Female,160,85+ years,571,Anxiety disorders,3,Rate,2023,459.51611412025,690.7187885434399,272.57552430031
+1,All Population,6,Incidence,16,Philippines,1,Male,228,55+ years,571,Anxiety disorders,3,Rate,2023,324.75721504119997,471.46828068430995,216.71251334705997
+1,All Population,6,Incidence,16,Philippines,2,Female,228,55+ years,571,Anxiety disorders,3,Rate,2023,474.51966183643,706.8435333263,312.35825708547003
+1,All Population,6,Incidence,16,Philippines,1,Male,231,60+ years,571,Anxiety disorders,3,Rate,2023,333.67703718165995,502.24816365024,229.97493688206998
+1,All Population,6,Incidence,16,Philippines,2,Female,231,60+ years,571,Anxiety disorders,3,Rate,2023,472.86532022339,710.78303730067,322.85175773168
+1,All Population,6,Incidence,16,Philippines,1,Male,232,65-74 years,571,Anxiety disorders,3,Rate,2023,339.77611276152,613.88326875098,203.90130024951998
+1,All Population,6,Incidence,16,Philippines,2,Female,232,65-74 years,571,Anxiety disorders,3,Rate,2023,477.05142475471996,860.25720035961,285.07552401672
+1,All Population,6,Incidence,16,Philippines,1,Male,234,75+ years,571,Anxiety disorders,3,Rate,2023,350.49082512021,548.13301596743,221.69915515388
+1,All Population,6,Incidence,16,Philippines,2,Female,234,75+ years,571,Anxiety disorders,3,Rate,2023,456.34630144961,710.64763549515,288.82841118631
+1,All Population,6,Incidence,16,Philippines,1,Male,235,95+ years,571,Anxiety disorders,3,Rate,2023,389.4069624,688.5651225,174.5534025
+1,All Population,6,Incidence,16,Philippines,2,Female,235,95+ years,571,Anxiety disorders,3,Rate,2023,482.20829079999004,854.13185999999,216.3760925
+1,All Population,6,Incidence,16,Philippines,1,Male,243,75-84 years,571,Anxiety disorders,3,Rate,2023,347.88914022641,550.94923840913,209.86460877016
+1,All Population,6,Incidence,16,Philippines,2,Female,243,75-84 years,571,Anxiety disorders,3,Rate,2023,455.49465302222,722.96948743576,274.50481237127
+1,All Population,6,Incidence,16,Philippines,1,Male,420,<70 years,571,Anxiety disorders,3,Rate,2023,282.38913417946,375.45728129758,210.78038469643
+1,All Population,6,Incidence,16,Philippines,2,Female,420,<70 years,571,Anxiety disorders,3,Rate,2023,420.33663702986,568.5469582071499,307.41509313919

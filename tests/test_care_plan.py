@@ -150,7 +150,7 @@ def plans_for(email, tiers):
         set_request_identity(session, user_id=user_id)
         patient_id = session.scalar(select(Patient.patient_id))
         set_request_identity(session, user_id=user_id, patient_id=patient_id)
-        return care_plan.build_care_plans(session, tiers, include_drafts=True)
+        return care_plan.build_care_plans(session, patient_id, tiers, include_drafts=True)
 
 
 def codes(plan):
@@ -191,3 +191,31 @@ def test_templates_used_names_each_version(make_patient):
     used = care_plan.templates_used(plans)
     assert set(used) == {"CVD", "NEURO"}
     assert all(set(v) == {"template_id", "version"} for v in used.values())
+
+def test_facts_come_only_from_the_given_patient(make_patient):
+    """Second layer: with the RLS identity of a patient whose data fires add-ons, asking for
+    another patient must not use that data (the other patient's row is simply not visible)."""
+    smoker_email, smoker = make_patient()
+    send(smoker, "/lifestyle", {"smoking_status": "current", "pack_years": 10})
+    other_email, _ = make_patient()
+    with SessionLocal() as session:
+        ids = {}
+        for email in (smoker_email, other_email):
+            user_id = session.scalar(select(User.user_id).where(User.email == email))
+            set_request_identity(session, user_id=user_id)
+            ids[email] = (user_id, session.scalar(select(Patient.patient_id)))
+        set_request_identity(session, user_id=ids[smoker_email][0], patient_id=ids[smoker_email][1])
+        assert care_plan.patient_facts(session, ids[smoker_email][1])["smoking_status"] == "current"
+        assert care_plan.patient_facts(session, ids[other_email][1])["smoking_status"] is None
+
+
+def test_a_lab_without_a_sample_date_counts_from_the_day_it_was_saved(make_patient):
+    email, headers = make_patient()
+    send(headers, "/labs", {"test_code": "TSH", "value": 2.0, "unit": "mIU/L", "collected_on": "2025-01-15"})
+    send(headers, "/labs", {"test_code": "TSH", "value": 6.0, "unit": "mIU/L"})  # no date, saved today
+    with SessionLocal() as session:
+        user_id = session.scalar(select(User.user_id).where(User.email == email))
+        set_request_identity(session, user_id=user_id)
+        patient_id = session.scalar(select(Patient.patient_id))
+        set_request_identity(session, user_id=user_id, patient_id=patient_id)
+        assert care_plan.patient_facts(session, patient_id)["tsh"] == 6.0

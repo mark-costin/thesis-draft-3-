@@ -190,6 +190,41 @@ def test_a_changed_model_file_stops_the_app_from_starting(model_dir, monkeypatch
     assert model_registry.ACTIVE == {}
 
 
+def test_a_file_swapped_after_the_check_is_never_loaded(model_dir, monkeypatch):
+    """Time-of-check / time-of-use: the bytes that were hashed are the bytes that are loaded.
+    The file is swapped right after it is read; the model must still be the checked one, and the
+    swapped file must never be read."""
+    good = train_xgboost(model_dir / "neuro_v1.json", seed=0)
+    row = registered(good)
+    expected = model_registry.load_model(row).probability({name: 1.0 for name in NEURO})
+    evil = train_xgboost(model_dir / "evil.json", seed=99).read_bytes()
+
+    real_read_bytes = type(good).read_bytes
+    reads = []
+
+    def read_then_swap(self):
+        data = real_read_bytes(self)
+        reads.append(self.name)
+        if self == good:
+            good.write_bytes(evil)  # an attacker swaps the file right after the read
+        return data
+
+    monkeypatch.setattr(type(good), "read_bytes", read_then_swap)
+    loaded = model_registry.load_model(row)
+    assert reads == ["neuro_v1.json"]  # read exactly once
+    assert loaded.probability({name: 1.0 for name in NEURO}) == expected  # the checked model, not the swapped one
+
+
+def test_a_joblib_model_is_loaded_from_the_checked_bytes(model_dir, monkeypatch):
+    import joblib
+    path = train_calibrated(model_dir / "neuro_v1.joblib")
+    seen = []
+    real_load = joblib.load
+    monkeypatch.setattr(joblib, "load", lambda source, *a, **k: seen.append(type(source).__name__) or real_load(source, *a, **k))
+    model_registry.load_model(registered(path))
+    assert seen == ["BytesIO"]  # never a path: nothing on disk is opened after the check
+
+
 # ---------------------------------------------------------------------------
 # Encoding and package versions
 # ---------------------------------------------------------------------------
@@ -219,3 +254,20 @@ def test_a_model_built_with_other_package_versions_is_refused(model_dir):
     other.metrics = {"versions": {"xgboost": "0.0.1"}}
     with pytest.raises(model_registry.ModelError, match="xgboost 0.0.1"):
         model_registry.load_model(other)
+
+
+def test_without_versions_the_model_is_refused_when_risk_models_are_on(model_dir, monkeypatch):
+    row = registered(train_xgboost(model_dir / "neuro_v1.json"))
+    row.metrics = {"auroc": 0.8}  # no "versions"
+    monkeypatch.setattr(settings, "risk_models_enabled", True)
+    with pytest.raises(model_registry.ModelError, match='no "versions"'):
+        model_registry.load_model(row)
+
+
+def test_without_versions_only_a_warning_while_risk_models_are_off(model_dir, monkeypatch, caplog):
+    row = registered(train_xgboost(model_dir / "neuro_v1.json"))
+    row.metrics = None
+    monkeypatch.setattr(settings, "risk_models_enabled", False)
+    with caplog.at_level("WARNING", logger="backend.model_registry"):
+        assert model_registry.load_model(row).disease == "NEURO"
+    assert 'no "versions"' in caplog.text

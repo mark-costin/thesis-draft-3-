@@ -32,14 +32,14 @@ def list_vitals(response: Response, limit: int = Query(default=20, ge=1, le=100)
                 current: CurrentUser = Depends(get_current_user),
                 db: Session = Depends(get_db)) -> list[VitalsResponse]:
     response.headers.update(NO_STORE)
-    return [VitalsResponse.model_validate(row) for row in services.list_vitals(db, limit)]
+    return [VitalsResponse.model_validate(row) for row in services.list_vitals(db, current.patient_id, limit)]
 
 
 @router.get("/{vitals_id}", response_model=VitalsResponse)
 def read_vitals(vitals_id: int, response: Response, current: CurrentUser = Depends(get_current_user),
                 db: Session = Depends(get_db)) -> VitalsResponse:
     try:
-        row = services.get_vitals(db, vitals_id)
+        row = services.get_vitals(db, current.patient_id, vitals_id)
     except services.NotFound:
         raise _NOT_FOUND
     response.headers.update(NO_STORE)

@@ -32,6 +32,7 @@ def test_guide_worked_example_john():
     assert result.clustering_score == 1.0
     assert result.environmental_modifier == 1.15
     assert result.calculated_fhrs == 4.169  # 3.625 x 1.15
+    assert round(result.calculated_fhrs, 2) == 4.17  # the guide's figure
     assert result.risk_band == "Pronounced"
     assert result.affected_relatives == 3
 
@@ -47,11 +48,25 @@ def test_guide_worked_example_john():
     ("CRD", "Asthma", "Male", 40, "typical"), ("CRD", "Asthma", "Male", 41, "late"),
     ("CRD", "COPD", "Male", 39, "severe_early"), ("CRD", "Emphysema", "Male", 64, "typical"),
     ("CRD", "COPD", "Male", 65, "late"),
-    ("NEURO", "Depression", "Female", 17, "severe_early"), ("NEURO", "Depression", "Female", 25, "early"),
-    ("NEURO", "Anxiety", "Female", 40, "typical"), ("NEURO", "Depression", "Female", 41, "late"),
+    # Depression: under 18 / 18-24 / 25-40 / over 40
+    ("NEURO", "Depression", "Female", 17, "severe_early"), ("NEURO", "Depression", "Female", 18, "early"),
+    ("NEURO", "Depression", "Female", 24, "early"), ("NEURO", "Depression", "Female", 25, "typical"),
+    ("NEURO", "Depression", "Female", 40, "typical"), ("NEURO", "Depression", "Female", 41, "late"),
+    # Anxiety: always typical, whatever the age
+    ("NEURO", "Anxiety", "Female", 15, "typical"), ("NEURO", "Generalized anxiety disorder", "Male", 70, "typical"),
+    ("NEURO", "GAD", "Female", 15, "typical"),
 ])
 def test_onset_cutoffs_from_the_guide(domain, diagnosis, sex, age, expected):
     assert fhrs.onset_from_age(domain, diagnosis, sex, age) == expected
+
+
+@pytest.mark.parametrize("domain, modifier", [("CVD", 1.15), ("CRD", 1.15), ("T2D", 1.0), ("NEURO", 1.0)])
+def test_shared_household_modifier_per_disease(domain, modifier):
+    """FHRS Guide: household smoke +0.15 for CVD and CRD only. NEURO has no modifier; T2D has
+    none until the group sets one."""
+    result = fhrs.calculate(domain, [E("father", domain, "typical", "yes", True)])
+    assert result.environmental_modifier == modifier
+    assert result.calculated_fhrs == round(0.5 * modifier, 3)
 
 
 @pytest.mark.parametrize("score, band", [(0, "Baseline"), (0.047, "Mild"), (1.75, "Mild"), (1.76, "Moderate"),
@@ -187,6 +202,7 @@ def test_duplicate_entry_is_refused(make_patient):
 def test_family_history_is_per_patient(make_patient):
     headers_a, headers_b = make_patient(), make_patient()
     record_id = add(headers_a, diagnosis_confirmed="yes").json()["record_id"]
+    fhrs_a = fhrs_by_domain(headers_a)
     assert client.get("/family-history", headers=headers_b).json() == []
     assert client.get("/family-history/fhrs", headers=headers_b).json() == []
     assert client.get(f"/family-history/{record_id}", headers=headers_b).status_code == 404
@@ -194,6 +210,32 @@ def test_family_history_is_per_patient(make_patient):
                         json={"diagnosis_confirmed": "no"}).status_code == 404
     assert client.delete(f"/family-history/{record_id}", headers=headers_b).status_code == 404
     assert len(client.get("/family-history", headers=headers_a).json()) == 1
+    # B's own saves recalculate only B's scores
+    add(headers_b, relative="mother", diagnosis_confirmed="yes")
+    assert client.post("/family-history/fhrs", headers=headers_b).status_code in (200, 201)
+    assert fhrs_by_domain(headers_a) == fhrs_a
+    assert client.get(f"/family-history/{record_id}", headers=headers_a).json()["diagnosis_confirmed"] == "yes"
+
+
+def test_anxiety_onset_is_typical_through_the_api(make_patient):
+    headers = make_patient()
+    with_age = add(headers, disease_domain="NEURO", specific_diagnosis="Anxiety", relative="mother",
+                   age_at_diagnosis=15)
+    assert with_age.status_code == 201 and with_age.json()["onset_classification"] == "typical"
+    chosen = add(headers, disease_domain="NEURO", specific_diagnosis="GAD", relative="sister",
+                 onset_classification="early")
+    assert chosen.status_code == 201 and chosen.json()["onset_classification"] == "typical"
+
+
+def test_neuro_and_t2d_ignore_shared_household(make_patient):
+    headers = make_patient()
+    for domain, diagnosis in (("CVD", "Heart attack"), ("CRD", "COPD"), ("T2D", "Type 2 diabetes"),
+                              ("NEURO", "Depression")):
+        assert add(headers, disease_domain=domain, specific_diagnosis=diagnosis,
+                   shared_environment=True).status_code == 201
+    scores = fhrs_by_domain(headers)
+    assert {d: scores[d]["environmental_modifier"] for d in scores} == \
+        {"CVD": 1.15, "CRD": 1.15, "T2D": 1.0, "NEURO": 1.0}
 
 
 @pytest.mark.parametrize("body", [

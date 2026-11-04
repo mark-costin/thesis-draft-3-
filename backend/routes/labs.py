@@ -59,14 +59,14 @@ def list_labs(response: Response, test_code: LabTestCode | None = None,
               current: CurrentUser = Depends(get_current_user),
               db: Session = Depends(get_db)) -> list[LabResponse]:
     response.headers.update(NO_STORE)
-    return [lab_out(row) for row in services.list_labs(db, test_code, limit)]
+    return [lab_out(row) for row in services.list_labs(db, current.patient_id, test_code, limit)]
 
 
 @router.get("/{lab_result_id}", response_model=LabResponse)
 def read_lab(lab_result_id: int, response: Response, current: CurrentUser = Depends(get_current_user),
              db: Session = Depends(get_db)) -> LabResponse:
     try:
-        row = services.get_lab(db, lab_result_id)
+        row = services.get_lab(db, current.patient_id, lab_result_id)
     except services.NotFound:
         raise _NOT_FOUND
     response.headers.update(NO_STORE)
