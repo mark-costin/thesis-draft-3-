@@ -18,6 +18,7 @@ from backend.models import (
     PatientGoal,
     PatientHealthHistory,
     QuestionnaireResponse,
+    RiskResult,
     User,
     VitalsRecord,
 )
@@ -426,14 +427,29 @@ def delete_questionnaire(db: Session, user_id: int, patient_id: int, response_id
 
 
 # ---------------------------------------------------------------------------
-# Goals
+# Goals. Same two layers as vitals: patient_id from the JWT in every query, then RLS.
 # ---------------------------------------------------------------------------
 class UnknownResult(Exception):
     """result_id does not exist or belongs to another patient (goals_result_fkey)."""
 
 
+class DomainMismatch(Exception):
+    """disease_domain sent with a result_id differs from that result's disease."""
+
+
 def create_goal(db: Session, user_id: int, patient_id: int, data: dict) -> PatientGoal:
     values = {name: value for name, value in data.items() if value is not None}
+    if "result_id" in values:
+        # A suggested goal belongs to the disease of the result it came from
+        domain = db.scalar(select(RiskResult.disease_domain).where(
+            RiskResult.result_id == values["result_id"], RiskResult.patient_id == patient_id))
+        if domain is None:
+            db.rollback()
+            raise UnknownResult
+        if values.get("disease_domain", domain) != domain:
+            db.rollback()
+            raise DomainMismatch(domain)
+        values["disease_domain"] = domain
     row = PatientGoal(patient_id=patient_id, source="suggested" if "result_id" in values else "self", **values)
     db.add(row)
     try:
@@ -450,24 +466,25 @@ def create_goal(db: Session, user_id: int, patient_id: int, data: dict) -> Patie
     return row
 
 
-def list_goals(db: Session, completed: bool | None) -> list[PatientGoal]:
-    query = select(PatientGoal)
+def list_goals(db: Session, patient_id: int, completed: bool | None, limit: int) -> list[PatientGoal]:
+    query = select(PatientGoal).where(PatientGoal.patient_id == patient_id)
     if completed is not None:
         query = query.where(PatientGoal.is_completed == completed)
     # Open goals first, then newest first
     return list(db.scalars(query.order_by(PatientGoal.is_completed, PatientGoal.created_at.desc(),
-                                          PatientGoal.goal_id.desc())))
+                                          PatientGoal.goal_id.desc()).limit(limit)))
 
 
-def get_goal(db: Session, goal_id: int) -> PatientGoal:
-    row = db.scalars(select(PatientGoal).where(PatientGoal.goal_id == goal_id)).one_or_none()
+def get_goal(db: Session, patient_id: int, goal_id: int) -> PatientGoal:
+    row = db.scalars(select(PatientGoal).where(PatientGoal.goal_id == goal_id,
+                                               PatientGoal.patient_id == patient_id)).one_or_none()
     if row is None:
         raise NotFound
     return row
 
 
 def update_goal(db: Session, user_id: int, patient_id: int, goal_id: int, changes: dict) -> PatientGoal:
-    row = get_goal(db, goal_id)
+    row = get_goal(db, patient_id, goal_id)
     changed = []
     if "is_completed" in changes and changes["is_completed"] != row.is_completed:
         row.is_completed = changes["is_completed"]
@@ -487,7 +504,8 @@ def update_goal(db: Session, user_id: int, patient_id: int, goal_id: int, change
 
 
 def delete_goal(db: Session, user_id: int, patient_id: int, goal_id: int) -> None:
-    deleted = db.scalar(delete(PatientGoal).where(PatientGoal.goal_id == goal_id)
+    deleted = db.scalar(delete(PatientGoal).where(PatientGoal.goal_id == goal_id,
+                                                  PatientGoal.patient_id == patient_id)
                         .returning(PatientGoal.goal_id))
     if deleted is None:
         db.rollback()

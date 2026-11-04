@@ -355,13 +355,26 @@ class QuestionnaireResponseOut(BaseModel):
 # ---------------------------------------------------------------------------
 # Goals (18_patient_goals.sql)
 # ---------------------------------------------------------------------------
+_CLEAN_ROUNDS = 5
+
+
 def clean_text(value):
-    """Trims and removes any HTML, so a goal can never carry a script into a page."""
+    """Trims and removes any HTML, so a goal can never carry a script into a page.
+
+    nh3 drops tags (and whole <script>/<style> blocks) and escapes the rest; unescape turns
+    "&amp;" back into "&" so text like "Walk & stretch" or "BP < 130" is kept as typed.
+    One round is not enough: "&lt;b&gt;" is plain text to nh3 but becomes "<b>" after unescape.
+    So the round repeats until the text stops changing. Text that no longer changes is plain
+    text with no tags in it (any tag would have been removed and the text would have changed).
+    """
     if not isinstance(value, str):
         return value
-    # nh3 drops tags (and whole <script>/<style> blocks) and escapes the rest; unescape turns
-    # "&amp;" back into "&" so normal text like "walk & stretch" is kept as typed
-    return html.unescape(nh3.clean(value, tags=set())).strip()
+    for _ in range(_CLEAN_ROUNDS):
+        cleaned = html.unescape(nh3.clean(value, tags=set()))
+        if cleaned == value:
+            return cleaned.strip()
+        value = cleaned
+    raise ValueError("Text could not be cleaned; remove any HTML and try again")
 
 
 class GoalCreate(BaseModel):
