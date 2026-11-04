@@ -24,7 +24,7 @@ _DUPLICATE = HTTPException(status.HTTP_409_CONFLICT, "This relative is already l
 def list_entries(response: Response, current: CurrentUser = Depends(get_current_user),
                  db: Session = Depends(get_db)) -> list[FamilyEntryResponse]:
     response.headers.update(NO_STORE)
-    return [FamilyEntryResponse.model_validate(row) for row in services.list_family_history(db)]
+    return [FamilyEntryResponse.model_validate(row) for row in services.list_family_history(db, current.patient_id)]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=FamilyEntryResponse)
@@ -44,7 +44,7 @@ def read_fhrs(response: Response, current: CurrentUser = Depends(get_current_use
               db: Session = Depends(get_db)) -> list[FhrsResponse]:
     """The latest score per disease. Empty until the patient adds an entry or confirms none."""
     response.headers.update(NO_STORE)
-    return [FhrsResponse.model_validate(row) for row in services.latest_fhrs(db)]
+    return [FhrsResponse.model_validate(row) for row in services.latest_fhrs(db, current.patient_id)]
 
 
 @router.post("/fhrs", response_model=list[FhrsResponse])
@@ -60,7 +60,7 @@ def confirm_fhrs(response: Response, current: CurrentUser = Depends(get_current_
 def read_entry(record_id: int, response: Response, current: CurrentUser = Depends(get_current_user),
                db: Session = Depends(get_db)) -> FamilyEntryResponse:
     try:
-        row = services.get_family_entry(db, record_id)
+        row = services.get_family_entry(db, current.patient_id, record_id)
     except services.NotFound:
         raise _NOT_FOUND
     response.headers.update(NO_STORE)

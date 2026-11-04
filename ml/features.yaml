@@ -18,7 +18,7 @@
 
 version: 1
 status: draft, waiting for group approval
-source: CDSS Data Dictionary (October 26, 2026), Parameter Ingestion Tables
+source: CDSS Data Dictionary (October 31, 2026), Parameter Ingestion Tables
 risk_tiers:
   low: p < 0.20
   moderate: 0.20 <= p < 0.50
@@ -37,11 +37,13 @@ models:
       derive: age in whole years on the assessment date
     - name: sex
       label: Biological Sex
-      type: categorical
+      type: binary
       unit: null
+      encoding: {Male: 1, Female: 0}
       required: true
       column: patients.biological_sex
       source: registration
+      derive: stored as text ('Male' / 'Female'); the model gets the number from encoding
     - name: sbp
       label: Systolic Blood Pressure (SBP)
       type: continuous
@@ -491,9 +493,11 @@ models:
       label: Biological Sex
       type: binary
       unit: null
+      encoding: {Male: 1, Female: 0}
       required: true
       column: patients.biological_sex
       source: registration
+      derive: stored as text ('Male' / 'Female'); the model gets the number from encoding
     - name: phq9
       label: Patient Health Questionnaire-9 (PHQ-9)
       type: ordinal

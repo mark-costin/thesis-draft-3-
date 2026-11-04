@@ -16,4 +16,4 @@ router = APIRouter(prefix="/assessment", tags=["assessment"])
 def check_readiness(response: Response, current: CurrentUser = Depends(get_current_user),
                     db: Session = Depends(get_db)) -> dict:
     response.headers["Cache-Control"] = "no-store"
-    return readiness.readiness(db)
+    return readiness.readiness(db, current.patient_id)
