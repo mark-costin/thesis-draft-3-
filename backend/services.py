@@ -769,6 +769,7 @@ def delete_account(db: Session, user_id: int, patient_id: int, password: str) ->
 
 # ---------------------------------------------------------------------------
 # Documents: upload, list, download, delete. The file is encrypted on disk (backend/storage.py).
+# Every query filters on the patient_id from the JWT; RLS is the second layer.
 # ---------------------------------------------------------------------------
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # documents_file_size_check
 
@@ -828,12 +829,14 @@ def upload_document(db: Session, user_id: int, patient_id: int, data: bytes) -> 
     return row
 
 
-def list_documents(db: Session) -> list[Document]:
-    return list(db.scalars(select(Document).order_by(Document.uploaded_at.desc(), Document.document_id.desc())))
+def list_documents(db: Session, patient_id: int) -> list[Document]:
+    return list(db.scalars(select(Document).where(Document.patient_id == patient_id)
+                           .order_by(Document.uploaded_at.desc(), Document.document_id.desc())))
 
 
-def get_document(db: Session, document_id: int) -> Document:
-    row = db.scalars(select(Document).where(Document.document_id == document_id)).one_or_none()
+def get_document(db: Session, patient_id: int, document_id: int) -> Document:
+    row = db.scalars(select(Document).where(Document.document_id == document_id,
+                                            Document.patient_id == patient_id)).one_or_none()
     if row is None:
         raise NotFound
     return row
@@ -844,7 +847,7 @@ class TamperedFile(Exception):
 
 
 def read_document_file(db: Session, user_id: int, patient_id: int, document_id: int) -> tuple[Document, bytes]:
-    row = get_document(db, document_id)
+    row = get_document(db, patient_id, document_id)
     try:
         data = storage.load(row.storage_key)
     except (InvalidToken, FileNotFoundError) as exc:  # wrong key, edited or missing file
@@ -858,7 +861,9 @@ def read_document_file(db: Session, user_id: int, patient_id: int, document_id: 
 
 
 def delete_document(db: Session, user_id: int, patient_id: int, document_id: int) -> None:
-    key = db.scalar(delete(Document).where(Document.document_id == document_id).returning(Document.storage_key))
+    key = db.scalar(delete(Document).where(Document.document_id == document_id,
+                                           Document.patient_id == patient_id)
+                    .returning(Document.storage_key))
     if key is None:
         db.rollback()
         raise NotFound

@@ -43,14 +43,14 @@ def upload(request: Request, response: Response, file: UploadFile = File(...),
 def list_documents(response: Response, current: CurrentUser = Depends(get_current_user),
                    db: Session = Depends(get_db)) -> list[DocumentResponse]:
     response.headers.update(NO_STORE)
-    return [DocumentResponse.model_validate(row) for row in services.list_documents(db)]
+    return [DocumentResponse.model_validate(row) for row in services.list_documents(db, current.patient_id)]
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
 def read_document(document_id: int, response: Response, current: CurrentUser = Depends(get_current_user),
                   db: Session = Depends(get_db)) -> DocumentResponse:
     try:
-        row = services.get_document(db, document_id)
+        row = services.get_document(db, current.patient_id, document_id)
     except services.NotFound:
         raise _NOT_FOUND
     response.headers.update(NO_STORE)

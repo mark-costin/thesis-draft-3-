@@ -131,14 +131,16 @@ def test_uploaded_name_is_never_used_on_disk(make_patient, upload_folder):
     assert not (upload_folder.parent / "evil.png").exists()
 
 
-def test_documents_are_per_patient(make_patient):
+def test_documents_are_per_patient(make_patient, upload_folder):
     _, headers_a = make_patient()
     _, headers_b = make_patient()
     document_id = upload(headers_a, PNG).json()["document_id"]
-    assert client.get("/documents", headers=headers_b).json() == []
+    own_id = upload(headers_b, PDF, "b.pdf", "application/pdf").json()["document_id"]
+    assert [d["document_id"] for d in client.get("/documents", headers=headers_b).json()] == [own_id]
     for path in (f"/documents/{document_id}", f"/documents/{document_id}/file"):
         assert client.get(path, headers=headers_b).status_code == 404
     assert client.delete(f"/documents/{document_id}", headers=headers_b).status_code == 404
+    assert len(list(upload_folder.iterdir())) == 2  # A's file is still on disk
     assert client.get(f"/documents/{document_id}/file", headers=headers_a).content == PNG
 
 
@@ -170,6 +172,24 @@ def test_account_deletion_removes_the_files(make_patient, upload_folder):
                            json={"password": PASSWORD, "confirm": DELETE_CONFIRMATION})
     assert response.status_code == 204
     assert list(upload_folder.iterdir()) == []
+
+
+def test_account_deletion_removes_only_the_callers_files_and_only_when_it_succeeds(make_patient, upload_folder):
+    email_a, headers_a = make_patient()
+    email_b, headers_b = make_patient()
+    doc_a = upload(headers_a, PNG).json()["document_id"]
+    doc_b = upload(headers_b, PNG).json()["document_id"]
+    file_a = upload_folder / f"{storage_key_of(email_a, doc_a)}.enc"
+    file_b = upload_folder / f"{storage_key_of(email_b, doc_b)}.enc"
+
+    wrong = client.post("/account/delete", headers=headers_a,
+                        json={"password": "wrong password", "confirm": DELETE_CONFIRMATION})
+    assert wrong.status_code == 403 and file_a.exists()  # nothing deleted, file kept
+
+    assert client.post("/account/delete", headers=headers_a,
+                       json={"password": PASSWORD, "confirm": DELETE_CONFIRMATION}).status_code == 204
+    assert not file_a.exists() and file_b.exists()
+    assert client.get(f"/documents/{doc_b}/file", headers=headers_b).content == PNG
 
 
 def test_upload_is_audited_without_the_file_name(make_patient, monkeypatch):
