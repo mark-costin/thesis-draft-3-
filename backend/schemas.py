@@ -9,7 +9,8 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (AwareDatetime, BaseModel, ConfigDict, Field, StrictInt, field_validator,
+                      model_validator)
 
 from backend import questionnaires
 from backend.config import settings
@@ -318,7 +319,7 @@ class QuestionnaireSubmit(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     instrument: Literal["PHQ9", "GAD7", "PSQI", "MMRC", "CAT", "ACT"]
-    answers: list[int]
+    answers: list[StrictInt]  # true, 2.0 and "2" are refused, not quietly turned into 1 or 2
 
     @model_validator(mode="after")
     def check_answers(self):

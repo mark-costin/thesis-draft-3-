@@ -376,7 +376,7 @@ def save_health_history(db: Session, user_id: int, patient_id: int, data: dict) 
 
 
 # ---------------------------------------------------------------------------
-# Questionnaires
+# Questionnaires. Same two layers as vitals: patient_id from the JWT in every query, then RLS.
 # ---------------------------------------------------------------------------
 def submit_questionnaire(db: Session, user_id: int, patient_id: int, instrument: str,
                          answers: list[int]) -> QuestionnaireResponse:
@@ -392,17 +392,19 @@ def submit_questionnaire(db: Session, user_id: int, patient_id: int, instrument:
     return row
 
 
-def list_questionnaires(db: Session, instrument: str | None, limit: int) -> list[QuestionnaireResponse]:
-    query = select(QuestionnaireResponse)
+def list_questionnaires(db: Session, patient_id: int, instrument: str | None,
+                        limit: int) -> list[QuestionnaireResponse]:
+    query = select(QuestionnaireResponse).where(QuestionnaireResponse.patient_id == patient_id)
     if instrument is not None:
         query = query.where(QuestionnaireResponse.instrument == instrument)
     return list(db.scalars(query.order_by(QuestionnaireResponse.completed_at.desc(),
                                           QuestionnaireResponse.response_id.desc()).limit(limit)))
 
 
-def get_questionnaire(db: Session, response_id: int) -> QuestionnaireResponse:
+def get_questionnaire(db: Session, patient_id: int, response_id: int) -> QuestionnaireResponse:
     row = db.scalars(select(QuestionnaireResponse)
-                     .where(QuestionnaireResponse.response_id == response_id)).one_or_none()
+                     .where(QuestionnaireResponse.response_id == response_id,
+                            QuestionnaireResponse.patient_id == patient_id)).one_or_none()
     if row is None:
         raise NotFound
     return row
@@ -410,7 +412,8 @@ def get_questionnaire(db: Session, response_id: int) -> QuestionnaireResponse:
 
 def delete_questionnaire(db: Session, user_id: int, patient_id: int, response_id: int) -> None:
     deleted = db.scalar(delete(QuestionnaireResponse)
-                        .where(QuestionnaireResponse.response_id == response_id)
+                        .where(QuestionnaireResponse.response_id == response_id,
+                               QuestionnaireResponse.patient_id == patient_id)
                         .returning(QuestionnaireResponse.response_id))
     if deleted is None:
         db.rollback()
