@@ -717,3 +717,25 @@ class AssessmentSummary(BaseModel):
     assessment_id: int
     created_at: datetime
     risk_levels: dict[str, str]
+
+
+# ---------------------------------------------------------------------------
+# Saved health reports (20_health_reports.sql): read-only once saved
+# ---------------------------------------------------------------------------
+class ReportCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    assessment_id: int = Field(gt=0)
+
+
+class ReportSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    report_id: int
+    assessment_id: int
+    created_at: datetime
+
+
+class ReportResponse(ReportSummary):
+    templates_used: dict     # {disease: {template_id, version}}
+    report_snapshot: dict    # results, top factors and care plans exactly as saved
