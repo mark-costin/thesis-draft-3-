@@ -125,8 +125,19 @@ def _cap(text: str) -> str:
     return text[:1].upper() + text[1:]
 
 
-def sentence(feature: str, value, shap_value: float, disease: str) -> str:
-    """One sentence for one input. value is the model input (None when it was not entered)."""
+def _shown(value, entered) -> str:
+    """The number the patient entered; when the model used a capped value, say so."""
+    if entered is None or float(entered) == float(value):
+        return _number(value)
+    edge = "highest" if float(entered) > float(value) else "lowest"
+    return f"{_number(entered)}{{unit}} (counted as {_number(value)}, the {edge} value the model uses)"
+
+
+def sentence(feature: str, value, shap_value: float, disease: str, entered=None) -> str:
+    """One sentence for one input. value is the model input (None when it was not entered).
+    entered: what the patient entered, when the feature builder capped it to the model's range
+    (feature_builder.build_inputs().capped); the sentence then shows the entered value and
+    what the model counted it as, so a result never shows a number the patient did not enter."""
     if disease not in DISEASE_NAMES:
         raise ValueError(f"Unknown disease: {disease!r}")
     try:
@@ -139,6 +150,8 @@ def sentence(feature: str, value, shap_value: float, disease: str) -> str:
                 "Adding it can make this result more accurate.")
     if isinstance(entry, YesNo):
         return f"{_cap(entry.yes if float(value) >= 1 else entry.no)} {_effect(shap_value, disease)}."
+    if feature == "pack_years" and float(value) == 0:  # never-smokers get 0 (features.yaml derive)
+        return f"Not smoking {_effect(shap_value, disease)}."
     if isinstance(entry, Sex):
         label = str(value).strip().lower()
         if label in {"1", "1.0"}:  # in case the models encode sex as a number
@@ -146,25 +159,30 @@ def sentence(feature: str, value, shap_value: float, disease: str) -> str:
         elif label in {"0", "0.0"}:
             label = "female"
         return f"Being {label} {_effect(shap_value, disease)}."
+    number = _shown(value, entered)
     if entry.score:
-        shown = f"{entry.subject} (score {_number(value)})"
+        shown = f"{entry.subject} (score {number.replace('{unit}', '')})"
     else:
         unit = entry.unit if entry.unit in ("", "%") else f" {entry.unit}"
-        shown = f"{entry.subject} of {_number(value)}{unit}"
+        shown = (f"{entry.subject} of {number.replace('{unit}', unit)}" if "{unit}" in number
+                 else f"{entry.subject} of {number}{unit}")
     return f"{_cap(shown)} {_effect(shap_value, disease)}."
 
 
 def ranked_factors(disease: str, shap_values: dict[str, float], inputs: dict[str, object],
-                   limit: int | None = 3) -> list[dict]:
+                   limit: int | None = 3, capped: dict | None = None) -> list[dict]:
     """The inputs that moved this result the most, largest first (rank 1 = largest absolute SHAP),
-    in the shape of shap_explanations rows plus the sentence. Ties keep the model's input order."""
+    in the shape of shap_explanations rows plus the sentence. Ties keep the model's input order.
+    capped: feature_builder.build_inputs().capped[disease], so a capped value is explained."""
+    capped = capped or {}
     order = sorted(shap_values, key=lambda name: -abs(shap_values[name]))
     rows = []
     for rank, name in enumerate(order[:limit] if limit else order, start=1):
         value = inputs.get(name)
         rows.append({"rank": rank, "feature_name": name, "feature_value": value,
                      "shap_value": shap_values[name],
-                     "sentence": sentence(name, value, shap_values[name], disease)})
+                     "sentence": sentence(name, value, shap_values[name], disease,
+                                          entered=capped.get(name, {}).get("entered"))})
     return rows
 
 

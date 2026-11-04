@@ -69,6 +69,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLI
     }
     Write-Host "  seed_care_plan_templates.sql"
     Invoke-Psql $DB @("-f", "seed_care_plan_templates.sql")
+    Write-Host "  ..\tests\seed_test_models.sql (test database only)"
+    Invoke-Psql $DB @("-f", "..\tests\seed_test_models.sql")
 
     $tables = & $psql -h localhost -U postgres -q -At -d $DB -c "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'"
     Write-Host "Done: $DB has $tables tables (expected 19)" -ForegroundColor Green

@@ -36,6 +36,8 @@ for f in $(ls [0-9][0-9]_*.sql | sort); do
 done
 echo "  seed_care_plan_templates.sql"
 "${PSQL[@]}" -d "$DB" -f seed_care_plan_templates.sql
+echo "  ../tests/seed_test_models.sql (test database only)"
+"${PSQL[@]}" -d "$DB" -f ../tests/seed_test_models.sql
 
 TABLES=$("${PSQL[@]}" -d "$DB" -Atc "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'")
 echo "Done: $DB has $TABLES tables (expected 19)"

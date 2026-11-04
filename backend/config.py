@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     risk_models_enabled: bool = False
     # Model files may only be loaded from this folder
     model_dir: Path = ROOT_DIR / "ml" / "artifacts"
+    # Show care plan templates that are still drafts (not yet approved by the physician).
+    # Only for demos and tests before approval; must stay false for real patients.
+    show_draft_care_plans: bool = False
 
     @field_validator("document_encryption_key")
     @classmethod
