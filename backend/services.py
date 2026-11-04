@@ -244,8 +244,8 @@ def update_profile(db: Session, user_id: int, patient_id: int, changes: dict) ->
 
 
 # ---------------------------------------------------------------------------
-# Vitals. RLS limits every query to the caller's patient, so a record that belongs to someone
-# else looks exactly like one that does not exist (404, nothing leaked).
+# Vitals. Every query filters on the patient_id from the verified JWT; RLS is the second layer.
+# A record that belongs to someone else looks exactly like one that does not exist (404).
 # ---------------------------------------------------------------------------
 class NotFound(Exception):
     pass
@@ -263,21 +263,24 @@ def create_vitals(db: Session, user_id: int, patient_id: int, data: dict) -> Vit
     return row
 
 
-def list_vitals(db: Session, limit: int) -> list[VitalsRecord]:
+def list_vitals(db: Session, patient_id: int, limit: int) -> list[VitalsRecord]:
     return list(db.scalars(select(VitalsRecord)
+                           .where(VitalsRecord.patient_id == patient_id)
                            .order_by(VitalsRecord.measured_at.desc(), VitalsRecord.vitals_id.desc())
                            .limit(limit)))
 
 
-def get_vitals(db: Session, vitals_id: int) -> VitalsRecord:
-    row = db.scalars(select(VitalsRecord).where(VitalsRecord.vitals_id == vitals_id)).one_or_none()
+def get_vitals(db: Session, patient_id: int, vitals_id: int) -> VitalsRecord:
+    row = db.scalars(select(VitalsRecord).where(VitalsRecord.vitals_id == vitals_id,
+                                                VitalsRecord.patient_id == patient_id)).one_or_none()
     if row is None:
         raise NotFound
     return row
 
 
 def delete_vitals(db: Session, user_id: int, patient_id: int, vitals_id: int) -> None:
-    deleted = db.scalar(delete(VitalsRecord).where(VitalsRecord.vitals_id == vitals_id)
+    deleted = db.scalar(delete(VitalsRecord).where(VitalsRecord.vitals_id == vitals_id,
+                                                   VitalsRecord.patient_id == patient_id)
                         .returning(VitalsRecord.vitals_id))
     if deleted is None:
         db.rollback()
