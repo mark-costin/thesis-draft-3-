@@ -181,3 +181,38 @@ def test_audit_entries_hold_field_names_only(make_patient, monkeypatch):
     assert history_first[0] == "DATA_CREATED" and history_again[0] == "DATA_UPDATED"
     assert history_again[1]["table"] == "patient_health_history" and history_again[1]["fields"] == ["tbi_history"]
     assert "current" not in str(recorded[-3:]) and "True" not in str(recorded[-2:])
+
+
+@pytest.fixture
+def history_audit(monkeypatch):
+    """Records the health-history audit entries written during the test."""
+    recorded = []
+    real = audit.log_event
+
+    def recording(db, event_type, **kwargs):
+        if kwargs.get("table") == "patient_health_history":
+            recorded.append((event_type, kwargs["fields"]))
+        return real(db, event_type, **kwargs)
+
+    monkeypatch.setattr(audit, "log_event", recording)
+    return recorded
+
+
+def test_clearing_an_answer_is_audited(make_patient, history_audit):
+    headers = make_patient()
+    client.put("/health-history", headers=headers, json={"childhood_asthma": True, "tbi_history": False})
+    # true -> null ("don't know"); tbi_history is sent unchanged
+    response = client.put("/health-history", headers=headers, json={"tbi_history": False})
+    assert response.status_code == 200 and response.json()["childhood_asthma"] is None
+    assert history_audit == [("DATA_CREATED", ["childhood_asthma", "tbi_history"]),
+                             ("DATA_UPDATED", ["childhood_asthma"])]
+
+
+def test_saving_the_same_answers_twice_writes_one_audit_entry(make_patient, history_audit):
+    headers = make_patient()
+    body = {"allergic_rhinitis": True, "acanthosis_nigricans": False}
+    first = client.put("/health-history", headers=headers, json=body)
+    second = client.put("/health-history", headers=headers, json=body)
+    assert first.status_code == second.status_code == 200
+    assert second.json() == first.json()  # nothing rewritten, so updated_at is unchanged too
+    assert history_audit == [("DATA_CREATED", ["acanthosis_nigricans", "allergic_rhinitis"])]
