@@ -22,6 +22,7 @@ from starlette.datastructures import Headers
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from backend import questionnaires
 from backend.config import settings
 
 # ---------------------------------------------------------------------------
@@ -45,6 +46,10 @@ _KEY_PATTERN = re.compile(r"^[A-Za-z0-9_\-]{8,128}$")
 # POST only: it is the method that creates records. PUT and PATCH set fixed values, so
 # repeating them changes nothing, and skipping them keeps profile data out of the replay store.
 _METHODS = {"POST"}
+# Set by POST /questionnaires on request.state (never sent to the client). For a no-store response
+# this one boolean is the only thing kept besides status and Location, so a replayed PHQ-9 still
+# shows the crisis prompt. No other route sets it, so their replays are unchanged.
+CRISIS_STATE_KEY = "requires_crisis_prompt"
 RESULT_TTL_SECONDS = 24 * 60 * 60   # a saved response is replayed for 24 hours
 LOCK_TTL_SECONDS = 60               # how long a key stays "in progress" if the request dies
 
@@ -161,8 +166,12 @@ class IdempotencyMiddleware:
                     scope, receive, send)
             if saved.get("body") is None:
                 # Health data is never kept in the store: say it was done and where to read it
-                replay = JSONResponse({"detail": "Already saved. Read the record from the Location URL."},
-                                      status_code=saved["status"])
+                content = {"detail": "Already saved. Read the record from the Location URL."}
+                crisis = saved.get("crisis_prompt")
+                if crisis is not None:  # PHQ-9 safety: a double submit must not hide the prompt
+                    content["requires_crisis_prompt"] = crisis
+                    content["crisis_resources"] = questionnaires.CRISIS_RESOURCES if crisis else None
+                replay = JSONResponse(content, status_code=saved["status"])
                 replay.headers["Cache-Control"] = "no-store"
                 if saved.get("location"):
                     replay.headers["Location"] = saved["location"]
@@ -211,7 +220,13 @@ class IdempotencyMiddleware:
                 "media_type": response["media_type"],
                 "location": response["location"],
                 "body": None if response["no_store"] else base64.b64encode(response["body"]).decode(),
+                "crisis_prompt": _crisis_flag(scope) if response["no_store"] else None,
             })
+
+
+def _crisis_flag(scope: Scope) -> bool | None:
+    value = (scope.get("state") or {}).get(CRISIS_STATE_KEY)
+    return value if isinstance(value, bool) else None
 
 
 # ---------------------------------------------------------------------------
