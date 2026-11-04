@@ -37,7 +37,7 @@ WHERE_TO_ENTER = {
     "patient_health_history": ("Health history", "/health-history"),
     "questionnaire_responses": ("Questionnaire", "/questionnaires"),
     "patient_fhrs_stratification": ("Family history", "/family-history"),
-    "lab_results": ("Lab result (upload or type it in)", "/documents"),
+    "lab_results": ("Lab result (upload or type it in)", "/labs"),
 }
 
 # Tables where any saved row with a value counts
