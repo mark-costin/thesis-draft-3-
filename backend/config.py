@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from cryptography.fernet import Fernet
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -35,6 +37,22 @@ class Settings(BaseSettings):
     # Generate one with:  uv run python -c "import secrets; print(secrets.token_urlsafe(48))"
     jwt_secret_key: str = Field(min_length=32)
     access_token_expire_minutes: int = Field(default=30, ge=5, le=1440)
+
+    # Encrypts uploaded lab documents on disk (Fernet). Required; losing it makes every stored
+    # file unreadable, so keep a copy somewhere safe. Generate one with:
+    #   uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    document_encryption_key: str
+    # Folder for the encrypted files (a Docker volume on deployment)
+    upload_dir: Path = ROOT_DIR / "backend" / "uploads"
+
+    @field_validator("document_encryption_key")
+    @classmethod
+    def check_fernet_key(cls, value: str) -> str:
+        try:
+            Fernet(value.encode())
+        except (ValueError, TypeError) as exc:
+            raise ValueError("DOCUMENT_ENCRYPTION_KEY must be a Fernet key (see .env.example)") from exc
+        return value
 
     @field_validator("jwt_secret_key")
     @classmethod

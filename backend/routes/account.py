@@ -7,7 +7,7 @@ from math import ceil
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
-from backend import services
+from backend import services, storage
 from backend.database import get_db
 from backend.dependencies import CurrentUser, get_current_user
 from backend.middleware import limiter
@@ -36,7 +36,7 @@ def delete_my_account(request: Request, body: AccountDeleteRequest,
     """Right to erasure: permanent, cannot be undone. Needs the password and the phrase
     DELETE MY ACCOUNT. The audit log keeps an ACCOUNT_DELETED entry with IDs only."""
     try:
-        services.delete_account(db, current.user_id, current.patient_id, body.password)
+        storage_keys = services.delete_account(db, current.user_id, current.patient_id, body.password)
     except services.WrongPassword:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Incorrect password. Nothing was deleted.")
     except services.AccountLocked as locked:  # same lockout as login
@@ -45,5 +45,5 @@ def delete_my_account(request: Request, body: AccountDeleteRequest,
             status.HTTP_423_LOCKED,
             f"Too many failed attempts. Nothing was deleted. Try again in {minutes} minute(s).",
         )
-    # Uploaded files: the upload task (Sprint 3) removes the returned storage keys from disk here
+    storage.remove_many(storage_keys)  # the encrypted lab files go too
     return Response(status_code=status.HTTP_204_NO_CONTENT)
