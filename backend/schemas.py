@@ -681,3 +681,39 @@ class DocumentReviewResponse(BaseModel):
     document: DocumentResponse
     lab_results: list[LabResponse]       # what OCR found (and, after confirm, what was typed in)
     missing_required: list[ChecklistItem]  # what the patient still has to enter before an assessment
+
+
+# ---------------------------------------------------------------------------
+# Risk assessment (15-17 risk tables): results of the four models
+# ---------------------------------------------------------------------------
+class RiskFactor(BaseModel):
+    rank: int
+    feature: str
+    shap_value: float      # positive = raised the risk, negative = lowered it
+    sentence: str          # plain language, from backend/explanations.py
+
+
+class DiseaseResult(BaseModel):
+    result_id: int           # POST /goals with this result_id links a care plan goal to this result
+    disease: str
+    disease_name: str
+    probability: float
+    risk_level: Literal["Low", "Moderate", "High"]
+    model_version: str | None
+    consult_recommended: bool
+    consult_message: str | None
+    top_factors: list[RiskFactor]
+    care_plan: dict | None   # template items for this tier (None: no approved template yet)
+
+
+class AssessmentResponse(BaseModel):
+    assessment_id: int
+    created_at: datetime
+    disclaimer: str
+    results: list[DiseaseResult]
+
+
+class AssessmentSummary(BaseModel):
+    assessment_id: int
+    created_at: datetime
+    risk_levels: dict[str, str]

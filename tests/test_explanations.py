@@ -88,3 +88,26 @@ def test_factors_are_ranked_by_size_of_effect():
 
 def test_every_disease_has_a_plain_name():
     assert set(explanations.DISEASE_NAMES) == set(MODELS)
+
+
+def test_a_capped_value_shows_what_was_entered():
+    assert explanations.sentence("sbp", 220, 0.31, "CVD", entered=240) == (
+        "Your systolic (upper) blood pressure of 240 mmHg (counted as 220, the highest value the model "
+        "uses) raised your risk of heart disease and stroke.")
+    assert "of 60% (counted as 65, the lowest value the model uses)" in \
+        explanations.sentence("spo2", 65.0, 0.2, "CRD", entered=60)
+    assert explanations.sentence("sbp", 145, 0.3, "CVD", entered=145).endswith("of 145 mmHg raised your risk "
+                                                                               "of heart disease and stroke.")
+
+
+def test_ranked_factors_explain_capped_values():
+    rows = explanations.ranked_factors("CVD", {"sbp": 0.3, "age": 0.1}, {"sbp": 220, "age": 50},
+                                       capped={"sbp": {"entered": 240, "used": 220}})
+    assert rows[0]["feature_value"] == 220  # the number the model got, as in shap_explanations
+    assert "240 mmHg (counted as 220" in rows[0]["sentence"]
+    assert "counted as" not in rows[1]["sentence"]
+
+
+def test_zero_pack_years_reads_as_not_smoking():
+    assert explanations.sentence("pack_years", 0, -0.2, "CRD") == "Not smoking lowered your risk of chronic lung disease."
+    assert explanations.sentence("pack_years", 12.5, 0.2, "CRD").startswith("Your smoking history of 12.5 pack-years")

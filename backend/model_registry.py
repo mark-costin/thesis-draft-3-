@@ -75,8 +75,44 @@ class LoadedModel:
             row.append(np.nan if value is None else float(value))
         return np.array([row], dtype=float)
 
+    def _matrix(self, row: np.ndarray, names):
+        """A model trained on a pandas DataFrame expects the same column names; one trained on a
+        plain array expects an array."""
+        if names is not None:
+            import pandas as pd
+            return pd.DataFrame(row, columns=list(names))
+        return row
+
     def probability(self, inputs: dict) -> float:
-        return float(self.estimator.predict_proba(self.to_row(inputs))[0, 1])
+        names = getattr(self.estimator, "feature_names_in_", None)
+        X = self._matrix(self.to_row(inputs), self.features if names is not None else None)
+        return float(self.estimator.predict_proba(X)[0, 1])
+
+    def _boosters(self) -> list:
+        """The XGBoost booster(s) inside the model: one for a plain XGBClassifier, one per fold for
+        CalibratedClassifierCV (each fold has its own fitted copy)."""
+        if hasattr(self.estimator, "get_booster"):
+            return [self.estimator.get_booster()]
+        folds = getattr(self.estimator, "calibrated_classifiers_", None) or []
+        boosters = [fold.estimator.get_booster() for fold in folds if hasattr(fold.estimator, "get_booster")]
+        if not boosters:
+            raise ModelError(f"{self.disease}: SHAP values need an XGBoost model inside the file")
+        return boosters
+
+    def contributions(self, inputs: dict) -> tuple[dict[str, float], float]:
+        """SHAP values per input and the base value, in log-odds, from XGBoost's own TreeSHAP
+        (pred_contribs). For a calibrated model they explain the XGBoost score before calibration,
+        averaged over the folds; the sign (raised / lowered risk) is what the patient sees."""
+        from xgboost import DMatrix
+        row = self.to_row(inputs)
+        totals = np.zeros(len(self.features) + 1)
+        boosters = self._boosters()
+        for booster in boosters:
+            names = booster.feature_names
+            matrix = DMatrix(row, missing=np.nan, feature_names=self.features if names else None)
+            totals += booster.predict(matrix, pred_contribs=True)[0]
+        totals /= len(boosters)
+        return dict(zip(self.features, (float(v) for v in totals[:-1]))), float(totals[-1])
 
     def tier(self, probability: float) -> str:
         """Low / Moderate / High, with this model's cutoffs (same names as the care plan tiers)."""
