@@ -15,6 +15,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Re
 from sqlalchemy.orm import Session
 
 from backend import labs, readiness, services, worker
+from backend.config import settings
 from backend.database import get_db
 from backend.dependencies import CurrentUser, get_current_user
 from backend.middleware import limiter
@@ -40,23 +41,31 @@ def upload(request: Request, response: Response, background_tasks: BackgroundTas
     except services.UnsupportedFile as exc:
         raise HTTPException(422, str(exc))
     except services.DuplicateFile:
-        raise HTTPException(status.HTTP_409_CONFLICT, "You already uploaded this file")
-    worker.enqueue(row.document_id, current.patient_id, background_tasks)
+        # The same file again: if OCR is on but never started for it (e.g. Redis was down), this
+        # is a retry. With OCR off, 'pending' is the normal state, so it stays a duplicate.
+        row = services.pending_duplicate(db, current.patient_id, data) if settings.ocr_engine != "none" else None
+        if row is None:
+            raise HTTPException(status.HTTP_409_CONFLICT, "You already uploaded this file")
+    worker.start(row.document_id, current.patient_id, background_tasks)  # never fails the upload
     response.headers.update(NO_STORE)
     response.headers["Location"] = f"/documents/{row.document_id}"  # poll it for the OCR status
     return DocumentResponse.model_validate(row)
 
 
 @router.get("", response_model=list[DocumentResponse])
-def list_documents(response: Response, current: CurrentUser = Depends(get_current_user),
+def list_documents(response: Response, background_tasks: BackgroundTasks,
+                   current: CurrentUser = Depends(get_current_user),
                    db: Session = Depends(get_db)) -> list[DocumentResponse]:
+    worker.requeue_stuck(db, current.patient_id, background_tasks)  # crashed OCR jobs start again
     response.headers.update(NO_STORE)
     return [DocumentResponse.model_validate(row) for row in services.list_documents(db, current.patient_id)]
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
-def read_document(document_id: int, response: Response, current: CurrentUser = Depends(get_current_user),
+def read_document(document_id: int, response: Response, background_tasks: BackgroundTasks,
+                  current: CurrentUser = Depends(get_current_user),
                   db: Session = Depends(get_db)) -> DocumentResponse:
+    worker.requeue_stuck(db, current.patient_id, background_tasks)  # the patient polls this one
     try:
         row = services.get_document(db, current.patient_id, document_id)
     except services.NotFound:

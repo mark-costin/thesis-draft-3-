@@ -796,6 +796,13 @@ def detect_mime(data: bytes) -> str:
     raise UnsupportedFile("Only JPEG, PNG or PDF files are accepted")
 
 
+def pending_duplicate(db: Session, patient_id: int, data: bytes) -> Document | None:
+    """The caller's earlier upload of this same file, if its OCR has not started yet."""
+    return db.scalars(select(Document).where(Document.patient_id == patient_id,
+                                             Document.file_sha256 == hashlib.sha256(data).hexdigest(),
+                                             Document.status == "pending")).one_or_none()
+
+
 def upload_document(db: Session, user_id: int, patient_id: int, data: bytes) -> Document:
     if not data:
         raise UnsupportedFile("The file is empty")
