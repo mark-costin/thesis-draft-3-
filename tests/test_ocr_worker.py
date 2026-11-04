@@ -3,11 +3,12 @@ the patient's review. A fake engine stands in for Chandra or Tesseract, so these
 GPU, no OCR install and no Redis."""
 
 import uuid
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 
 from backend import audit, ocr, ocr_parser, storage, worker
 from backend.config import settings
@@ -311,3 +312,111 @@ def test_an_unknown_engine_name_is_refused(monkeypatch):
     monkeypatch.setattr(settings, "ocr_engine", "typo")
     with pytest.raises(RuntimeError):
         ocr.get_engine()
+
+
+# ---------------------------------------------------------------------------
+# Failure cases: a wrong engine name, Redis down, a crashed job
+# ---------------------------------------------------------------------------
+def test_a_typo_in_ocr_engine_stops_the_app_at_startup():
+    """Without this check every upload would stay 'processing' forever."""
+    import os
+    import subprocess
+    import sys
+    env = os.environ | {"OCR_ENGINE": "tesseractt"}
+    result = subprocess.run([sys.executable, "-c", "import backend.main"], env=env,
+                            capture_output=True, text=True, timeout=120)
+    assert result.returncode != 0
+    assert "Unknown OCR_ENGINE 'tesseractt'" in result.stderr
+
+
+def test_a_wrong_engine_name_leaves_the_document_pending(make_patient, monkeypatch):
+    email, headers = make_patient()
+    document_id = upload(headers)  # OCR off: pending
+    monkeypatch.setattr(settings, "ocr_engine", "typo")
+    with pytest.raises(RuntimeError):
+        worker.process_document(document_id, document_of(email, document_id).patient_id)
+    assert document_of(email, document_id).status == "pending"  # not claimed, so not stuck
+
+
+def upload_bytes(headers, data):
+    return client.post("/documents", headers=headers, files={"file": ("lab.png", data, "image/png")})
+
+
+def test_redis_down_still_accepts_the_upload_and_the_same_file_retries(make_patient, engine, monkeypatch):
+    email, headers = make_patient()
+    data = PNG + uuid.uuid4().bytes
+    monkeypatch.setattr(settings, "redis_enabled", True)
+    monkeypatch.setattr(settings, "redis_url", "redis://127.0.0.1:1/0")  # nothing listens here
+    first = upload_bytes(headers, data)
+    assert first.status_code == 202
+    document_id = first.json()["document_id"]
+    assert document_of(email, document_id).status == "pending"
+
+    again = upload_bytes(headers, data)  # Redis still down: a retry, not a duplicate
+    assert again.status_code == 202 and again.json()["document_id"] == document_id
+
+    monkeypatch.setattr(settings, "redis_enabled", False)  # queue reachable again (in-process)
+    assert upload_bytes(headers, data).json()["document_id"] == document_id
+    assert document_of(email, document_id).status == "ready_for_review"
+    assert upload_bytes(headers, data).status_code == 409  # now it really is a duplicate
+
+
+def make_stuck(email, document_id, minutes_ago):
+    with SessionLocal() as session:
+        as_patient(session, email)
+        session.execute(update(Document).where(Document.document_id == document_id)
+                        .values(status="processing",
+                                processed_at=datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)))
+        session.commit()
+
+
+def test_a_stuck_document_is_reset_and_processed_when_the_patient_polls(make_patient, monkeypatch):
+    email, headers = make_patient()
+    stuck_id, running_id = upload(headers), upload(headers)  # OCR off: both pending
+    make_stuck(email, stuck_id, minutes_ago=20)    # crashed job
+    make_stuck(email, running_id, minutes_ago=5)   # a job that may still be running
+    monkeypatch.setattr(settings, "ocr_engine", "fake")
+    monkeypatch.setitem(ocr.ENGINES, "fake", FakeEngine)
+
+    assert client.get(f"/documents/{stuck_id}", headers=headers).status_code == 200
+    assert document_of(email, stuck_id).status == "ready_for_review"  # reset, queued, processed
+    assert document_of(email, running_id).status == "processing"      # left alone
+
+
+def test_polling_never_resets_another_patients_stuck_document(make_patient):
+    email_a, headers_a = make_patient()
+    _, headers_b = make_patient()
+    document_id = upload(headers_a)
+    make_stuck(email_a, document_id, minutes_ago=20)
+    client.get("/documents", headers=headers_b)
+    assert document_of(email_a, document_id).status == "processing"
+    client.get("/documents", headers=headers_a)
+    assert document_of(email_a, document_id).status == "pending"  # OCR off: reset, not processed
+
+
+def test_a_job_whose_document_was_reset_meanwhile_saves_nothing(make_patient, engine):
+    """If a slow job's document is reset and claimed again, the first job must not save values too."""
+    email, headers = make_patient()
+    engine_name = settings.ocr_engine
+    settings.ocr_engine = "none"  # upload without OCR, so the job is run by hand below
+    try:
+        document_id = upload(headers)
+    finally:
+        settings.ocr_engine = engine_name
+    patient_id = document_of(email, document_id).patient_id
+
+    def read_and_lose_the_claim(self, data, mime_type):
+        with SessionLocal() as other:  # meanwhile: reset to pending (as a poll would do)
+            as_patient(other, email)
+            other.execute(update(Document).where(Document.document_id == document_id)
+                          .values(status="pending", processed_at=None))
+            other.commit()
+        return ocr.OcrResult(SAMPLE_REPORT, 90.0)
+
+    engine.read = read_and_lose_the_claim
+    assert worker.process_document(document_id, patient_id) == "skipped"
+    with SessionLocal() as session:
+        as_patient(session, email)
+        assert session.scalar(select(func.count()).select_from(LabResult)
+                              .where(LabResult.document_id == document_id)) == 0
+    assert document_of(email, document_id).status == "pending"

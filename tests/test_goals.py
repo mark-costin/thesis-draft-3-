@@ -1,5 +1,6 @@
 """Goals: can be added, completed and deleted, only by their owner."""
 
+import re
 import uuid
 
 import pytest
@@ -97,6 +98,50 @@ def test_html_is_removed_from_goal_text(make_patient):
     goal = add(headers, description="<b>Walk</b> & stretch<script>alert(1)</script>").json()
     assert goal["description"] == "Walk & stretch"
     assert add(headers, description="<script>alert(1)</script>").status_code == 422  # nothing left
+
+
+@pytest.mark.parametrize("description", ["&lt;script&gt;alert(1)&lt;/script&gt;", "&lt;b&gt;hi&lt;/b&gt;"],
+                         ids=["escaped-script", "escaped-bold"])
+def test_escaped_html_does_not_come_back_as_tags(make_patient, description):
+    """Unescaping after nh3 must not turn "&lt;script&gt;" into a real <script> tag."""
+    headers = make_patient()
+    response = add(headers, description=description)
+    saved = response.json().get("description", "") if response.status_code == 201 else ""
+    assert "<" not in saved and ">" not in saved
+
+
+@pytest.mark.parametrize("description", ["Walk & stretch", "Keep BP < 130", "Sleep > 7 h, 5 days/week",
+                                         "Eat less salt (< 2 g/day) & more fish"])
+def test_normal_text_with_symbols_is_saved_unchanged(make_patient, description):
+    headers = make_patient()
+    response = add(headers, description=description)
+    assert response.status_code == 201 and response.json()["description"] == description
+
+
+@pytest.mark.parametrize("description", ["&amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;Walk",
+                                         "<scr<script>ipt>alert(1)</script>Walk",
+                                         "&lt;img src=x onerror=alert(1)&gt;Walk"],
+                         ids=["double-escaped", "nested-tag", "escaped-img"])
+def test_tricky_html_is_cleaned(make_patient, description):
+    """Whatever is left is plain text: nothing that a browser could read as a tag."""
+    headers = make_patient()
+    response = add(headers, description=description)
+    assert response.status_code == 201
+    saved = response.json()["description"]
+    assert "Walk" in saved
+    assert re.search(r"<\s*[A-Za-z/!?]", saved) is None  # no "<tag", "</", "<!--" or "<?"
+    assert "onerror" not in saved and "script" not in saved.lower()
+
+
+def test_list_limit(make_patient):
+    headers = make_patient()
+    for n in range(3):
+        add(headers, description=f"Goal {n}")
+    assert [g["description"] for g in client.get("/goals?limit=2", headers=headers).json()] == ["Goal 2", "Goal 1"]
+    assert len(client.get("/goals", headers=headers).json()) == 3  # default 50
+    assert len(client.get("/goals?limit=200", headers=headers).json()) == 3
+    for bad in ("0", "201", "x"):
+        assert client.get(f"/goals?limit={bad}", headers=headers).status_code == 422
 
 
 def test_unknown_result_id_is_refused(make_patient):
