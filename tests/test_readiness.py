@@ -130,6 +130,26 @@ def test_never_smoker_needs_no_pack_years(make_patient):
     assert client.get("/assessment/readiness", headers=headers).json()["ready"] is True
 
 
+def pack_years_missing(headers):
+    return "pack_years" in required_names(client.get("/assessment/readiness", headers=headers).json())
+
+
+def test_never_then_current_smoker_needs_pack_years(make_patient):
+    """Only the latest smoking status counts (the feature builder's rule): a patient who now
+    smokes must enter pack years, even if an older entry said "never"."""
+    _, headers = make_patient()
+    client.post("/lifestyle", headers=headers, json={"smoking_status": "never"})
+    client.post("/lifestyle", headers=headers, json={"smoking_status": "current"})
+    assert pack_years_missing(headers) is True
+
+
+def test_current_then_never_smoker_needs_no_pack_years(make_patient):
+    _, headers = make_patient()
+    client.post("/lifestyle", headers=headers, json={"smoking_status": "current"})
+    client.post("/lifestyle", headers=headers, json={"smoking_status": "never"})
+    assert pack_years_missing(headers) is False
+
+
 def test_male_patient_is_not_asked_about_gestational_diabetes(make_patient):
     email, headers = make_patient(sex="Male")
     assert "gestational_diabetes" not in required_names(client.get("/assessment/readiness", headers=headers).json())

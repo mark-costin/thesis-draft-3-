@@ -1,0 +1,13 @@
+population_group_id,population_group_name,measure_id,measure_name,location_id,location_name,sex_id,sex_name,age_id,age_name,cause_id,cause_name,metric_id,metric_name,year,val,upper,lower
+1,All Population,5,Prevalence,16,Philippines,3,Both,22,All ages,491,Cardiovascular diseases,3,Rate,2023,4384.54969669895,4752.01172559326,4098.5695990616205
+1,All Population,5,Prevalence,16,Philippines,3,Both,22,All ages,508,Chronic respiratory diseases,3,Rate,2023,6987.367067970989,8266.03793963203,5984.07729846056
+1,All Population,5,Prevalence,16,Philippines,3,Both,22,All ages,294,All causes,3,Rate,2023,96261.27948528064,96692.96046320086,95815.48371748392
+1,All Population,5,Prevalence,16,Philippines,3,Both,22,All ages,571,Anxiety disorders,3,Rate,2023,3183.34555270848,3894.8977302908797,2468.0537764465103
+1,All Population,5,Prevalence,16,Philippines,3,Both,22,All ages,976,Diabetes mellitus type 2,3,Rate,2023,4875.13122112684,5332.22353004773,4411.02994739337
+1,All Population,5,Prevalence,16,Philippines,3,Both,22,All ages,558,Mental disorders,3,Rate,2023,10163.66812361801,11215.4845472525,9196.6136834879
+1,All Population,6,Incidence,16,Philippines,3,Both,22,All ages,294,All causes,3,Rate,2023,525173.0313496914,640571.0748854069,420955.05404749553
+1,All Population,6,Incidence,16,Philippines,3,Both,22,All ages,558,Mental disorders,3,Rate,2023,3128.5343123987395,3520.8596246162,2809.32799716503
+1,All Population,6,Incidence,16,Philippines,3,Both,22,All ages,508,Chronic respiratory diseases,3,Rate,2023,1438.56488812221,1750.7478268220002,1166.60554992992
+1,All Population,6,Incidence,16,Philippines,3,Both,22,All ages,571,Anxiety disorders,3,Rate,2023,352.12816091275,465.67099258893,266.62061015521
+1,All Population,6,Incidence,16,Philippines,3,Both,22,All ages,491,Cardiovascular diseases,3,Rate,2023,416.65316514322996,455.81797468540003,386.08971261703005
+1,All Population,6,Incidence,16,Philippines,3,Both,22,All ages,976,Diabetes mellitus type 2,3,Rate,2023,253.61506214242,274.19836059265,229.98724541899003

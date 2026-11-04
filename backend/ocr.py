@@ -31,6 +31,14 @@ class OcrEngine(Protocol):
 ENGINES: dict[str, type] = {}
 
 
+def check_engine() -> None:
+    """Called at startup (backend/main.py): a typo in OCR_ENGINE stops the app instead of leaving
+    every upload stuck."""
+    if settings.ocr_engine != "none" and settings.ocr_engine not in ENGINES:
+        raise RuntimeError(f"Unknown OCR_ENGINE {settings.ocr_engine!r}; use one of: none, "
+                           + ", ".join(sorted(ENGINES)))
+
+
 def get_engine() -> OcrEngine | None:
     """The configured engine, or None when OCR is switched off (OCR_ENGINE=none)."""
     if settings.ocr_engine == "none":

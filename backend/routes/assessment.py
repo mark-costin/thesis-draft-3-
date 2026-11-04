@@ -22,7 +22,7 @@ NO_STORE = {"Cache-Control": "no-store"}
 def check_readiness(response: Response, current: CurrentUser = Depends(get_current_user),
                     db: Session = Depends(get_db)) -> dict:
     response.headers.update(NO_STORE)
-    return readiness.readiness(db)
+    return readiness.readiness(db, current.patient_id)
 
 
 @router.post("/run", status_code=status.HTTP_201_CREATED, response_model=AssessmentResponse)

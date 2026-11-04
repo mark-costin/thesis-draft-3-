@@ -7,12 +7,13 @@ Responses hold health data, so they carry "Cache-Control: no-store".
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from backend import questionnaires, services
 from backend.database import get_db
 from backend.dependencies import CurrentUser, get_current_user
+from backend.middleware import CRISIS_STATE_KEY
 from backend.models import QuestionnaireResponse
 from backend.schemas import CrisisResources, QuestionnaireResponseOut, QuestionnaireSubmit
 
@@ -37,11 +38,14 @@ def _out(row: QuestionnaireResponse) -> QuestionnaireResponseOut:
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=QuestionnaireResponseOut)
-def submit(body: QuestionnaireSubmit, response: Response, current: CurrentUser = Depends(get_current_user),
+def submit(body: QuestionnaireSubmit, request: Request, response: Response,
+           current: CurrentUser = Depends(get_current_user),
            db: Session = Depends(get_db)) -> QuestionnaireResponseOut:
     row = services.submit_questionnaire(db, current.user_id, current.patient_id, body.instrument, body.answers)
     response.headers.update(NO_STORE)
     response.headers["Location"] = f"/questionnaires/{row.response_id}"
+    # Kept by the idempotency middleware, so a replay still shows the crisis prompt
+    setattr(request.state, CRISIS_STATE_KEY, bool(row.requires_crisis_prompt))
     return _out(row)
 
 
@@ -52,14 +56,14 @@ def list_responses(response: Response,
                    current: CurrentUser = Depends(get_current_user),
                    db: Session = Depends(get_db)) -> list[QuestionnaireResponseOut]:
     response.headers.update(NO_STORE)
-    return [_out(row) for row in services.list_questionnaires(db, instrument, limit)]
+    return [_out(row) for row in services.list_questionnaires(db, current.patient_id, instrument, limit)]
 
 
 @router.get("/{response_id}", response_model=QuestionnaireResponseOut)
 def read_response(response_id: int, response: Response, current: CurrentUser = Depends(get_current_user),
                   db: Session = Depends(get_db)) -> QuestionnaireResponseOut:
     try:
-        row = services.get_questionnaire(db, response_id)
+        row = services.get_questionnaire(db, current.patient_id, response_id)
     except services.NotFound:
         raise _NOT_FOUND
     response.headers.update(NO_STORE)

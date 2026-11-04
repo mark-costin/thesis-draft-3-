@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, func, select
 
-from backend import audit
+from backend import audit, services
 from backend.config import settings
 from backend.database import SessionLocal, set_request_identity
 from backend.main import app
@@ -23,6 +23,7 @@ from backend.models import (
     VitalsRecord,
 )
 from backend.schemas import DELETE_CONFIRMATION
+from backend.services import MAX_FAILED_ATTEMPTS
 
 client = TestClient(app)
 PASSWORD = "correct horse battery"
@@ -120,6 +121,18 @@ def test_export_never_holds_secrets_or_internal_ids(make_patient):
         assert secret not in text, secret
 
 
+def test_export_keeps_record_ids_but_no_system_keys(make_patient):
+    """Record IDs stay, so the patient sees which entries belong together; system keys go."""
+    _, headers = make_patient()
+    client.post("/vitals", headers=headers, json={"resting_hr": 70})
+    data = client.get("/account/export", headers=headers).json()
+    assert isinstance(data["vitals"][0]["vitals_id"], int)
+    exported = {name: {c.name for c in model.__table__.columns} - set(skip) - {"patient_id"}
+                for name, model, skip in services.EXPORT_TABLES}
+    assert "model_version_id" not in exported["risk_results"] and "result_id" in exported["risk_results"]
+    assert "storage_key" not in exported["documents"]
+
+
 def test_export_holds_only_my_data(make_patient):
     _, headers_a = make_patient()
     _, headers_b = make_patient()
@@ -198,6 +211,36 @@ def test_deletion_needs_password_and_exact_phrase(make_patient, password, confir
     email, headers = make_patient()
     assert delete_account(headers, password, confirm).status_code == expected
     assert client.get("/profile", headers=headers).status_code == 200  # nothing was deleted
+
+
+def failed_attempts(email):
+    with SessionLocal() as session:
+        return session.scalar(select(User.failed_attempts).where(User.email == email))
+
+
+def test_wrong_delete_password_is_audited_and_counted(make_patient, monkeypatch):
+    email, headers = make_patient()
+    recorded = []
+    real = audit.log_event
+    monkeypatch.setattr(audit, "log_event",
+                        lambda db, event_type, **kw: recorded.append((event_type, kw)) or real(db, event_type, **kw))
+    assert delete_account(headers, "wrong password").status_code == 403
+    event_type, details = recorded[-1]
+    assert event_type == "LOGIN_FAILED" and details["reason"] == "delete_wrong_password"
+    assert details["failed_attempts"] == 1
+    assert "wrong password" not in str(details) and PASSWORD not in str(details)  # the typed text is never logged
+    assert failed_attempts(email) == 1
+
+
+def test_wrong_delete_passwords_lock_the_account_like_login(make_patient):
+    email, headers = make_patient()
+    for _ in range(MAX_FAILED_ATTEMPTS - 1):
+        assert delete_account(headers, "wrong password").status_code == 403
+    assert delete_account(headers, "wrong password").status_code == 423  # the 5th locks it
+    # Locked: even the right password deletes nothing, and login is locked too
+    assert delete_account(headers).status_code == 423
+    assert client.get("/profile", headers=headers).status_code == 200
+    assert client.post("/auth/login", json={"email": email, "password": PASSWORD}).status_code == 423
 
 
 def test_account_endpoints_need_login():

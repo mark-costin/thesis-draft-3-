@@ -11,7 +11,7 @@ exists for tests and for previewing the drafts before the physician signs them.
 
 from collections.abc import Callable
 
-from sqlalchemy import select
+from sqlalchemy import Date, cast, func, select
 from sqlalchemy.orm import Session
 
 from backend.models import (
@@ -150,34 +150,42 @@ def check_templates(db: Session, include_drafts: bool = False) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# Facts from the patient's saved data (read under RLS: own rows only)
+# Facts from the patient's saved data. Every query filters on the patient_id from the verified
+# JWT; RLS is the second layer. Same "latest value" rules as the feature builder.
 # ---------------------------------------------------------------------------
 def _number(value):
     return None if value is None else float(value)
 
 
-def patient_facts(db: Session) -> dict:
+def patient_facts(db: Session, patient_id: int) -> dict:
     """The saved values the triggers need: the latest non-empty value of each one."""
     def latest(model, column, *order):
         attribute = getattr(model, column)
-        return db.scalar(select(attribute).where(attribute.is_not(None)).order_by(*order).limit(1))
+        return db.scalar(select(attribute).where(model.patient_id == patient_id, attribute.is_not(None))
+                         .order_by(*order).limit(1))
 
     def lifestyle(column):
         return latest(LifestyleRecord, column, LifestyleRecord.recorded_at.desc(), LifestyleRecord.lifestyle_id.desc())
 
     def lab(code):
         return _number(db.scalar(select(LabResult.value)
-                                 .where(LabResult.test_code == code, LabResult.is_confirmed)
-                                 .order_by(LabResult.collected_on.desc().nulls_last(),
+                                 .where(LabResult.patient_id == patient_id, LabResult.test_code == code,
+                                        LabResult.is_confirmed)
+                                 # no sample date: counts from the day it was saved (as feature_builder)
+                                 .order_by(func.coalesce(LabResult.collected_on,
+                                                         cast(LabResult.created_at, Date)).desc(),
                                            LabResult.created_at.desc(), LabResult.lab_result_id.desc()).limit(1)))
 
-    history = db.scalars(select(PatientHealthHistory)).one_or_none()
+    history = db.scalars(select(PatientHealthHistory)
+                         .where(PatientHealthHistory.patient_id == patient_id)).one_or_none()
     bands = db.execute(select(PatientFhrsStratification.disease_domain, PatientFhrsStratification.risk_band)
+                       .where(PatientFhrsStratification.patient_id == patient_id)
                        .distinct(PatientFhrsStratification.disease_domain)
                        .order_by(PatientFhrsStratification.disease_domain,
                                  PatientFhrsStratification.evaluated_at.desc(),
                                  PatientFhrsStratification.fhrs_id.desc())).all()
-    psqi = db.scalar(select(QuestionnaireResponse.total_score).where(QuestionnaireResponse.instrument == "PSQI")
+    psqi = db.scalar(select(QuestionnaireResponse.total_score)
+                     .where(QuestionnaireResponse.patient_id == patient_id, QuestionnaireResponse.instrument == "PSQI")
                      .order_by(QuestionnaireResponse.completed_at.desc(),
                                QuestionnaireResponse.response_id.desc()).limit(1))
     facts = {
@@ -198,9 +206,10 @@ def patient_facts(db: Session) -> dict:
     return facts
 
 
-def build_care_plans(db: Session, tiers: dict[str, str], include_drafts: bool = False) -> dict[str, dict]:
+def build_care_plans(db: Session, patient_id: int, tiers: dict[str, str],
+                     include_drafts: bool = False) -> dict[str, dict]:
     """{disease: care plan} for the given risk tiers, e.g. {"CVD": "High", "T2D": "Low"}."""
-    facts = patient_facts(db)
+    facts = patient_facts(db, patient_id)
     plans = {}
     for disease, tier in tiers.items():
         template = get_template(db, disease, tier, include_drafts)

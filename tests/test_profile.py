@@ -1,11 +1,12 @@
 """Profile endpoints: a patient sees and edits only their own profile."""
 
 import uuid
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text
+from sqlalchemy.exc import ProgrammingError
 
 from backend import audit
 from backend.config import settings
@@ -118,6 +119,48 @@ def test_invalid_edits_are_rejected(make_patient, body):
     assert client.patch("/profile", headers=headers, json=body).status_code == 422
     row = patient_row(email)
     assert (row.first_name, row.last_name, row.biological_sex) == ("Gabriela", "Silang", "Female")
+
+
+def test_turning_18_today_is_accepted_tomorrow_is_rejected(make_patient):
+    email, headers = make_patient()
+    eighteen_today = years_ago(18)
+    tomorrow = eighteen_today + timedelta(days=1)
+    assert client.patch("/profile", headers=headers,
+                        json={"date_of_birth": tomorrow.isoformat()}).status_code == 422
+    assert patient_row(email).date_of_birth == date(1985, 3, 19)
+    assert client.patch("/profile", headers=headers,
+                        json={"date_of_birth": eighteen_today.isoformat()}).status_code == 200
+    assert patient_row(email).date_of_birth == eighteen_today
+
+
+def test_changing_biological_sex_is_saved_and_audited(make_patient, monkeypatch):
+    recorded = []
+    real = audit.log_event
+
+    def recording(db, event_type, **kwargs):
+        recorded.append((event_type, kwargs))
+        return real(db, event_type, **kwargs)
+
+    email, headers = make_patient(sex="Female")
+    monkeypatch.setattr(audit, "log_event", recording)
+    response = client.patch("/profile", headers=headers, json={"biological_sex": "Male"})
+    assert response.status_code == 200
+    assert response.json()["biological_sex"] == "Male"
+    row = patient_row(email)
+    assert row.biological_sex == "Male"
+    event_type, details = recorded[-1]
+    assert event_type == "DATA_UPDATED"
+    assert details["fields"] == ["biological_sex"]
+    assert details["patient_id"] == row.patient_id
+
+
+def test_med_app_cannot_update_consent(db, two_patients):
+    """Even as the patient themself, med_app has no UPDATE right on consent_version."""
+    user_id, patient_id = two_patients["A"]
+    set_request_identity(db, user_id=user_id, patient_id=patient_id)
+    with pytest.raises(ProgrammingError, match="permission denied"):
+        db.execute(text("UPDATE patients SET consent_version = '9.9' WHERE patient_id = :p"),
+                   {"p": patient_id})
 
 
 def test_edit_is_audited_with_field_names_only(make_patient, monkeypatch):
