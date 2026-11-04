@@ -38,8 +38,10 @@ LABELS = {
     "TRIGLYCERIDES": ["triglycerides", "triglyceride", "tg", "trig", "trigs"],
     "FPG": ["fbs", "fasting blood sugar", "fasting blood glucose", "fasting plasma glucose", "fpg",
             "glucose fasting", "fasting glucose", "rbs fasting"],
-    "OGTT_2H": ["ogtt 2 hr", "ogtt 2hr", "ogtt 2 hours", "2 hour glucose", "2hr glucose", "2 hr pp glucose",
-                "75g ogtt 2 hr", "ogtt 2h"],
+    # OGTT only: the 2-hour value after a standard 75 g glucose drink. A 2-hour postprandial
+    # ("2 hr pp") glucose is taken after an ordinary meal and is not the same test, and a bare
+    # "2 hour glucose" could be either, so those labels are not mapped (refused as unknown).
+    "OGTT_2H": ["ogtt 2 hr", "ogtt 2hr", "ogtt 2 hours", "75g ogtt 2 hr", "ogtt 2h"],
     "HBA1C": ["hba1c", "hb a1c", "a1c", "glycated hemoglobin", "glycosylated hemoglobin", "hemoglobin a1c"],
     "CREATININE": ["creatinine", "crea", "serum creatinine", "creat"],
     "EGFR": ["egfr", "estimated gfr", "gfr"],
@@ -57,7 +59,8 @@ LABELS = {
 
 # Units as written on reports -> one spelling
 _UNIT_ALIASES = {
-    "mg/dl": "mg/dL", "mmol/l": "mmol/L", "umol/l": "umol/L", "µmol/l": "umol/L", "μmol/l": "umol/L",
+    "mg/dl": "mg/dL", "mg%": "mg/dL",  # mg% (older reports) = mg per 100 mL = mg/dL
+    "mmol/l": "mmol/L", "umol/l": "umol/L", "µmol/l": "umol/L", "μmol/l": "umol/L",
     "%": "%", "mmol/mol": "mmol/mol", "ml/min/1.73m2": "mL/min/1.73m2", "ml/min/1.73 m2": "mL/min/1.73m2",
     "ml/min/1.73m²": "mL/min/1.73m2", "mg/g": "mg/g", "mg/mmol": "mg/mmol",
     "mg/l": "mg/L", "cells/ul": "cells/uL", "cells/µl": "cells/uL", "cells/μl": "cells/uL", "/ul": "cells/uL",

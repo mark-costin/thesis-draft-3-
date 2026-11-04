@@ -91,10 +91,10 @@ def remove_document(document_id: int, current: CurrentUser = Depends(get_current
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-def _review_response(db: Session, document, rows) -> DocumentReviewResponse:
+def _review_response(db: Session, patient_id: int, document, rows) -> DocumentReviewResponse:
     # Values still under review count as given, so the list shows only what OCR did not find
     found = frozenset(readiness.lab_key(row.test_code) for row in rows)
-    missing = readiness.readiness(db, assume_present=found)["missing_required"]
+    missing = readiness.readiness(db, patient_id, assume_present=found)["missing_required"]
     return DocumentReviewResponse(document=DocumentResponse.model_validate(document),
                                   lab_results=[lab_out(row) for row in rows], missing_required=missing)
 
@@ -110,11 +110,11 @@ def review(document_id: int, response: Response, current: CurrentUser = Depends(
            db: Session = Depends(get_db)) -> DocumentReviewResponse:
     """The values OCR read from this document, with the unit conversion and range flags."""
     try:
-        document, rows = services.review_document(db, document_id)
+        document, rows = services.review_document(db, current.patient_id, document_id)
     except services.NotFound:
         raise _NOT_FOUND
     response.headers.update(NO_STORE)
-    return _review_response(db, document, rows)
+    return _review_response(db, current.patient_id, document, rows)
 
 
 @router.post("/{document_id}/confirm", response_model=DocumentReviewResponse)
@@ -139,7 +139,7 @@ def confirm(document_id: int, response: Response, body: DocumentConfirm | None =
         raise HTTPException(status.HTTP_409_CONFLICT,
                             "There are no values left to confirm. Reject the document instead.")
     response.headers.update(NO_STORE)
-    return _review_response(db, document, rows)
+    return _review_response(db, current.patient_id, document, rows)
 
 
 @router.post("/{document_id}/reject", response_model=DocumentResponse)

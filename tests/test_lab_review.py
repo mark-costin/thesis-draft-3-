@@ -139,9 +139,10 @@ def test_values_under_review_count_as_found(make_patient):
     becomes required, the same rule keeps it off the review's missing list."""
     email, _ = make_patient()
     with SessionLocal() as session:
-        as_patient(session, email)
-        plain = readiness.readiness(session)["models"]["T2D"]["missing_optional"]
-        assumed = readiness.readiness(session, assume_present=frozenset({readiness.lab_key("HBA1C")}))
+        patient_id = as_patient(session, email)
+        plain = readiness.readiness(session, patient_id)["models"]["T2D"]["missing_optional"]
+        assumed = readiness.readiness(session, patient_id,
+                                      assume_present=frozenset({readiness.lab_key("HBA1C")}))
     assert "hba1c" in [item["name"] for item in plain]
     assert "hba1c" not in [item["name"] for item in assumed["models"]["T2D"]["missing_optional"]]
 
@@ -152,6 +153,20 @@ def test_review_of_another_patients_document_is_not_found(make_patient):
     assert client.get(f"/documents/{document_id}/review", headers=other).status_code == 404
     assert client.post(f"/documents/{document_id}/confirm", headers=other).status_code == 404
     assert client.post(f"/documents/{document_id}/reject", headers=other).status_code == 404
+
+
+def test_another_patient_cannot_change_the_review(make_patient):
+    _, owner, document_id = ready_document(make_patient)
+    _, other = make_patient()
+    before = client.get(f"/documents/{document_id}/review", headers=owner).json()
+    lab_id = before["lab_results"][0]["lab_result_id"]
+    assert client.patch(f"/labs/{lab_id}", headers=other,
+                        json={"test_code": "FPG", "value": 90, "unit": "mg/dL"}).status_code == 404
+    client.post(f"/documents/{document_id}/confirm", headers=other)
+    client.post(f"/documents/{document_id}/reject", headers=other)
+    after = client.get(f"/documents/{document_id}/review", headers=owner).json()
+    assert after["document"]["status"] == "ready_for_review"
+    assert after["lab_results"] == before["lab_results"]  # nothing confirmed, fixed or dropped
 
 
 # ---------------------------------------------------------------------------

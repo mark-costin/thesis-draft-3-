@@ -899,8 +899,8 @@ def create_lab(db: Session, user_id: int, patient_id: int, mapped: labs.MappedLa
     return row
 
 
-def list_labs(db: Session, test_code: str | None, limit: int) -> list[LabResult]:
-    query = select(LabResult)
+def list_labs(db: Session, patient_id: int, test_code: str | None, limit: int) -> list[LabResult]:
+    query = select(LabResult).where(LabResult.patient_id == patient_id)
     if test_code is not None:
         query = query.where(LabResult.test_code == test_code)
     return list(db.scalars(query.order_by(LabResult.collected_on.desc().nulls_last(),
@@ -908,15 +908,17 @@ def list_labs(db: Session, test_code: str | None, limit: int) -> list[LabResult]
                           .limit(limit)))
 
 
-def get_lab(db: Session, lab_result_id: int) -> LabResult:
-    row = db.scalars(select(LabResult).where(LabResult.lab_result_id == lab_result_id)).one_or_none()
+def get_lab(db: Session, patient_id: int, lab_result_id: int) -> LabResult:
+    row = db.scalars(select(LabResult).where(LabResult.lab_result_id == lab_result_id,
+                                             LabResult.patient_id == patient_id)).one_or_none()
     if row is None:
         raise NotFound
     return row
 
 
 def delete_lab(db: Session, user_id: int, patient_id: int, lab_result_id: int) -> None:
-    deleted = db.scalar(delete(LabResult).where(LabResult.lab_result_id == lab_result_id)
+    deleted = db.scalar(delete(LabResult).where(LabResult.lab_result_id == lab_result_id,
+                                                LabResult.patient_id == patient_id)
                         .returning(LabResult.lab_result_id))
     if deleted is None:
         db.rollback()
@@ -929,6 +931,7 @@ def delete_lab(db: Session, user_id: int, patient_id: int, lab_result_id: int) -
 # ---------------------------------------------------------------------------
 # OCR review: the patient checks what OCR read before any of it is used (patient-in-the-loop).
 # The OCR worker (separate task) saves unconfirmed lab rows and sets the document to ready_for_review.
+# Every query filters on the patient_id from the JWT; RLS is the second layer.
 # ---------------------------------------------------------------------------
 class WrongStatus(Exception):
     def __init__(self, status: str):
@@ -944,9 +947,10 @@ class AlreadyConfirmed(Exception):
     pass
 
 
-def review_document(db: Session, document_id: int) -> tuple[Document, list[LabResult]]:
-    document = get_document(db, document_id)
-    rows = list(db.scalars(select(LabResult).where(LabResult.document_id == document_id)
+def review_document(db: Session, patient_id: int, document_id: int) -> tuple[Document, list[LabResult]]:
+    document = get_document(db, patient_id, document_id)
+    rows = list(db.scalars(select(LabResult).where(LabResult.document_id == document_id,
+                                                   LabResult.patient_id == patient_id)
                            .order_by(LabResult.lab_result_id)))
     return document, rows
 
@@ -954,7 +958,7 @@ def review_document(db: Session, document_id: int) -> tuple[Document, list[LabRe
 def update_lab(db: Session, user_id: int, patient_id: int, lab_result_id: int,
                mapped: labs.MappedLab, collected_on: date | None, collected_on_sent: bool) -> LabResult:
     """Fixes an OCR value before it is confirmed. Confirmed values are not edited: delete and re-enter."""
-    row = get_lab(db, lab_result_id)
+    row = get_lab(db, patient_id, lab_result_id)
     if row.is_confirmed:
         raise AlreadyConfirmed
     row.test_code, row.value, row.unit = mapped.test_code, mapped.value, mapped.unit
@@ -970,11 +974,12 @@ def update_lab(db: Session, user_id: int, patient_id: int, lab_result_id: int,
     return row
 
 
-def _finish_review(db: Session, document_id: int, new_status: str, **extra) -> Document:
+def _finish_review(db: Session, patient_id: int, document_id: int, new_status: str, **extra) -> Document:
     """Moves a document out of ready_for_review in one UPDATE, so two clicks cannot both succeed."""
-    document = get_document(db, document_id)
+    document = get_document(db, patient_id, document_id)
     changed = db.scalar(update(Document)
-                        .where(Document.document_id == document_id, Document.status == "ready_for_review")
+                        .where(Document.document_id == document_id, Document.patient_id == patient_id,
+                               Document.status == "ready_for_review")
                         .values(status=new_status, ocr_text=None, **extra)  # OCR text no longer needed
                         .returning(Document.document_id))
     if changed is None:
@@ -989,8 +994,9 @@ def confirm_document(db: Session, user_id: int, patient_id: int, document_id: in
     """The patient says the (possibly corrected) OCR values match the report, and adds the values
     OCR missed. Both are saved and confirmed in one transaction, so they now count."""
     now = datetime.now(timezone.utc)
-    _finish_review(db, document_id, "verified", verified_at=now)
-    pending = LabResult.document_id == document_id, LabResult.is_confirmed.is_(False)
+    _finish_review(db, patient_id, document_id, "verified", verified_at=now)
+    pending = (LabResult.document_id == document_id, LabResult.patient_id == patient_id,
+               LabResult.is_confirmed.is_(False))
     if collected_on is not None:  # the date on the report, for rows OCR could not date
         db.execute(update(LabResult).where(*pending, LabResult.collected_on.is_(None))
                    .values(collected_on=collected_on))
@@ -1009,17 +1015,18 @@ def confirm_document(db: Session, user_id: int, patient_id: int, document_id: in
     audit.log_event(db, "DOCUMENT_VERIFIED", user_id=user_id, patient_id=patient_id,
                     record_id=document_id, confirmed_values=len(confirmed), typed_values=len(typed))
     db.commit()
-    return review_document(db, document_id)
+    return review_document(db, patient_id, document_id)
 
 
 def reject_document(db: Session, user_id: int, patient_id: int, document_id: int) -> Document:
     """OCR read the report wrong: its unconfirmed values are dropped. The file stays; the patient
     can type the values in with POST /labs instead."""
-    _finish_review(db, document_id, "rejected")
+    _finish_review(db, patient_id, document_id, "rejected")
     dropped = db.scalars(delete(LabResult)
-                         .where(LabResult.document_id == document_id, LabResult.is_confirmed.is_(False))
+                         .where(LabResult.document_id == document_id, LabResult.patient_id == patient_id,
+                                LabResult.is_confirmed.is_(False))
                          .returning(LabResult.lab_result_id)).all()
     audit.log_event(db, "DOCUMENT_REJECTED", user_id=user_id, patient_id=patient_id,
                     record_id=document_id, dropped_values=len(dropped))
     db.commit()
-    return get_document(db, document_id)
+    return get_document(db, patient_id, document_id)
