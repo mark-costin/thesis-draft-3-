@@ -520,15 +520,20 @@ def delete_goal(db: Session, user_id: int, patient_id: int, goal_id: int) -> Non
 
 # ---------------------------------------------------------------------------
 # Family history and FHRS. Every change recalculates the FHRS for all four diseases in the
-# same transaction, so the score always matches the saved pedigree.
+# same transaction, so the score always matches the saved pedigree. Every query filters on
+# the patient_id from the JWT; RLS is the second layer.
 # ---------------------------------------------------------------------------
 class DuplicateEntry(Exception):
     """The same relative is already listed with this diagnosis (family_unique_entry)."""
 
 
 def _set_onset(row: PatientFamilyHistory, chosen: str | None = None) -> None:
-    """A known age decides the onset level; without an age the patient's choice is kept."""
-    if row.age_at_diagnosis is not None:
+    """A known age decides the onset level; without an age the patient's choice is kept.
+    Some diagnoses (anxiety) have a fixed level whatever the age or the choice."""
+    fixed = fhrs.fixed_onset(row.disease_domain, row.specific_diagnosis)
+    if fixed is not None:
+        row.onset_classification = fixed
+    elif row.age_at_diagnosis is not None:
         row.onset_classification = fhrs.onset_from_age(
             row.disease_domain, row.specific_diagnosis, fhrs.sex_of(row.relative), row.age_at_diagnosis)
     elif chosen is not None:
@@ -538,7 +543,8 @@ def _set_onset(row: PatientFamilyHistory, chosen: str | None = None) -> None:
 def recalculate_fhrs(db: Session, patient_id: int) -> list[PatientFhrsStratification]:
     entries = [fhrs.FamilyEntry(relative=r.relative, domain=r.disease_domain, onset=r.onset_classification,
                                 confirmed=r.diagnosis_confirmed, shared_environment=r.shared_environment)
-               for r in db.scalars(select(PatientFamilyHistory))]
+               for r in db.scalars(select(PatientFamilyHistory)
+                                   .where(PatientFamilyHistory.patient_id == patient_id))]
     rows = []
     for domain in fhrs.DOMAINS:
         result = fhrs.calculate(domain, entries)
@@ -552,8 +558,9 @@ def recalculate_fhrs(db: Session, patient_id: int) -> list[PatientFhrsStratifica
     return rows
 
 
-def latest_fhrs(db: Session) -> list[PatientFhrsStratification]:
+def latest_fhrs(db: Session, patient_id: int) -> list[PatientFhrsStratification]:
     rows = db.scalars(select(PatientFhrsStratification)
+                      .where(PatientFhrsStratification.patient_id == patient_id)
                       .distinct(PatientFhrsStratification.disease_domain)
                       .order_by(PatientFhrsStratification.disease_domain,
                                 PatientFhrsStratification.evaluated_at.desc(),
@@ -561,14 +568,16 @@ def latest_fhrs(db: Session) -> list[PatientFhrsStratification]:
     return list(rows)
 
 
-def list_family_history(db: Session) -> list[PatientFamilyHistory]:
-    return list(db.scalars(select(PatientFamilyHistory).order_by(
-        PatientFamilyHistory.disease_domain, PatientFamilyHistory.record_id)))
+def list_family_history(db: Session, patient_id: int) -> list[PatientFamilyHistory]:
+    return list(db.scalars(select(PatientFamilyHistory)
+                           .where(PatientFamilyHistory.patient_id == patient_id)
+                           .order_by(PatientFamilyHistory.disease_domain, PatientFamilyHistory.record_id)))
 
 
-def get_family_entry(db: Session, record_id: int) -> PatientFamilyHistory:
+def get_family_entry(db: Session, patient_id: int, record_id: int) -> PatientFamilyHistory:
     row = db.scalars(select(PatientFamilyHistory)
-                     .where(PatientFamilyHistory.record_id == record_id)).one_or_none()
+                     .where(PatientFamilyHistory.record_id == record_id,
+                            PatientFamilyHistory.patient_id == patient_id)).one_or_none()
     if row is None:
         raise NotFound
     return row
@@ -600,7 +609,7 @@ def add_family_entry(db: Session, user_id: int, patient_id: int, data: dict) -> 
 
 def update_family_entry(db: Session, user_id: int, patient_id: int, record_id: int,
                         changes: dict) -> PatientFamilyHistory:
-    row = get_family_entry(db, record_id)
+    row = get_family_entry(db, patient_id, record_id)
     chosen = changes.pop("onset_classification", None)
     for name, value in changes.items():
         setattr(row, name, value)
@@ -616,7 +625,8 @@ def update_family_entry(db: Session, user_id: int, patient_id: int, record_id: i
 
 
 def delete_family_entry(db: Session, user_id: int, patient_id: int, record_id: int) -> None:
-    deleted = db.scalar(delete(PatientFamilyHistory).where(PatientFamilyHistory.record_id == record_id)
+    deleted = db.scalar(delete(PatientFamilyHistory).where(PatientFamilyHistory.record_id == record_id,
+                                                           PatientFamilyHistory.patient_id == patient_id)
                         .returning(PatientFamilyHistory.record_id))
     if deleted is None:
         db.rollback()
@@ -632,7 +642,7 @@ def confirm_family_history(db: Session, user_id: int, patient_id: int) -> list[P
     record Baseline for every disease (the readiness check needs an FHRS for each model)."""
     rows = recalculate_fhrs(db, patient_id)
     audit.log_event(db, "DATA_CREATED", user_id=user_id, patient_id=patient_id,
-                    table="patient_fhrs_stratification", entries=len(list_family_history(db)))
+                    table="patient_fhrs_stratification", entries=len(list_family_history(db, patient_id)))
     db.commit()
     for row in rows:
         db.refresh(row)
