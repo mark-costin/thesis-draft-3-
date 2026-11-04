@@ -159,7 +159,7 @@ def test_a_run_saves_the_assessment_results_and_every_shap_value(make_patient, m
     for result in results:
         ranks = sorted(row.rank for row in shap if row.result_id == result.result_id)
         assert ranks == list(range(1, len(FEATURES[result.disease_domain]) + 1))
-    assert set(assessments[0].input_snapshot) == set(MODELS)
+    assert set(assessments[0].input_snapshot) == set(MODELS) | {"capped", "templates_used"}
 
 
 def test_the_same_inputs_always_give_the_same_saved_result(make_patient, models_on):
@@ -168,7 +168,7 @@ def test_the_same_inputs_always_give_the_same_saved_result(make_patient, models_
     first = client.post("/assessment/run", headers=headers).json()
     second = client.post("/assessment/run", headers=headers).json()
     assert first["assessment_id"] != second["assessment_id"]
-    strip = lambda d: [{k: v for k, v in r.items() if k != "care_plan"} for r in d["results"]]
+    strip = lambda d: [{k: v for k, v in r.items() if k not in ("care_plan", "result_id")} for r in d["results"]]
     assert strip(first) == strip(second)
     assessments, results, shap = saved_rows(email)
     by_assessment = {}
@@ -305,3 +305,63 @@ def test_a_run_is_audited_without_results(make_patient, models_on, monkeypatch):
 def test_assessments_need_a_login():
     assert client.post("/assessment/run").status_code == 401
     assert client.get("/assessment").status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Review fixes: capped values, templates used, result_id, patient_id filters
+# ---------------------------------------------------------------------------
+def test_a_capped_value_is_saved_and_explained_with_what_was_entered(make_patient, models_on, monkeypatch):
+    email, headers = make_patient()
+    fill_required(headers)
+    send(headers, "/vitals", {"sbp": 240, "dbp": 90})  # features.yaml sbp range: 70-220
+    monkeypatch.setattr(risk, "TOP_FACTORS", 100)      # show every factor, so sbp is listed
+    body = client.post("/assessment/run", headers=headers).json()
+    assessments, _, _ = saved_rows(email)
+    snapshot = assessments[0].input_snapshot
+    assert snapshot["CVD"]["sbp"] == 220
+    assert snapshot["capped"]["CVD"]["sbp"] == {"entered": 240, "used": 220}
+    cvd = next(r for r in body["results"] if r["disease"] == "CVD")
+    sbp = next(f for f in cvd["top_factors"] if f["feature"] == "sbp")
+    assert "of 240 mmHg (counted as 220, the highest value the model uses)" in sbp["sentence"]
+
+
+def test_the_care_plan_templates_used_are_saved_with_the_assessment(make_patient, models_on):
+    email, headers = make_patient()
+    fill_required(headers)
+    body = client.post("/assessment/run", headers=headers).json()
+    used = saved_rows(email)[0][0].input_snapshot["templates_used"]
+    assert set(used) == set(MODELS)
+    for result in body["results"]:
+        plan = result["care_plan"]
+        assert used[result["disease"]] == {"template_id": plan["template_id"], "version": plan["version"]}
+
+
+def test_each_result_returns_its_result_id(make_patient, models_on):
+    email, headers = make_patient()
+    fill_required(headers)
+    body = client.post("/assessment/run", headers=headers).json()
+    _, results, _ = saved_rows(email)
+    saved = {r.disease_domain: r.result_id for r in results}
+    assert {r["disease"]: r["result_id"] for r in body["results"]} == saved
+    again = client.get(f"/assessment/{body['assessment_id']}", headers=headers).json()
+    assert [r["result_id"] for r in again["results"]] == [r["result_id"] for r in body["results"]]
+
+
+def test_view_and_list_filter_on_patient_id_even_if_rls_shows_someone_else(make_patient, models_on):
+    """Second layer: the session's RLS identity is the owner, but the view is asked for as another
+    patient. It must not return the owner's assessment."""
+    owner_email, owner = make_patient()
+    fill_required(owner)
+    assessment_id = client.post("/assessment/run", headers=owner).json()["assessment_id"]
+    other_email, _ = make_patient()
+    with SessionLocal() as session:
+        ids = {}
+        for email in (owner_email, other_email):
+            user_id = session.scalar(select(User.user_id).where(User.email == email))
+            set_request_identity(session, user_id=user_id)
+            ids[email] = (user_id, session.scalar(select(Patient.patient_id)))
+        set_request_identity(session, user_id=ids[owner_email][0], patient_id=ids[owner_email][1])
+        assert risk.view(session, ids[owner_email][1], assessment_id)["assessment_id"] == assessment_id
+        with pytest.raises(risk.NotFound):
+            risk.view(session, ids[other_email][1], assessment_id)
+        assert risk.list_assessments(session, ids[other_email][1], 20) == []

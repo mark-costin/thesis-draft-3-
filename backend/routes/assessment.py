@@ -36,14 +36,14 @@ def run(request: Request, response: Response, current: CurrentUser = Depends(get
                             "The risk models are not available yet. Please try again later.")
     except feature_builder.MissingRequired:
         db.rollback()
-        missing = readiness.readiness(db)["missing_required"]
+        missing = readiness.readiness(db, current.patient_id)["missing_required"]
         raise HTTPException(status.HTTP_409_CONFLICT, {
             "message": "Some required information is still missing. Please enter it first.",
             "missing_required": missing,
         })
     response.headers.update(NO_STORE)
     response.headers["Location"] = f"/assessment/{assessment_id}"
-    return risk.view(db, assessment_id)
+    return risk.view(db, current.patient_id, assessment_id)
 
 
 @router.get("", response_model=list[AssessmentSummary])
@@ -51,14 +51,14 @@ def list_assessments(response: Response, limit: int = Query(default=20, ge=1, le
                      current: CurrentUser = Depends(get_current_user),
                      db: Session = Depends(get_db)) -> list[dict]:
     response.headers.update(NO_STORE)
-    return risk.list_assessments(db, limit)
+    return risk.list_assessments(db, current.patient_id, limit)
 
 
 @router.get("/{assessment_id}", response_model=AssessmentResponse)
 def read_assessment(assessment_id: int, response: Response, current: CurrentUser = Depends(get_current_user),
                     db: Session = Depends(get_db)) -> dict:
     try:
-        result = risk.view(db, assessment_id)
+        result = risk.view(db, current.patient_id, assessment_id)
     except risk.NotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Assessment not found")
     response.headers.update(NO_STORE)

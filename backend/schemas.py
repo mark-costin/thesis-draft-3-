@@ -694,6 +694,7 @@ class RiskFactor(BaseModel):
 
 
 class DiseaseResult(BaseModel):
+    result_id: int           # POST /goals with this result_id links a care plan goal to this result
     disease: str
     disease_name: str
     probability: float
