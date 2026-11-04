@@ -254,3 +254,20 @@ def test_a_model_built_with_other_package_versions_is_refused(model_dir):
     other.metrics = {"versions": {"xgboost": "0.0.1"}}
     with pytest.raises(model_registry.ModelError, match="xgboost 0.0.1"):
         model_registry.load_model(other)
+
+
+def test_without_versions_the_model_is_refused_when_risk_models_are_on(model_dir, monkeypatch):
+    row = registered(train_xgboost(model_dir / "neuro_v1.json"))
+    row.metrics = {"auroc": 0.8}  # no "versions"
+    monkeypatch.setattr(settings, "risk_models_enabled", True)
+    with pytest.raises(model_registry.ModelError, match='no "versions"'):
+        model_registry.load_model(row)
+
+
+def test_without_versions_only_a_warning_while_risk_models_are_off(model_dir, monkeypatch, caplog):
+    row = registered(train_xgboost(model_dir / "neuro_v1.json"))
+    row.metrics = None
+    monkeypatch.setattr(settings, "risk_models_enabled", False)
+    with caplog.at_level("WARNING", logger="backend.model_registry"):
+        assert model_registry.load_model(row).disease == "NEURO"
+    assert 'no "versions"' in caplog.text

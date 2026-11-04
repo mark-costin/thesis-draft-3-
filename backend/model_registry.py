@@ -8,8 +8,10 @@ register a model. For each active row the app:
      that were checked are exactly the bytes that run (a pickled file runs code when loaded,
      and a file swapped on disk after the check is never read again);
   3. checks that feature_list has exactly the model's inputs in ml/features.yaml;
-  4. if metrics lists the package versions the file was built with, checks they match the
+  4. checks that the package versions the file was built with (metrics.versions) match the
      installed ones (a .joblib file may not load, or may load wrongly, with other versions).
+     With RISK_MODELS_ENABLED=true a model without metrics.versions is refused; while the flag
+     is off (development, tests) it only logs a warning.
 
 Text inputs (sex) become numbers with the "encoding" line of ml/features.yaml, the same line the
 synthetic data and the training read, so the app and the models cannot disagree.
@@ -20,6 +22,7 @@ File formats: XGBoost JSON/UBJ (.json, .ubj) or a scikit-learn object saved with
 
 import hashlib
 import io
+import logging
 from dataclasses import dataclass, field
 from importlib import metadata
 from pathlib import Path
@@ -32,6 +35,7 @@ from backend.config import ROOT_DIR, settings
 from backend.models import ModelVersion
 from backend.readiness import MODELS, load_features
 
+log = logging.getLogger(__name__)
 ACTIVE: dict[str, "LoadedModel"] = {}  # filled at startup when RISK_MODELS_ENABLED=true
 
 
@@ -147,9 +151,18 @@ def load_model(row: ModelVersion) -> LoadedModel:
 
 
 def check_versions(row: ModelVersion) -> None:
-    """metrics may hold {"versions": {"xgboost": "3.2.0", "scikit-learn": "1.9.1", ...}}, the
-    packages the file was built with. Each must match what is installed here."""
+    """metrics.versions, e.g. {"xgboost": "3.2.0", "scikit-learn": "1.9.1", ...}: the packages the
+    file was built with. Each must match what is installed here. Without it the versions cannot
+    be checked: refused when RISK_MODELS_ENABLED=true, a warning otherwise."""
     wanted = (row.metrics or {}).get("versions") or {}
+    if not wanted:
+        message = (f"{row.disease_domain} v{row.version}: metrics has no \"versions\", so the package "
+                   "versions the model was built with cannot be checked. Register it with "
+                   "metrics.versions (see uv.lock).")
+        if settings.risk_models_enabled:
+            raise ModelError(message)
+        log.warning(message)
+        return
     for package, version in wanted.items():
         try:
             installed = metadata.version(package)
