@@ -230,10 +230,11 @@ PROFILE_FIELDS = ("first_name", "last_name", "date_of_birth", "biological_sex")
 
 
 def get_profile(db: Session, user_id: int) -> tuple[User, Patient]:
-    """The caller's own account and patient row. RLS on patients already limits the query
-    to this patient, so no WHERE on patient_id is needed (or trusted)."""
+    """The caller's own account and patient row, selected by the user_id from the verified JWT.
+    RLS on patients is the second layer, not the only one: it would also hide any other
+    patient's row if this query were ever wrong."""
     user = db.get(User, user_id)
-    patient = db.scalars(select(Patient)).one()
+    patient = db.scalars(select(Patient).where(Patient.user_id == user_id)).one()
     return user, patient
 
 
@@ -247,7 +248,7 @@ def update_profile(db: Session, user_id: int, patient_id: int, changes: dict) ->
         setattr(patient, name, changes[name])
     if changed:
         db.flush()
-        audit.log_event(db, "DATA_UPDATED", user_id=user_id, patient_id=patient_id,
+        audit.log_event(db, "DATA_UPDATED", user_id=user_id, patient_id=patient.patient_id,
                         table="patients", fields=changed)
     db.commit()
     db.refresh(patient)
@@ -256,8 +257,8 @@ def update_profile(db: Session, user_id: int, patient_id: int, changes: dict) ->
 
 
 # ---------------------------------------------------------------------------
-# Vitals. RLS limits every query to the caller's patient, so a record that belongs to someone
-# else looks exactly like one that does not exist (404, nothing leaked).
+# Vitals. Every query filters on the patient_id from the verified JWT; RLS is the second layer.
+# A record that belongs to someone else looks exactly like one that does not exist (404).
 # ---------------------------------------------------------------------------
 class NotFound(Exception):
     pass
@@ -275,21 +276,24 @@ def create_vitals(db: Session, user_id: int, patient_id: int, data: dict) -> Vit
     return row
 
 
-def list_vitals(db: Session, limit: int) -> list[VitalsRecord]:
+def list_vitals(db: Session, patient_id: int, limit: int) -> list[VitalsRecord]:
     return list(db.scalars(select(VitalsRecord)
+                           .where(VitalsRecord.patient_id == patient_id)
                            .order_by(VitalsRecord.measured_at.desc(), VitalsRecord.vitals_id.desc())
                            .limit(limit)))
 
 
-def get_vitals(db: Session, vitals_id: int) -> VitalsRecord:
-    row = db.scalars(select(VitalsRecord).where(VitalsRecord.vitals_id == vitals_id)).one_or_none()
+def get_vitals(db: Session, patient_id: int, vitals_id: int) -> VitalsRecord:
+    row = db.scalars(select(VitalsRecord).where(VitalsRecord.vitals_id == vitals_id,
+                                                VitalsRecord.patient_id == patient_id)).one_or_none()
     if row is None:
         raise NotFound
     return row
 
 
 def delete_vitals(db: Session, user_id: int, patient_id: int, vitals_id: int) -> None:
-    deleted = db.scalar(delete(VitalsRecord).where(VitalsRecord.vitals_id == vitals_id)
+    deleted = db.scalar(delete(VitalsRecord).where(VitalsRecord.vitals_id == vitals_id,
+                                                   VitalsRecord.patient_id == patient_id)
                         .returning(VitalsRecord.vitals_id))
     if deleted is None:
         db.rollback()
@@ -301,7 +305,7 @@ def delete_vitals(db: Session, user_id: int, patient_id: int, vitals_id: int) ->
 
 
 # ---------------------------------------------------------------------------
-# Lifestyle
+# Lifestyle. Same two layers as vitals: patient_id from the JWT in every query, then RLS.
 # ---------------------------------------------------------------------------
 def create_lifestyle(db: Session, user_id: int, patient_id: int, data: dict) -> LifestyleRecord:
     values = {name: value for name, value in data.items() if value is not None}
@@ -315,21 +319,24 @@ def create_lifestyle(db: Session, user_id: int, patient_id: int, data: dict) -> 
     return row
 
 
-def list_lifestyle(db: Session, limit: int) -> list[LifestyleRecord]:
+def list_lifestyle(db: Session, patient_id: int, limit: int) -> list[LifestyleRecord]:
     return list(db.scalars(select(LifestyleRecord)
+                           .where(LifestyleRecord.patient_id == patient_id)
                            .order_by(LifestyleRecord.recorded_at.desc(), LifestyleRecord.lifestyle_id.desc())
                            .limit(limit)))
 
 
-def get_lifestyle(db: Session, lifestyle_id: int) -> LifestyleRecord:
-    row = db.scalars(select(LifestyleRecord).where(LifestyleRecord.lifestyle_id == lifestyle_id)).one_or_none()
+def get_lifestyle(db: Session, patient_id: int, lifestyle_id: int) -> LifestyleRecord:
+    row = db.scalars(select(LifestyleRecord).where(LifestyleRecord.lifestyle_id == lifestyle_id,
+                                                   LifestyleRecord.patient_id == patient_id)).one_or_none()
     if row is None:
         raise NotFound
     return row
 
 
 def delete_lifestyle(db: Session, user_id: int, patient_id: int, lifestyle_id: int) -> None:
-    deleted = db.scalar(delete(LifestyleRecord).where(LifestyleRecord.lifestyle_id == lifestyle_id)
+    deleted = db.scalar(delete(LifestyleRecord).where(LifestyleRecord.lifestyle_id == lifestyle_id,
+                                                      LifestyleRecord.patient_id == patient_id)
                         .returning(LifestyleRecord.lifestyle_id))
     if deleted is None:
         db.rollback()
@@ -346,31 +353,42 @@ class NotApplicable(Exception):
     """A question that does not apply to this patient, e.g. gestational diabetes for a male patient."""
 
 
-def get_health_history(db: Session) -> PatientHealthHistory | None:
-    return db.scalars(select(PatientHealthHistory)).one_or_none()
+HEALTH_HISTORY_FIELDS = ("gestational_diabetes", "acanthosis_nigricans", "allergic_rhinitis",
+                         "childhood_asthma", "tbi_history")
+
+
+def get_health_history(db: Session, patient_id: int) -> PatientHealthHistory | None:
+    return db.scalars(select(PatientHealthHistory)
+                      .where(PatientHealthHistory.patient_id == patient_id)).one_or_none()
 
 
 def save_health_history(db: Session, user_id: int, patient_id: int, data: dict) -> PatientHealthHistory:
-    sex = db.scalar(select(Patient.biological_sex))  # RLS: the caller's own row
+    """PUT: every answer is replaced. The audit entry names only the answers that changed
+    (a change to null included). The first save always creates the row (DATA_CREATED);
+    a later save that changes nothing writes nothing and no audit entry."""
+    sex = db.scalar(select(Patient.biological_sex).where(Patient.user_id == user_id))
     if sex != "Female" and data.get("gestational_diabetes") is not None:
         raise NotApplicable("gestational_diabetes applies to female patients only")
 
-    existed = get_health_history(db) is not None
-    values = {name: data.get(name) for name in (
-        "gestational_diabetes", "acanthosis_nigricans", "allergic_rhinitis", "childhood_asthma", "tbi_history")}
+    old = get_health_history(db, patient_id)
+    values = {name: data.get(name) for name in HEALTH_HISTORY_FIELDS}
+    before = {name: getattr(old, name) if old is not None else None for name in HEALTH_HISTORY_FIELDS}
+    changed = sorted(name for name in HEALTH_HISTORY_FIELDS if before[name] != values[name])
+    if old is not None and not changed:
+        return old
+
     db.execute(pg_insert(PatientHealthHistory)
                .values(patient_id=patient_id, **values)
                .on_conflict_do_update(index_elements=[PatientHealthHistory.patient_id], set_=values))
-    audit.log_event(db, "DATA_UPDATED" if existed else "DATA_CREATED", user_id=user_id,
-                    patient_id=patient_id, table="patient_health_history",
-                    fields=sorted(name for name, value in values.items() if value is not None))
+    audit.log_event(db, "DATA_UPDATED" if old is not None else "DATA_CREATED", user_id=user_id,
+                    patient_id=patient_id, table="patient_health_history", fields=changed)
     db.commit()
-    return get_health_history(db)
+    return get_health_history(db, patient_id)
 
 
 
 # ---------------------------------------------------------------------------
-# Questionnaires
+# Questionnaires. Same two layers as vitals: patient_id from the JWT in every query, then RLS.
 # ---------------------------------------------------------------------------
 def submit_questionnaire(db: Session, user_id: int, patient_id: int, instrument: str,
                          answers: list[int]) -> QuestionnaireResponse:
@@ -386,17 +404,19 @@ def submit_questionnaire(db: Session, user_id: int, patient_id: int, instrument:
     return row
 
 
-def list_questionnaires(db: Session, instrument: str | None, limit: int) -> list[QuestionnaireResponse]:
-    query = select(QuestionnaireResponse)
+def list_questionnaires(db: Session, patient_id: int, instrument: str | None,
+                        limit: int) -> list[QuestionnaireResponse]:
+    query = select(QuestionnaireResponse).where(QuestionnaireResponse.patient_id == patient_id)
     if instrument is not None:
         query = query.where(QuestionnaireResponse.instrument == instrument)
     return list(db.scalars(query.order_by(QuestionnaireResponse.completed_at.desc(),
                                           QuestionnaireResponse.response_id.desc()).limit(limit)))
 
 
-def get_questionnaire(db: Session, response_id: int) -> QuestionnaireResponse:
+def get_questionnaire(db: Session, patient_id: int, response_id: int) -> QuestionnaireResponse:
     row = db.scalars(select(QuestionnaireResponse)
-                     .where(QuestionnaireResponse.response_id == response_id)).one_or_none()
+                     .where(QuestionnaireResponse.response_id == response_id,
+                            QuestionnaireResponse.patient_id == patient_id)).one_or_none()
     if row is None:
         raise NotFound
     return row
@@ -404,7 +424,8 @@ def get_questionnaire(db: Session, response_id: int) -> QuestionnaireResponse:
 
 def delete_questionnaire(db: Session, user_id: int, patient_id: int, response_id: int) -> None:
     deleted = db.scalar(delete(QuestionnaireResponse)
-                        .where(QuestionnaireResponse.response_id == response_id)
+                        .where(QuestionnaireResponse.response_id == response_id,
+                               QuestionnaireResponse.patient_id == patient_id)
                         .returning(QuestionnaireResponse.response_id))
     if deleted is None:
         db.rollback()
@@ -416,14 +437,29 @@ def delete_questionnaire(db: Session, user_id: int, patient_id: int, response_id
 
 
 # ---------------------------------------------------------------------------
-# Goals
+# Goals. Same two layers as vitals: patient_id from the JWT in every query, then RLS.
 # ---------------------------------------------------------------------------
 class UnknownResult(Exception):
     """result_id does not exist or belongs to another patient (goals_result_fkey)."""
 
 
+class DomainMismatch(Exception):
+    """disease_domain sent with a result_id differs from that result's disease."""
+
+
 def create_goal(db: Session, user_id: int, patient_id: int, data: dict) -> PatientGoal:
     values = {name: value for name, value in data.items() if value is not None}
+    if "result_id" in values:
+        # A suggested goal belongs to the disease of the result it came from
+        domain = db.scalar(select(RiskResult.disease_domain).where(
+            RiskResult.result_id == values["result_id"], RiskResult.patient_id == patient_id))
+        if domain is None:
+            db.rollback()
+            raise UnknownResult
+        if values.get("disease_domain", domain) != domain:
+            db.rollback()
+            raise DomainMismatch(domain)
+        values["disease_domain"] = domain
     row = PatientGoal(patient_id=patient_id, source="suggested" if "result_id" in values else "self", **values)
     db.add(row)
     try:
@@ -440,24 +476,25 @@ def create_goal(db: Session, user_id: int, patient_id: int, data: dict) -> Patie
     return row
 
 
-def list_goals(db: Session, completed: bool | None) -> list[PatientGoal]:
-    query = select(PatientGoal)
+def list_goals(db: Session, patient_id: int, completed: bool | None, limit: int) -> list[PatientGoal]:
+    query = select(PatientGoal).where(PatientGoal.patient_id == patient_id)
     if completed is not None:
         query = query.where(PatientGoal.is_completed == completed)
     # Open goals first, then newest first
     return list(db.scalars(query.order_by(PatientGoal.is_completed, PatientGoal.created_at.desc(),
-                                          PatientGoal.goal_id.desc())))
+                                          PatientGoal.goal_id.desc()).limit(limit)))
 
 
-def get_goal(db: Session, goal_id: int) -> PatientGoal:
-    row = db.scalars(select(PatientGoal).where(PatientGoal.goal_id == goal_id)).one_or_none()
+def get_goal(db: Session, patient_id: int, goal_id: int) -> PatientGoal:
+    row = db.scalars(select(PatientGoal).where(PatientGoal.goal_id == goal_id,
+                                               PatientGoal.patient_id == patient_id)).one_or_none()
     if row is None:
         raise NotFound
     return row
 
 
 def update_goal(db: Session, user_id: int, patient_id: int, goal_id: int, changes: dict) -> PatientGoal:
-    row = get_goal(db, goal_id)
+    row = get_goal(db, patient_id, goal_id)
     changed = []
     if "is_completed" in changes and changes["is_completed"] != row.is_completed:
         row.is_completed = changes["is_completed"]
@@ -477,7 +514,8 @@ def update_goal(db: Session, user_id: int, patient_id: int, goal_id: int, change
 
 
 def delete_goal(db: Session, user_id: int, patient_id: int, goal_id: int) -> None:
-    deleted = db.scalar(delete(PatientGoal).where(PatientGoal.goal_id == goal_id)
+    deleted = db.scalar(delete(PatientGoal).where(PatientGoal.goal_id == goal_id,
+                                                  PatientGoal.patient_id == patient_id)
                         .returning(PatientGoal.goal_id))
     if deleted is None:
         db.rollback()
@@ -490,15 +528,20 @@ def delete_goal(db: Session, user_id: int, patient_id: int, goal_id: int) -> Non
 
 # ---------------------------------------------------------------------------
 # Family history and FHRS. Every change recalculates the FHRS for all four diseases in the
-# same transaction, so the score always matches the saved pedigree.
+# same transaction, so the score always matches the saved pedigree. Every query filters on
+# the patient_id from the JWT; RLS is the second layer.
 # ---------------------------------------------------------------------------
 class DuplicateEntry(Exception):
     """The same relative is already listed with this diagnosis (family_unique_entry)."""
 
 
 def _set_onset(row: PatientFamilyHistory, chosen: str | None = None) -> None:
-    """A known age decides the onset level; without an age the patient's choice is kept."""
-    if row.age_at_diagnosis is not None:
+    """A known age decides the onset level; without an age the patient's choice is kept.
+    Some diagnoses (anxiety) have a fixed level whatever the age or the choice."""
+    fixed = fhrs.fixed_onset(row.disease_domain, row.specific_diagnosis)
+    if fixed is not None:
+        row.onset_classification = fixed
+    elif row.age_at_diagnosis is not None:
         row.onset_classification = fhrs.onset_from_age(
             row.disease_domain, row.specific_diagnosis, fhrs.sex_of(row.relative), row.age_at_diagnosis)
     elif chosen is not None:
@@ -508,7 +551,8 @@ def _set_onset(row: PatientFamilyHistory, chosen: str | None = None) -> None:
 def recalculate_fhrs(db: Session, patient_id: int) -> list[PatientFhrsStratification]:
     entries = [fhrs.FamilyEntry(relative=r.relative, domain=r.disease_domain, onset=r.onset_classification,
                                 confirmed=r.diagnosis_confirmed, shared_environment=r.shared_environment)
-               for r in db.scalars(select(PatientFamilyHistory))]
+               for r in db.scalars(select(PatientFamilyHistory)
+                                   .where(PatientFamilyHistory.patient_id == patient_id))]
     rows = []
     for domain in fhrs.DOMAINS:
         result = fhrs.calculate(domain, entries)
@@ -522,8 +566,9 @@ def recalculate_fhrs(db: Session, patient_id: int) -> list[PatientFhrsStratifica
     return rows
 
 
-def latest_fhrs(db: Session) -> list[PatientFhrsStratification]:
+def latest_fhrs(db: Session, patient_id: int) -> list[PatientFhrsStratification]:
     rows = db.scalars(select(PatientFhrsStratification)
+                      .where(PatientFhrsStratification.patient_id == patient_id)
                       .distinct(PatientFhrsStratification.disease_domain)
                       .order_by(PatientFhrsStratification.disease_domain,
                                 PatientFhrsStratification.evaluated_at.desc(),
@@ -531,14 +576,16 @@ def latest_fhrs(db: Session) -> list[PatientFhrsStratification]:
     return list(rows)
 
 
-def list_family_history(db: Session) -> list[PatientFamilyHistory]:
-    return list(db.scalars(select(PatientFamilyHistory).order_by(
-        PatientFamilyHistory.disease_domain, PatientFamilyHistory.record_id)))
+def list_family_history(db: Session, patient_id: int) -> list[PatientFamilyHistory]:
+    return list(db.scalars(select(PatientFamilyHistory)
+                           .where(PatientFamilyHistory.patient_id == patient_id)
+                           .order_by(PatientFamilyHistory.disease_domain, PatientFamilyHistory.record_id)))
 
 
-def get_family_entry(db: Session, record_id: int) -> PatientFamilyHistory:
+def get_family_entry(db: Session, patient_id: int, record_id: int) -> PatientFamilyHistory:
     row = db.scalars(select(PatientFamilyHistory)
-                     .where(PatientFamilyHistory.record_id == record_id)).one_or_none()
+                     .where(PatientFamilyHistory.record_id == record_id,
+                            PatientFamilyHistory.patient_id == patient_id)).one_or_none()
     if row is None:
         raise NotFound
     return row
@@ -570,7 +617,7 @@ def add_family_entry(db: Session, user_id: int, patient_id: int, data: dict) -> 
 
 def update_family_entry(db: Session, user_id: int, patient_id: int, record_id: int,
                         changes: dict) -> PatientFamilyHistory:
-    row = get_family_entry(db, record_id)
+    row = get_family_entry(db, patient_id, record_id)
     chosen = changes.pop("onset_classification", None)
     for name, value in changes.items():
         setattr(row, name, value)
@@ -586,7 +633,8 @@ def update_family_entry(db: Session, user_id: int, patient_id: int, record_id: i
 
 
 def delete_family_entry(db: Session, user_id: int, patient_id: int, record_id: int) -> None:
-    deleted = db.scalar(delete(PatientFamilyHistory).where(PatientFamilyHistory.record_id == record_id)
+    deleted = db.scalar(delete(PatientFamilyHistory).where(PatientFamilyHistory.record_id == record_id,
+                                                           PatientFamilyHistory.patient_id == patient_id)
                         .returning(PatientFamilyHistory.record_id))
     if deleted is None:
         db.rollback()
@@ -602,7 +650,7 @@ def confirm_family_history(db: Session, user_id: int, patient_id: int) -> list[P
     record Baseline for every disease (the readiness check needs an FHRS for each model)."""
     rows = recalculate_fhrs(db, patient_id)
     audit.log_event(db, "DATA_CREATED", user_id=user_id, patient_id=patient_id,
-                    table="patient_fhrs_stratification", entries=len(list_family_history(db)))
+                    table="patient_fhrs_stratification", entries=len(list_family_history(db, patient_id)))
     db.commit()
     for row in rows:
         db.refresh(row)

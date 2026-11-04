@@ -39,6 +39,8 @@ INSTRUMENTS = {
 
 PHQ9_SELF_HARM_ITEM = 8  # zero-based position of PHQ-9 item 9
 
+# TODO(safety): the hotline name, number and hours below must be checked against the official
+# NCMH / DOH page before release, and kept in sync with it. Do not edit them from memory.
 CRISIS_RESOURCES = {
     "message": ("You said you have had thoughts of hurting yourself. You are not alone, and help is "
                 "available right now. If you are in danger, go to the nearest emergency room."),
