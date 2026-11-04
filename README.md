@@ -81,6 +81,9 @@ thesis-d3/
 │   ├── artifacts/           # Trained model files and checksums
 │   ├── OCR/                 # Lab result OCR and field mapping
 │   ├── synthetic/           # Synthetic patient data generator
+         ├── params.yaml         ← Task 2: every number from the design, with its source (unchanged)
+         ├── synthetic_data.py   ← Task 3: marimo notebook (generate + check + graphs)
+         └── output/             ← generated CSV files, not committed (in .gitignore)
 │   └── __init__.py
 ├── tests/                   # pytest tests
 ├── .env.example             # Template for .env (copy and fill in)
