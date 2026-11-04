@@ -23,6 +23,9 @@ def add_goal(body: GoalCreate, response: Response, current: CurrentUser = Depend
         row = services.create_goal(db, current.user_id, current.patient_id, body.model_dump())
     except services.UnknownResult:
         raise HTTPException(422, "result_id does not match one of your risk results")
+    except services.DomainMismatch as exc:
+        raise HTTPException(422, f"This risk result is for {exc.args[0]}; leave out disease_domain "
+                                 "or send the same one")
     response.headers.update(NO_STORE)
     response.headers["Location"] = f"/goals/{row.goal_id}"
     return GoalResponse.model_validate(row)
@@ -31,18 +34,20 @@ def add_goal(body: GoalCreate, response: Response, current: CurrentUser = Depend
 @router.get("", response_model=list[GoalResponse])
 def list_goals(response: Response,
                status_filter: Literal["open", "completed", "all"] = Query(default="all", alias="status"),
+               limit: int = Query(default=50, ge=1, le=200),
                current: CurrentUser = Depends(get_current_user),
                db: Session = Depends(get_db)) -> list[GoalResponse]:
     completed = {"open": False, "completed": True, "all": None}[status_filter]
     response.headers.update(NO_STORE)
-    return [GoalResponse.model_validate(row) for row in services.list_goals(db, completed)]
+    return [GoalResponse.model_validate(row)
+            for row in services.list_goals(db, current.patient_id, completed, limit)]
 
 
 @router.get("/{goal_id}", response_model=GoalResponse)
 def read_goal(goal_id: int, response: Response, current: CurrentUser = Depends(get_current_user),
               db: Session = Depends(get_db)) -> GoalResponse:
     try:
-        row = services.get_goal(db, goal_id)
+        row = services.get_goal(db, current.patient_id, goal_id)
     except services.NotFound:
         raise _NOT_FOUND
     response.headers.update(NO_STORE)

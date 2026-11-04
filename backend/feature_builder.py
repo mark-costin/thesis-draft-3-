@@ -5,22 +5,26 @@ readiness check and the ML pipeline read), so the app and the models always agre
 
 Rules:
 - the latest saved value is used: vitals by measured_at, lifestyle by recorded_at, questionnaires
-  by completed_at, FHRS by evaluated_at, labs by collected_on (then created_at);
+  by completed_at, FHRS by evaluated_at, labs by collected_on (created_at when a lab has no date);
 - each vitals or lifestyle column takes its latest non-empty value, because one entry may hold
   only some measurements;
 - only confirmed lab values are used (patient-in-the-loop);
 - a missing optional input becomes None (the model treats it as missing); a missing required
   input raises MissingRequired, because the assessment must not run without it;
 - the "derive" rules of features.yaml: age on the assessment date, pack_years = 0 for a
-  never-smoker, gestational_diabetes = 0 for male patients, alcohol_use from substance_use.
+  never-smoker, gestational_diabetes = 0 for male patients, alcohol_use from substance_use;
+- every numeric input is clipped to its features.yaml range (the range the models were trained
+  on). What was capped is returned by build_inputs(), so the assessment can save it next to the
+  inputs: a saved result never silently shows a value the patient did not enter.
 
-Every query runs under the request's RLS identity, so only the caller's own rows are read.
+Every query filters on the patient_id from the verified JWT; RLS is the second layer.
 """
 
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import Date, cast, func, select
 from sqlalchemy.orm import Session
 
 from backend.models import (
@@ -61,16 +65,20 @@ def _number(value) -> Value:
 class _Reader:
     """Reads each stored input once, even when several models use it."""
 
-    def __init__(self, db: Session, as_of: date):
+    def __init__(self, db: Session, patient_id: int, as_of: date):
         self.db = db
+        self.patient_id = patient_id
         self.as_of = as_of
         self._cache: dict[str, Value] = {}
-        self._patient = db.scalars(select(Patient)).one()
-        self._history = db.scalars(select(PatientHealthHistory)).one_or_none()
+        self._patient = db.scalars(select(Patient).where(Patient.patient_id == patient_id)).one()
+        self._history = db.scalars(select(PatientHealthHistory)
+                                   .where(PatientHealthHistory.patient_id == patient_id)).one_or_none()
 
     def _latest(self, model, column: str, order) -> Value:
         attribute = getattr(model, column)
-        return self.db.scalar(select(attribute).where(attribute.is_not(None)).order_by(*order).limit(1))
+        return self.db.scalar(select(attribute)
+                              .where(model.patient_id == self.patient_id, attribute.is_not(None))
+                              .order_by(*order).limit(1))
 
     def _vitals(self, column: str) -> Value:
         return self._latest(VitalsRecord, column,
@@ -104,20 +112,25 @@ class _Reader:
 
         if f.table == "questionnaire_responses":
             return self.db.scalar(select(QuestionnaireResponse.total_score)
-                                  .where(QuestionnaireResponse.instrument == where["instrument"])
+                                  .where(QuestionnaireResponse.patient_id == self.patient_id,
+                                         QuestionnaireResponse.instrument == where["instrument"])
                                   .order_by(QuestionnaireResponse.completed_at.desc(),
                                             QuestionnaireResponse.response_id.desc()).limit(1))
 
         if f.table == "patient_fhrs_stratification":
             return self.db.scalar(select(PatientFhrsStratification.calculated_fhrs)
-                                  .where(PatientFhrsStratification.disease_domain == where["disease_domain"])
+                                  .where(PatientFhrsStratification.patient_id == self.patient_id,
+                                         PatientFhrsStratification.disease_domain == where["disease_domain"])
                                   .order_by(PatientFhrsStratification.evaluated_at.desc(),
                                             PatientFhrsStratification.fhrs_id.desc()).limit(1))
 
         if f.table == "lab_results":
             return self.db.scalar(select(LabResult.value)
-                                  .where(LabResult.test_code == where["test_code"], LabResult.is_confirmed)
-                                  .order_by(LabResult.collected_on.desc().nulls_last(),
+                                  .where(LabResult.patient_id == self.patient_id,
+                                         LabResult.test_code == where["test_code"], LabResult.is_confirmed)
+                                  # a lab with no sample date counts from the day it was saved
+                                  .order_by(func.coalesce(LabResult.collected_on,
+                                                          cast(LabResult.created_at, Date)).desc(),
                                             LabResult.created_at.desc(), LabResult.lab_result_id.desc())
                                   .limit(1))
 
@@ -129,25 +142,65 @@ class _Reader:
         return self._cache[f.key]
 
 
-def build(db: Session, model: str, as_of: date | None = None, strict: bool = True) -> dict[str, Value]:
-    """{feature name: value} for one model, in the order of ml/features.yaml."""
-    return build_all(db, as_of, strict, models=(model,))[model]
+Capped = dict[str, dict[str, Value]]  # {feature name: {"entered": value, "used": value}}
 
 
-def build_all(db: Session, as_of: date | None = None, strict: bool = True,
-              models: tuple[str, ...] = MODELS) -> dict[str, dict[str, Value]]:
-    """Inputs for every model. With strict=True, a missing required input raises MissingRequired
-    (the readiness check should have stopped the patient before this)."""
+def clip(value: Value, bounds: tuple | None) -> Value:
+    """value limited to its features.yaml range; None on a side means no limit there."""
+    if bounds is None or value is None or isinstance(value, (str, bool)):
+        return value
+    low, high = bounds
+    used = value
+    if low is not None and used < low:
+        used = low
+    if high is not None and used > high:
+        used = high
+    if isinstance(value, int) and float(used).is_integer():
+        return int(used)
+    return float(used)
+
+
+@dataclass(frozen=True)
+class Inputs:
+    values: dict[str, dict[str, Value]]  # {model: {feature name: value}}, clipped
+    capped: dict[str, Capped]            # {model: {feature name: {"entered": ..., "used": ...}}}
+
+
+def build_inputs(db: Session, patient_id: int, as_of: date | None = None, strict: bool = True,
+                 models: tuple[str, ...] = MODELS) -> Inputs:
+    """Inputs for every model, clipped to the features.yaml ranges, with what was capped. With
+    strict=True, a missing required input raises MissingRequired (the readiness check should
+    have stopped the patient before this)."""
     unknown = set(models) - set(MODELS)
     if unknown:
         raise ValueError(f"Unknown model: {sorted(unknown)}")
-    reader = _Reader(db, as_of or date.today())
+    reader = _Reader(db, patient_id, as_of or date.today())
     features = load_features()
-    result: dict[str, dict[str, Value]] = {}
+    values: dict[str, dict[str, Value]] = {}
+    capped: dict[str, Capped] = {}
     for model in models:
-        row = {f.name: reader.value(f) for f in features if f.model == model}
+        row: dict[str, Value] = {}
+        caps: Capped = {}
+        for f in (f for f in features if f.model == model):
+            entered = reader.value(f)
+            used = clip(entered, f.range)
+            if used != entered:
+                caps[f.name] = {"entered": entered, "used": used}
+            row[f.name] = used
         missing = [f.name for f in features if f.model == model and f.required and row[f.name] is None]
         if strict and missing:
             raise MissingRequired(model, missing)
-        result[model] = row
-    return result
+        values[model], capped[model] = row, caps
+    return Inputs(values=values, capped=capped)
+
+
+def build_all(db: Session, patient_id: int, as_of: date | None = None, strict: bool = True,
+              models: tuple[str, ...] = MODELS) -> dict[str, dict[str, Value]]:
+    """{model: {feature name: value}}, clipped. Use build_inputs() to also get what was capped."""
+    return build_inputs(db, patient_id, as_of, strict, models).values
+
+
+def build(db: Session, patient_id: int, model: str, as_of: date | None = None,
+          strict: bool = True) -> dict[str, Value]:
+    """{feature name: value} for one model, in the order of ml/features.yaml, clipped."""
+    return build_all(db, patient_id, as_of, strict, models=(model,))[model]

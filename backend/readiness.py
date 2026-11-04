@@ -54,6 +54,7 @@ class Feature:
     column: str
     where: tuple  # ((key, value),) or ()
     source: str
+    range: tuple | None = None  # (low, high) from features.yaml; None on a side = no limit there
 
     @property
     def key(self) -> str:
@@ -75,17 +76,17 @@ def load_features(path: Path = FEATURES_PATH) -> tuple[Feature, ...]:
             features.append(Feature(
                 model=model, name=item["name"], label=item["label"], required=bool(item["required"]),
                 table=table, column=column, where=tuple(sorted((item.get("where") or {}).items())),
-                source=item["source"],
+                source=item["source"], range=tuple(item["range"]) if item.get("range") else None,
             ))
     return tuple(features)
 
 
-def present_inputs(db: Session, features: tuple[Feature, ...]) -> set[str]:
-    """Keys of the inputs this patient has saved. Every query runs under RLS, so it only ever
-    sees the caller's own rows."""
+def present_inputs(db: Session, patient_id: int, features: tuple[Feature, ...]) -> set[str]:
+    """Keys of the inputs this patient has saved. Every query filters on the patient_id from the
+    verified JWT; RLS is the second layer."""
     present: set[str] = set()
 
-    patient = db.scalars(select(Patient)).one()
+    patient = db.scalars(select(Patient).where(Patient.patient_id == patient_id)).one()
     for column in ("date_of_birth", "biological_sex"):
         if getattr(patient, column) is not None:
             present.add(f"patients.{column}")
@@ -94,16 +95,25 @@ def present_inputs(db: Session, features: tuple[Feature, ...]) -> set[str]:
     for table, model in _ROW_TABLES.items():
         columns = sorted({f.column for f in features if f.table == table})
         if columns:
-            counts = db.execute(select(*[func.count(getattr(model, c)) for c in columns])).one()
+            counts = db.execute(select(*[func.count(getattr(model, c)) for c in columns])
+                                .where(model.patient_id == patient_id)).one()
             present.update(f"{table}.{c}" for c, n in zip(columns, counts) if n > 0)
 
-    # pack_years: a never-smoker counts as 0 (features.yaml: derive)
-    if db.scalar(select(func.count()).select_from(LifestyleRecord)
-                 .where(LifestyleRecord.smoking_status == "never")):
+    # pack_years: a never-smoker counts as 0 (features.yaml: derive). Only the latest saved
+    # smoking_status counts, the same rule as the feature builder: someone who said "never"
+    # once but now smokes must still enter pack years.
+    latest_smoking = db.scalar(select(LifestyleRecord.smoking_status)
+                               .where(LifestyleRecord.patient_id == patient_id,
+                                      LifestyleRecord.smoking_status.is_not(None))
+                               .order_by(LifestyleRecord.recorded_at.desc(),
+                                         LifestyleRecord.lifestyle_id.desc())
+                               .limit(1))
+    if latest_smoking == "never":
         present.add("lifestyle_records.pack_years")
 
     # Health history: one row; null = not answered
-    history = db.scalars(select(PatientHealthHistory)).one_or_none()
+    history = db.scalars(select(PatientHealthHistory)
+                         .where(PatientHealthHistory.patient_id == patient_id)).one_or_none()
     for column in ("gestational_diabetes", "acanthosis_nigricans", "allergic_rhinitis",
                    "childhood_asthma", "tbi_history"):
         if history is not None and getattr(history, column) is not None:
@@ -111,13 +121,16 @@ def present_inputs(db: Session, features: tuple[Feature, ...]) -> set[str]:
     if patient.biological_sex != "Female":  # gestational diabetes: false for male patients
         present.add("patient_health_history.gestational_diabetes")
 
-    for instrument in db.scalars(select(QuestionnaireResponse.instrument).distinct()):
+    for instrument in db.scalars(select(QuestionnaireResponse.instrument)
+                                 .where(QuestionnaireResponse.patient_id == patient_id).distinct()):
         present.add(f"questionnaire_responses.total_score[instrument={instrument}]")
 
-    for domain in db.scalars(select(PatientFhrsStratification.disease_domain).distinct()):
+    for domain in db.scalars(select(PatientFhrsStratification.disease_domain)
+                             .where(PatientFhrsStratification.patient_id == patient_id).distinct()):
         present.add(f"patient_fhrs_stratification.calculated_fhrs[disease_domain={domain}]")
 
-    for code in db.scalars(select(LabResult.test_code).where(LabResult.is_confirmed).distinct()):
+    for code in db.scalars(select(LabResult.test_code)
+                           .where(LabResult.patient_id == patient_id, LabResult.is_confirmed).distinct()):
         present.add(lab_key(code))
 
     return present
@@ -127,11 +140,11 @@ def lab_key(test_code: str) -> str:
     return f"lab_results.value[test_code={test_code}]"
 
 
-def readiness(db: Session, assume_present: frozenset[str] = frozenset()) -> dict:
+def readiness(db: Session, patient_id: int, assume_present: frozenset[str] = frozenset()) -> dict:
     """assume_present: inputs to count as given, e.g. lab values OCR found that the patient is
     reviewing right now (not confirmed yet, so present_inputs does not see them)."""
     features = load_features()
-    present = present_inputs(db, features) | set(assume_present)
+    present = present_inputs(db, patient_id, features) | set(assume_present)
 
     models = {}
     checklist: dict[str, dict] = {}  # required inputs still missing, each listed once

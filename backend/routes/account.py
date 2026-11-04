@@ -1,7 +1,8 @@
 """Account: export all my data, permanently delete my account (Sprint 3, RA 10173)."""
 
 import json
-from datetime import date
+from datetime import date, datetime, timezone
+from math import ceil
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
@@ -38,5 +39,11 @@ def delete_my_account(request: Request, body: AccountDeleteRequest,
         storage_keys = services.delete_account(db, current.user_id, current.patient_id, body.password)
     except services.WrongPassword:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Incorrect password. Nothing was deleted.")
+    except services.AccountLocked as locked:  # same lockout as login
+        minutes = max(1, ceil((locked.locked_until - datetime.now(timezone.utc)).total_seconds() / 60))
+        raise HTTPException(
+            status.HTTP_423_LOCKED,
+            f"Too many failed attempts. Nothing was deleted. Try again in {minutes} minute(s).",
+        )
     storage.remove_many(storage_keys)  # the encrypted lab files go too
     return Response(status_code=status.HTTP_204_NO_CONTENT)
