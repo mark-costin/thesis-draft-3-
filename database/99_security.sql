@@ -46,6 +46,11 @@ CREATE POLICY patient_self ON public.patients
            OR user_id = public.current_app_user_id())
     WITH CHECK (user_id = public.current_app_user_id());
 
+-- patients: the app may edit only the profile fields. Consent (privacy_consent,
+-- consent_version) and the IDs are not editable at the DB level, whatever the API does.
+REVOKE UPDATE ON public.patients FROM med_app;
+GRANT UPDATE (first_name, last_name, date_of_birth, biological_sex) ON public.patients TO med_app;
+
 -- users has no RLS: login must look up an account by email before anyone is authenticated.
 -- It holds credentials only (no health data); password hashes are Argon2id.
 

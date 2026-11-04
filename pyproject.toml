@@ -29,6 +29,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "ipytest>=0.14.2",
     "pytest>=9.1.1",
 ]
 ml = [

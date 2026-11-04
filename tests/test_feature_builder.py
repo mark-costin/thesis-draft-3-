@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import NoResultFound
 
 from backend import feature_builder
 from backend.config import settings
@@ -41,15 +42,27 @@ def make_patient():
         session.commit()
 
 
-def build(email, model=None, strict=True):
+def ids_of(email):
     with SessionLocal() as session:
         user_id = session.scalar(select(User.user_id).where(User.email == email))
         set_request_identity(session, user_id=user_id)
-        patient_id = session.scalar(select(Patient.patient_id))
+        return user_id, session.scalar(select(Patient.patient_id))
+
+
+def build(email, model=None, strict=True):
+    user_id, patient_id = ids_of(email)
+    with SessionLocal() as session:
         set_request_identity(session, user_id=user_id, patient_id=patient_id)
         if model:
-            return feature_builder.build(session, model, as_of=AS_OF, strict=strict)
-        return feature_builder.build_all(session, as_of=AS_OF, strict=strict)
+            return feature_builder.build(session, patient_id, model, as_of=AS_OF, strict=strict)
+        return feature_builder.build_all(session, patient_id, as_of=AS_OF, strict=strict)
+
+
+def build_inputs(email, strict=True):
+    user_id, patient_id = ids_of(email)
+    with SessionLocal() as session:
+        set_request_identity(session, user_id=user_id, patient_id=patient_id)
+        return feature_builder.build_inputs(session, patient_id, as_of=AS_OF, strict=strict)
 
 
 def post(headers, path, body, expected=(200, 201)):
@@ -200,3 +213,54 @@ def test_an_unknown_model_is_refused(make_patient):
     email, _ = make_patient()
     with pytest.raises(ValueError):
         build(email, "CANCER")
+
+
+def test_the_patient_id_filter_works_even_if_rls_shows_someone_else(make_patient):
+    """Second layer: the session's RLS identity is the filled patient, but the builder is asked
+    for the empty one. It must not read the filled patient's data as the empty patient's."""
+    filled_email, filled = make_patient()
+    fill_required(filled)
+    empty_email, _ = make_patient()
+    filled_user, filled_patient = ids_of(filled_email)
+    _, empty_patient = ids_of(empty_email)
+    with SessionLocal() as session:
+        set_request_identity(session, user_id=filled_user, patient_id=filled_patient)
+        with pytest.raises(NoResultFound):  # the empty patient's row is not visible: no data at all
+            feature_builder.build_all(session, empty_patient, as_of=AS_OF, strict=False)
+
+
+def test_a_value_above_the_range_is_clipped_and_listed_as_capped(make_patient):
+    email, headers = make_patient()
+    fill_required(headers)
+    post(headers, "/vitals", {"sbp": 240, "dbp": 82})  # features.yaml sbp range: 70-220
+    result = build_inputs(email)
+    assert result.values["CVD"]["sbp"] == 220 and result.values["T2D"]["sbp"] == 220
+    assert result.capped["CVD"]["sbp"] == {"entered": 240, "used": 220}
+    assert result.values["CVD"]["dbp"] == 82 and "dbp" not in result.capped["CVD"]  # inside: untouched
+
+
+def test_values_inside_the_range_are_not_capped(make_patient):
+    email, headers = make_patient()
+    fill_required(headers)
+    result = build_inputs(email)
+    assert result.capped == {"CVD": {}, "T2D": {}, "CRD": {}, "NEURO": {}}
+    assert result.values["CVD"]["sbp"] == 128
+
+
+@pytest.mark.parametrize("value, bounds, expected", [
+    (240, (70, 220), 220), (50, (70, 220), 70), (128, (70, 220), 128),
+    (65.0, (12.0, 60.0), 60.0), (7.5, (1.0, 16.0), 7.5),
+    (50.0, (0.0, None), 50.0), (-1.0, (0.0, None), 0.0),   # FHRS: no fixed maximum
+    (None, (70, 220), None), ("Male", None, "Male"), (1, None, 1),
+])
+def test_clip(value, bounds, expected):
+    assert feature_builder.clip(value, bounds) == expected
+    assert type(feature_builder.clip(value, bounds)) is type(expected)
+
+
+def test_a_lab_without_a_sample_date_counts_from_the_day_it_was_saved(make_patient):
+    email, headers = make_patient()
+    fill_required(headers)
+    post(headers, "/labs", {"test_code": "LDL", "value": 110, "unit": "mg/dL", "collected_on": "2025-01-15"})
+    post(headers, "/labs", {"test_code": "LDL", "value": 140, "unit": "mg/dL"})  # no date, saved today
+    assert build(email, "CVD")["ldl"] == 140

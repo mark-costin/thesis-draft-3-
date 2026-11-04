@@ -85,6 +85,12 @@ def test_only_phq9_can_raise_the_crisis_flag(make_patient):
     ("CAT", [1, 1, 1, 1, 1, 1, 1, 2], 9, "low impact"),
     ("ACT", [4, 4, 4, 4, 4], 20, "well controlled"),
     ("ACT", [1, 1, 1, 1, 1], 5, "very poorly controlled"),
+    # Band edges
+    ("PHQ9", [3, 3, 3, 0, 0, 0, 0, 0, 0], 9, "mild"),
+    ("PHQ9", [3, 3, 3, 1, 0, 0, 0, 0, 0], 10, "moderate"),
+    ("ACT", [3, 3, 3, 3, 3], 15, "very poorly controlled"),
+    ("ACT", [4, 3, 3, 3, 3], 16, "not well controlled"),
+    ("ACT", [4, 4, 4, 4, 3], 19, "not well controlled"),
 ])
 def test_server_computes_total_and_band(make_patient, instrument, answers, total, band):
     headers = make_patient()
@@ -108,8 +114,12 @@ def test_a_total_sent_by_the_client_is_refused(make_patient):
     ("MMRC", [5]),
     ("MMSE", [1]),
     ("PHQ9", ["a"] * 9),
+    ("PHQ9", [True] + [0] * 8),
+    ("PHQ9", [2.0] + [0] * 8),
+    ("PHQ9", ["2"] + [0] * 8),
 ], ids=["phq9-too-few", "phq9-too-many", "phq9-item-high", "gad7-negative", "act-below-1",
-        "cat-item-high", "mmrc-high", "unknown-instrument", "not-numbers"])
+        "cat-item-high", "mmrc-high", "unknown-instrument", "not-numbers",
+        "boolean", "float", "numeric-string"])
 def test_invalid_answers_are_rejected(make_patient, instrument, answers):
     headers = make_patient()
     assert submit(headers, instrument, answers).status_code == 422
@@ -138,6 +148,7 @@ def test_other_patients_responses_are_hidden(make_patient):
     response_id = submit(headers_a, "PHQ9", [0] * 9).json()["response_id"]
     assert client.get(f"/questionnaires/{response_id}", headers=headers_b).status_code == 404
     assert client.delete(f"/questionnaires/{response_id}", headers=headers_b).status_code == 404
+    assert response_id not in [r["response_id"] for r in client.get("/questionnaires", headers=headers_b).json()]
     assert client.delete(f"/questionnaires/{response_id}", headers=headers_a).status_code == 204
     assert client.get(f"/questionnaires/{response_id}", headers=headers_a).status_code == 404
 
@@ -156,6 +167,28 @@ def test_double_submit_saves_once_without_keeping_answers(make_patient):
     # Reading the record back from Location still shows the crisis prompt
     assert client.get(second.headers["Location"], headers=headers).json()["requires_crisis_prompt"] is True
     assert first.json()["requires_crisis_prompt"] is True
+
+
+@pytest.mark.parametrize("item9, crisis", [(1, True), (0, False)])
+def test_replay_still_carries_the_crisis_prompt(make_patient, item9, crisis):
+    """A double-submitted PHQ-9 must not hide the crisis prompt, yet the replay store keeps no
+    answers or score: only the one boolean."""
+    headers = make_patient() | {"Idempotency-Key": "crisis-" + uuid.uuid4().hex}
+    body = {"instrument": "PHQ9", "answers": [2, 0, 0, 0, 0, 0, 0, 0, item9]}
+    first = client.post("/questionnaires", headers=headers, json=body)
+    replay = client.post("/questionnaires", headers=headers, json=body)
+    assert first.status_code == replay.status_code == 201
+    assert replay.headers[REPLAY_HEADER] == "true"
+    assert replay.headers["Location"] == first.headers["Location"]
+    assert replay.headers["Cache-Control"] == "no-store"
+    data = replay.json()
+    assert data["requires_crisis_prompt"] is crisis
+    if crisis:
+        assert data["crisis_resources"] == first.json()["crisis_resources"]
+        assert "1553" in replay.text
+    else:
+        assert data["crisis_resources"] is None
+    assert "answers" not in data and "total_score" not in data and "band" not in data
 
 
 def test_audit_holds_the_instrument_only(make_patient, monkeypatch):
