@@ -113,6 +113,8 @@ class IdempotencyMiddleware:
     The first POST with a key runs normally and its response is saved. A repeat with
     the same key and the same body gets the saved response back (header Idempotent-Replayed: true)
     without running again, so a double click or a retried request never creates two records.
+    When the response holds health data (Cache-Control: no-store), the body is not saved: the
+    repeat gets the same status and Location header and reads the record with a GET.
     The same key with a different body is refused (422). Keys are scoped to the caller's token
     and the URL, so one patient's key can never replay another patient's response.
     Requests without the header are not affected.
@@ -157,8 +159,16 @@ class IdempotencyMiddleware:
             if "status" not in saved:
                 return await _error(409, "A request with this Idempotency-Key is still being processed")(
                     scope, receive, send)
-            replay = Response(content=base64.b64decode(saved["body"]), status_code=saved["status"],
-                              media_type=saved.get("media_type"))
+            if saved.get("body") is None:
+                # Health data is never kept in the store: say it was done and where to read it
+                replay = JSONResponse({"detail": "Already saved. Read the record from the Location URL."},
+                                      status_code=saved["status"])
+                replay.headers["Cache-Control"] = "no-store"
+                if saved.get("location"):
+                    replay.headers["Location"] = saved["location"]
+            else:
+                replay = Response(content=base64.b64decode(saved["body"]), status_code=saved["status"],
+                                  media_type=saved.get("media_type"))
             replay.headers[REPLAY_HEADER] = "true"
             return await replay(scope, receive, send)
 
@@ -171,12 +181,15 @@ class IdempotencyMiddleware:
                 return {"type": "http.request", "body": body, "more_body": False}
             return await receive()
 
-        response = {"status": 500, "media_type": None, "body": b""}
+        response = {"status": 500, "media_type": None, "body": b"", "no_store": False, "location": None}
 
         async def capture_send(message: Message) -> None:
             if message["type"] == "http.response.start":
+                response_headers = Headers(raw=message["headers"])
                 response["status"] = message["status"]
-                response["media_type"] = Headers(raw=message["headers"]).get("content-type")
+                response["media_type"] = response_headers.get("content-type")
+                response["no_store"] = "no-store" in response_headers.get("cache-control", "")
+                response["location"] = response_headers.get("location")
             elif message["type"] == "http.response.body":
                 response["body"] += message.get("body", b"")
             await send(message)
@@ -190,11 +203,14 @@ class IdempotencyMiddleware:
         if response["status"] >= 500:
             await self.store.release(store_key)  # a server error may be retried with the same key
         else:
+            # Routes that return health data send "Cache-Control: no-store"; for those only the
+            # status and Location are kept, never the body (Sprint 1 review note)
             await self.store.save(store_key, {
                 "fingerprint": fingerprint,
                 "status": response["status"],
                 "media_type": response["media_type"],
-                "body": base64.b64encode(response["body"]).decode(),
+                "location": response["location"],
+                "body": None if response["no_store"] else base64.b64encode(response["body"]).decode(),
             })
 
 

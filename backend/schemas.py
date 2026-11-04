@@ -5,10 +5,11 @@ extra="forbid" rejects unknown fields, so a client can never sneak in user_id, p
 or token_version.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from backend.config import settings
 
@@ -168,3 +169,140 @@ class ProfileUpdate(BaseModel):
             if getattr(self, name) is None:
                 raise ValueError(f"{name} cannot be empty")
         return self
+
+
+
+# ---------------------------------------------------------------------------
+# Vitals (07_vitals_records.sql). Ranges are the same as the table's CHECK constraints.
+# ---------------------------------------------------------------------------
+MEASUREMENT_FIELDS = ("sbp", "resting_hr", "weight_kg", "height_cm", "waist_cm",
+                      "blood_glucose_mgdl", "spo2")
+
+
+def _one_decimal(low, high, max_digits):
+    return Field(default=None, ge=low, le=high, max_digits=max_digits, decimal_places=1)
+
+
+class VitalsCreate(BaseModel):
+    """One reading session. Send only what was measured; BMI is computed by the database
+    when weight and height are in the same entry."""
+    model_config = ConfigDict(extra="forbid")
+
+    sbp: int | None = Field(default=None, ge=70, le=250)          # systolic, mmHg
+    dbp: int | None = Field(default=None, ge=40, le=150)          # diastolic, mmHg
+    resting_hr: int | None = Field(default=None, ge=30, le=220)   # beats per minute
+    weight_kg: Decimal | None = _one_decimal(20, 300, 5)
+    height_cm: Decimal | None = _one_decimal(100, 250, 5)
+    waist_cm: Decimal | None = _one_decimal(40, 200, 5)
+    blood_glucose_mgdl: Decimal | None = _one_decimal(20, 600, 5)
+    glucose_context: Literal["fasting", "random", "post_meal_2h"] | None = None
+    spo2: Decimal | None = _one_decimal(70, 100, 4)
+    measured_at: AwareDatetime | None = None  # with time zone, e.g. 2026-10-30T08:00:00+08:00
+
+    @model_validator(mode="after")
+    def check_rules(self):
+        if (self.sbp is None) != (self.dbp is None):
+            raise ValueError("Enter both systolic and diastolic blood pressure")
+        if self.sbp is not None and self.sbp <= self.dbp:
+            raise ValueError("Systolic pressure must be higher than diastolic")
+        if (self.blood_glucose_mgdl is None) != (self.glucose_context is None):
+            raise ValueError("A blood sugar reading needs its context (fasting, random or post_meal_2h)")
+        if all(getattr(self, name) is None for name in MEASUREMENT_FIELDS):
+            raise ValueError("Enter at least one measurement")
+        if self.measured_at is not None and self.measured_at > datetime.now(timezone.utc) + timedelta(minutes=5):
+            raise ValueError("measured_at cannot be in the future")
+        return self
+
+
+class VitalsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    vitals_id: int
+    sbp: int | None
+    dbp: int | None
+    resting_hr: int | None
+    weight_kg: float | None
+    height_cm: float | None
+    bmi: float | None  # computed by the database
+    waist_cm: float | None
+    blood_glucose_mgdl: float | None
+    glucose_context: str | None
+    spo2: float | None
+    measured_at: datetime
+    created_at: datetime
+
+
+
+# ---------------------------------------------------------------------------
+# Lifestyle (09_lifestyle_records.sql): a new entry each time habits are reported.
+# ---------------------------------------------------------------------------
+LIFESTYLE_FIELDS = ("smoking_status", "pack_years", "physical_activity_min_week", "sedentary_hours_day",
+                    "sleep_hours_day", "sodium_mg_day", "carbs_g_day", "occupational_dust", "substance_use")
+
+
+class LifestyleCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    smoking_status: Literal["never", "former", "current"] | None = None
+    pack_years: Decimal | None = _one_decimal(0, 200, 5)               # packs per day x years smoked
+    physical_activity_min_week: int | None = Field(default=None, ge=0, le=10080)
+    sedentary_hours_day: Decimal | None = _one_decimal(0, 24, 3)
+    sleep_hours_day: Decimal | None = _one_decimal(0, 24, 3)
+    sodium_mg_day: int | None = Field(default=None, ge=0, le=20000)
+    carbs_g_day: int | None = Field(default=None, ge=0, le=1500)
+    occupational_dust: bool | None = None
+    substance_use: Literal["none", "past", "current"] | None = None
+
+    @model_validator(mode="after")
+    def check_rules(self):
+        if all(getattr(self, name) is None for name in LIFESTYLE_FIELDS):
+            raise ValueError("Answer at least one question")
+        if self.pack_years is not None and self.smoking_status is None:
+            raise ValueError("pack_years needs smoking_status")
+        if self.smoking_status == "never" and self.pack_years not in (None, 0):
+            raise ValueError("A never-smoker cannot have pack years")
+        if (self.sedentary_hours_day is not None and self.sleep_hours_day is not None
+                and self.sedentary_hours_day + self.sleep_hours_day > 24):
+            raise ValueError("Sitting time plus sleep cannot be more than 24 hours")
+        return self
+
+
+class LifestyleResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    lifestyle_id: int
+    smoking_status: str | None
+    pack_years: float | None
+    physical_activity_min_week: int | None
+    sedentary_hours_day: float | None
+    sleep_hours_day: float | None
+    sodium_mg_day: int | None
+    carbs_g_day: int | None
+    occupational_dust: bool | None
+    substance_use: str | None
+    recorded_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Health history (10_health_history.sql): one row per patient, replaced as a whole.
+# null = "I don't know" or not answered.
+# ---------------------------------------------------------------------------
+HISTORY_FIELDS = ("gestational_diabetes", "acanthosis_nigricans", "allergic_rhinitis",
+                  "childhood_asthma", "tbi_history")
+
+
+class HealthHistoryUpdate(BaseModel):
+    """PUT body: every field is set to what is sent; a field left out becomes null."""
+    model_config = ConfigDict(extra="forbid")
+
+    gestational_diabetes: bool | None = None   # female patients only
+    acanthosis_nigricans: bool | None = None
+    allergic_rhinitis: bool | None = None
+    childhood_asthma: bool | None = None
+    tbi_history: bool | None = None
+
+
+class HealthHistoryResponse(HealthHistoryUpdate):
+    model_config = ConfigDict(from_attributes=True)
+
+    updated_at: datetime | None  # null until the patient answers for the first time

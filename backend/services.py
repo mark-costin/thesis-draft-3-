@@ -5,12 +5,20 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, func, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import set_request_identity
 from backend import audit, mailer
-from backend.models import PasswordResetToken, Patient, User
+from backend.models import (
+    LifestyleRecord,
+    PasswordResetToken,
+    Patient,
+    PatientHealthHistory,
+    User,
+    VitalsRecord,
+)
 from backend.schemas import RegisterRequest
 from backend.security import (
     burn_dummy_check,
@@ -232,3 +240,134 @@ def update_profile(db: Session, user_id: int, patient_id: int, changes: dict) ->
     db.commit()
     db.refresh(patient)
     return user, patient
+
+
+
+# ---------------------------------------------------------------------------
+# Vitals. Every query filters on the patient_id from the verified JWT; RLS is the second layer.
+# A record that belongs to someone else looks exactly like one that does not exist (404).
+# ---------------------------------------------------------------------------
+class NotFound(Exception):
+    pass
+
+
+def create_vitals(db: Session, user_id: int, patient_id: int, data: dict) -> VitalsRecord:
+    values = {name: value for name, value in data.items() if value is not None}
+    row = VitalsRecord(patient_id=patient_id, **values)
+    db.add(row)
+    db.flush()
+    db.refresh(row)  # read back the BMI the database computed
+    audit.log_event(db, "DATA_CREATED", user_id=user_id, patient_id=patient_id,
+                    table="vitals_records", record_id=row.vitals_id, fields=sorted(values))
+    db.commit()
+    return row
+
+
+def list_vitals(db: Session, patient_id: int, limit: int) -> list[VitalsRecord]:
+    return list(db.scalars(select(VitalsRecord)
+                           .where(VitalsRecord.patient_id == patient_id)
+                           .order_by(VitalsRecord.measured_at.desc(), VitalsRecord.vitals_id.desc())
+                           .limit(limit)))
+
+
+def get_vitals(db: Session, patient_id: int, vitals_id: int) -> VitalsRecord:
+    row = db.scalars(select(VitalsRecord).where(VitalsRecord.vitals_id == vitals_id,
+                                                VitalsRecord.patient_id == patient_id)).one_or_none()
+    if row is None:
+        raise NotFound
+    return row
+
+
+def delete_vitals(db: Session, user_id: int, patient_id: int, vitals_id: int) -> None:
+    deleted = db.scalar(delete(VitalsRecord).where(VitalsRecord.vitals_id == vitals_id,
+                                                   VitalsRecord.patient_id == patient_id)
+                        .returning(VitalsRecord.vitals_id))
+    if deleted is None:
+        db.rollback()
+        raise NotFound
+    audit.log_event(db, "DATA_DELETED", user_id=user_id, patient_id=patient_id,
+                    table="vitals_records", record_id=vitals_id)
+    db.commit()
+
+
+
+# ---------------------------------------------------------------------------
+# Lifestyle. Same two layers as vitals: patient_id from the JWT in every query, then RLS.
+# ---------------------------------------------------------------------------
+def create_lifestyle(db: Session, user_id: int, patient_id: int, data: dict) -> LifestyleRecord:
+    values = {name: value for name, value in data.items() if value is not None}
+    row = LifestyleRecord(patient_id=patient_id, **values)
+    db.add(row)
+    db.flush()
+    db.refresh(row)
+    audit.log_event(db, "DATA_CREATED", user_id=user_id, patient_id=patient_id,
+                    table="lifestyle_records", record_id=row.lifestyle_id, fields=sorted(values))
+    db.commit()
+    return row
+
+
+def list_lifestyle(db: Session, patient_id: int, limit: int) -> list[LifestyleRecord]:
+    return list(db.scalars(select(LifestyleRecord)
+                           .where(LifestyleRecord.patient_id == patient_id)
+                           .order_by(LifestyleRecord.recorded_at.desc(), LifestyleRecord.lifestyle_id.desc())
+                           .limit(limit)))
+
+
+def get_lifestyle(db: Session, patient_id: int, lifestyle_id: int) -> LifestyleRecord:
+    row = db.scalars(select(LifestyleRecord).where(LifestyleRecord.lifestyle_id == lifestyle_id,
+                                                   LifestyleRecord.patient_id == patient_id)).one_or_none()
+    if row is None:
+        raise NotFound
+    return row
+
+
+def delete_lifestyle(db: Session, user_id: int, patient_id: int, lifestyle_id: int) -> None:
+    deleted = db.scalar(delete(LifestyleRecord).where(LifestyleRecord.lifestyle_id == lifestyle_id,
+                                                      LifestyleRecord.patient_id == patient_id)
+                        .returning(LifestyleRecord.lifestyle_id))
+    if deleted is None:
+        db.rollback()
+        raise NotFound
+    audit.log_event(db, "DATA_DELETED", user_id=user_id, patient_id=patient_id,
+                    table="lifestyle_records", record_id=lifestyle_id)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Health history (one row per patient)
+# ---------------------------------------------------------------------------
+class NotApplicable(Exception):
+    """A question that does not apply to this patient, e.g. gestational diabetes for a male patient."""
+
+
+HEALTH_HISTORY_FIELDS = ("gestational_diabetes", "acanthosis_nigricans", "allergic_rhinitis",
+                         "childhood_asthma", "tbi_history")
+
+
+def get_health_history(db: Session, patient_id: int) -> PatientHealthHistory | None:
+    return db.scalars(select(PatientHealthHistory)
+                      .where(PatientHealthHistory.patient_id == patient_id)).one_or_none()
+
+
+def save_health_history(db: Session, user_id: int, patient_id: int, data: dict) -> PatientHealthHistory:
+    """PUT: every answer is replaced. The audit entry names only the answers that changed
+    (a change to null included). The first save always creates the row (DATA_CREATED);
+    a later save that changes nothing writes nothing and no audit entry."""
+    sex = db.scalar(select(Patient.biological_sex).where(Patient.user_id == user_id))
+    if sex != "Female" and data.get("gestational_diabetes") is not None:
+        raise NotApplicable("gestational_diabetes applies to female patients only")
+
+    old = get_health_history(db, patient_id)
+    values = {name: data.get(name) for name in HEALTH_HISTORY_FIELDS}
+    before = {name: getattr(old, name) if old is not None else None for name in HEALTH_HISTORY_FIELDS}
+    changed = sorted(name for name in HEALTH_HISTORY_FIELDS if before[name] != values[name])
+    if old is not None and not changed:
+        return old
+
+    db.execute(pg_insert(PatientHealthHistory)
+               .values(patient_id=patient_id, **values)
+               .on_conflict_do_update(index_elements=[PatientHealthHistory.patient_id], set_=values))
+    audit.log_event(db, "DATA_UPDATED" if old is not None else "DATA_CREATED", user_id=user_id,
+                    patient_id=patient_id, table="patient_health_history", fields=changed)
+    db.commit()
+    return get_health_history(db, patient_id)
