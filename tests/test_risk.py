@@ -4,11 +4,14 @@ SHAP values are saved together. Throw-away models stand in for the trained ones 
 import math
 
 import pytest
+from sqlalchemy import select
 
-from backend import audit, model_registry
+from backend import audit, model_registry, risk
 from backend.config import settings
+from backend.database import SessionLocal, set_request_identity
+from backend.models import Patient, User
 from risk_helpers import (  # noqa: F401  (fixtures are used by name)
-    FEATURES, MODELS, client, fill_required, make_patient, models_on, placeholder_ids, saved_rows,
+    FEATURES, MODELS, client, fill_required, make_patient, models_on, placeholder_ids, saved_rows, send,
 )
 
 

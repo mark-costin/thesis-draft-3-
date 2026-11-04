@@ -206,26 +206,46 @@ def patient_facts(db: Session, patient_id: int) -> dict:
     return facts
 
 
+def _plan(template: CarePlanTemplate, disease: str, tier: str, facts: dict) -> dict:
+    return {
+        "disease_domain": disease,
+        "risk_level": tier,
+        "template_id": template.template_id,
+        "version": template.version,
+        "is_draft": not template.is_active,
+        "reviewed_by": template.reviewed_by,
+        "reviewed_on": template.reviewed_on,
+        "guideline_source": template.guideline_source,
+        "disclaimer": template.disclaimer,
+        "base": template.plan_items["base"],
+        "addons": select_addons(template.plan_items, facts),
+    }
+
+
 def build_care_plans(db: Session, patient_id: int, tiers: dict[str, str],
                      include_drafts: bool = False) -> dict[str, dict]:
     """{disease: care plan} for the given risk tiers, e.g. {"CVD": "High", "T2D": "Low"}."""
     facts = patient_facts(db, patient_id)
+    return {disease: _plan(get_template(db, disease, tier, include_drafts), disease, tier, facts)
+            for disease, tier in tiers.items()}
+
+
+def build_recorded_care_plans(db: Session, patient_id: int, tiers: dict[str, str],
+                              recorded: dict[str, dict]) -> dict[str, dict]:
+    """The care plans with the EXACT templates recorded when the assessment was run
+    (templates_used: {disease: {"template_id", "version"}}), not today's active ones, so a saved
+    report keeps the advice that applied then. Reviewed templates cannot be edited
+    (protect_reviewed_template), so the id and version always mean the same text. Raises
+    TemplateMissing when a disease has no recorded template or it no longer matches."""
+    facts = patient_facts(db, patient_id)
     plans = {}
     for disease, tier in tiers.items():
-        template = get_template(db, disease, tier, include_drafts)
-        plans[disease] = {
-            "disease_domain": disease,
-            "risk_level": tier,
-            "template_id": template.template_id,
-            "version": template.version,
-            "is_draft": not template.is_active,
-            "reviewed_by": template.reviewed_by,
-            "reviewed_on": template.reviewed_on,
-            "guideline_source": template.guideline_source,
-            "disclaimer": template.disclaimer,
-            "base": template.plan_items["base"],
-            "addons": select_addons(template.plan_items, facts),
-        }
+        used = recorded.get(disease)
+        template = db.get(CarePlanTemplate, used["template_id"]) if used else None
+        if (template is None or template.version != used["version"]
+                or template.disease_domain != disease or template.risk_level != tier):
+            raise TemplateMissing(f"The {disease} care plan template used for this assessment is not available")
+        plans[disease] = _plan(template, disease, tier, facts)
     return plans
 
 

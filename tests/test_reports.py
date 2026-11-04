@@ -200,3 +200,77 @@ def test_without_the_pdf_library_the_download_says_so(make_patient, models_on, m
     report_id = save(headers, assessment["assessment_id"]).json()["report_id"]
     response = client.get(f"/reports/{report_id}/pdf", headers=headers)
     assert response.status_code == 503 and "JSON" in response.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Review fixes: run-time templates, capped values, patient_id filters
+# ---------------------------------------------------------------------------
+def ids(email):
+    with SessionLocal() as session:
+        user_id = session.scalar(select(User.user_id).where(User.email == email))
+        set_request_identity(session, user_id=user_id)
+        return user_id, session.scalar(select(Patient.patient_id))
+
+
+def run_snapshot(email, assessment_id):
+    from backend.models import RiskAssessment
+    user_id, patient_id = ids(email)
+    with SessionLocal() as session:
+        set_request_identity(session, user_id=user_id, patient_id=patient_id)
+        return session.scalar(select(RiskAssessment.input_snapshot)
+                              .where(RiskAssessment.assessment_id == assessment_id))
+
+
+def test_the_report_keeps_the_templates_recorded_when_the_assessment_was_run(make_patient, models_on, monkeypatch):
+    """If a different template would be picked today (e.g. a newer version was approved since the
+    run), the report still uses the one recorded at run time."""
+    from backend import care_plan
+    from backend.models import CarePlanTemplate
+    email, headers, assessment = assessed(make_patient)
+    recorded = run_snapshot(email, assessment["assessment_id"])["templates_used"]
+    with SessionLocal() as session:  # some other template, standing in for "today's" version
+        other = session.scalars(select(CarePlanTemplate)
+                                .where(CarePlanTemplate.template_id.not_in(
+                                    [u["template_id"] for u in recorded.values()]))).first()
+        session.expunge(other)
+    monkeypatch.setattr(care_plan, "get_template", lambda *a, **k: other)
+    response = save(headers, assessment["assessment_id"])
+    assert response.status_code == 201, response.text
+    report = client.get(f"/reports/{response.json()['report_id']}", headers=headers).json()
+    assert report["templates_used"] == recorded
+    for result in report["report_snapshot"]["results"]:
+        assert result["care_plan"]["template_id"] == recorded[result["disease"]]["template_id"]
+
+
+def test_a_draft_recorded_at_run_time_is_not_saved_once_drafts_are_off(make_patient, models_on, monkeypatch):
+    _, headers, assessment = assessed(make_patient)  # run with drafts on (templates are still drafts)
+    monkeypatch.setattr(settings, "show_draft_care_plans", False)
+    assert save(headers, assessment["assessment_id"]).status_code == 409
+
+
+def test_the_report_keeps_what_the_patient_entered_for_a_capped_value(make_patient, models_on):
+    from risk_helpers import send
+    email, headers = make_patient()
+    fill_required(headers)
+    send(headers, "/vitals", {"sbp": 240, "dbp": 90})  # model range 70-220
+    assessment = client.post("/assessment/run", headers=headers).json()
+    report_id = save(headers, assessment["assessment_id"]).json()["report_id"]
+    snapshot = client.get(f"/reports/{report_id}", headers=headers).json()["report_snapshot"]
+    assert snapshot["capped"]["CVD"]["sbp"] == {"entered": 240, "used": 220}
+
+
+def test_report_queries_filter_on_patient_id_even_if_rls_shows_someone_else(make_patient, models_on):
+    owner_email, owner, assessment = assessed(make_patient)
+    report_id = save(owner, assessment["assessment_id"]).json()["report_id"]
+    other_email, _ = make_patient()
+    owner_user, owner_patient = ids(owner_email)
+    _, other_patient = ids(other_email)
+    with SessionLocal() as session:
+        set_request_identity(session, user_id=owner_user, patient_id=owner_patient)
+        assert reports.get_report(session, owner_patient, report_id).report_id == report_id
+        with pytest.raises(reports.NotFound):
+            reports.get_report(session, other_patient, report_id)
+        assert reports.list_reports(session, other_patient) == []
+        with pytest.raises(reports.NotFound):
+            reports.delete_report(session, owner_user, other_patient, report_id)
+    assert client.get(f"/reports/{report_id}", headers=owner).status_code == 200  # still there

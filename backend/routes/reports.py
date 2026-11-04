@@ -42,14 +42,14 @@ def save(body: ReportCreate, response: Response, current: CurrentUser = Depends(
 def list_reports(response: Response, current: CurrentUser = Depends(get_current_user),
                  db: Session = Depends(get_db)) -> list[ReportSummary]:
     response.headers.update(NO_STORE)
-    return [ReportSummary.model_validate(row) for row in reports.list_reports(db)]
+    return [ReportSummary.model_validate(row) for row in reports.list_reports(db, current.patient_id)]
 
 
 @router.get("/{report_id}", response_model=ReportResponse)
 def read_report(report_id: int, response: Response, current: CurrentUser = Depends(get_current_user),
                 db: Session = Depends(get_db)) -> ReportResponse:
     try:
-        report = reports.get_report(db, report_id)
+        report = reports.get_report(db, current.patient_id, report_id)
     except reports.NotFound:
         raise _NOT_FOUND
     response.headers.update(NO_STORE)

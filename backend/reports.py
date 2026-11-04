@@ -2,7 +2,11 @@
 care plans, plus the template versions used, so an old report always shows the advice the patient
 actually received (Decision 4: saved reports are read-only).
 
-The PDF is built ONLY from the saved snapshot (never from live data), so it always matches it.
+The care plans come from the templates recorded when the assessment was RUN
+(input_snapshot.templates_used), not today's active ones, and the values the model capped are
+copied in (input_snapshot.capped). The PDF is built ONLY from the saved snapshot (never from live
+data), so it always matches it. Every query filters on the patient_id from the verified JWT; RLS is
+the second layer.
 """
 
 import html
@@ -12,7 +16,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend import audit, care_plan, risk
-from backend.models import HealthReport, Patient
+from backend.config import settings
+from backend.models import HealthReport, Patient, RiskAssessment
 from backend.schemas import age_on
 
 SNAPSHOT_VERSION = 1
@@ -40,18 +45,33 @@ class PdfUnavailable(Exception):
 # Save, read, delete
 # ---------------------------------------------------------------------------
 def save_report(db: Session, user_id: int, patient_id: int, assessment_id: int) -> HealthReport:
-    existing = db.scalar(select(HealthReport.report_id).where(HealthReport.assessment_id == assessment_id))
+    existing = db.scalar(select(HealthReport.report_id).where(HealthReport.assessment_id == assessment_id,
+                                                              HealthReport.patient_id == patient_id))
     if existing is not None:
         raise AlreadySaved(existing)
     try:
-        view = risk.view(db, assessment_id)  # RLS: only the caller's own assessment
+        view = risk.view(db, patient_id, assessment_id)  # only the caller's own assessment
     except risk.NotFound:
         raise NotFound from None
-    plans = {r["disease"]: r["care_plan"] for r in view["results"]}
-    if not plans or any(plan is None for plan in plans.values()):
+    run_snapshot = db.scalar(select(RiskAssessment.input_snapshot)
+                             .where(RiskAssessment.assessment_id == assessment_id,
+                                    RiskAssessment.patient_id == patient_id))
+    tiers = {r["disease"]: r["risk_level"] for r in view["results"]}
+    if not tiers:
         raise CarePlansNotReady
+    # The templates recorded at run time, so the report keeps the advice that applied then
+    try:
+        plans = care_plan.build_recorded_care_plans(db, patient_id, tiers,
+                                                    run_snapshot.get("templates_used") or {})
+    except care_plan.TemplateMissing:
+        raise CarePlansNotReady from None
+    # A draft (not yet approved) template never goes into a patient's report unless drafts are on
+    if not settings.show_draft_care_plans and any(plan["is_draft"] for plan in plans.values()):
+        raise CarePlansNotReady
+    for result in view["results"]:
+        result["care_plan"] = plans[result["disease"]]
 
-    patient = db.scalars(select(Patient)).one()
+    patient = db.scalars(select(Patient).where(Patient.patient_id == patient_id)).one()
     assessed_on = view["created_at"].date()
     snapshot = jsonable_encoder({
         "snapshot_version": SNAPSHOT_VERSION,
@@ -61,6 +81,8 @@ def save_report(db: Session, user_id: int, patient_id: int, assessment_id: int) 
         "assessed_at": view["created_at"],
         "disclaimer": view["disclaimer"],
         "results": view["results"],
+        # what the patient entered where the model used a capped value: {disease: {feature: {entered, used}}}
+        "capped": run_snapshot.get("capped", {}),
     })
     report = HealthReport(patient_id=patient_id, assessment_id=assessment_id, report_snapshot=snapshot,
                           templates_used=care_plan.templates_used(plans))
@@ -80,20 +102,22 @@ def save_report(db: Session, user_id: int, patient_id: int, assessment_id: int) 
     return report
 
 
-def list_reports(db: Session) -> list[HealthReport]:
-    return list(db.scalars(select(HealthReport).order_by(HealthReport.created_at.desc(),
-                                                         HealthReport.report_id.desc())))
+def list_reports(db: Session, patient_id: int) -> list[HealthReport]:
+    return list(db.scalars(select(HealthReport).where(HealthReport.patient_id == patient_id)
+                           .order_by(HealthReport.created_at.desc(), HealthReport.report_id.desc())))
 
 
-def get_report(db: Session, report_id: int) -> HealthReport:
-    report = db.scalars(select(HealthReport).where(HealthReport.report_id == report_id)).one_or_none()
+def get_report(db: Session, patient_id: int, report_id: int) -> HealthReport:
+    report = db.scalars(select(HealthReport).where(HealthReport.report_id == report_id,
+                                                   HealthReport.patient_id == patient_id)).one_or_none()
     if report is None:
         raise NotFound
     return report
 
 
 def delete_report(db: Session, user_id: int, patient_id: int, report_id: int) -> None:
-    deleted = db.scalar(delete(HealthReport).where(HealthReport.report_id == report_id)
+    deleted = db.scalar(delete(HealthReport).where(HealthReport.report_id == report_id,
+                                                   HealthReport.patient_id == patient_id)
                         .returning(HealthReport.report_id))
     if deleted is None:
         db.rollback()
@@ -185,7 +209,7 @@ def render_pdf(report: HealthReport) -> bytes:
 
 
 def export_pdf(db: Session, user_id: int, patient_id: int, report_id: int) -> tuple[HealthReport, bytes]:
-    report = get_report(db, report_id)
+    report = get_report(db, patient_id, report_id)
     data = render_pdf(report)
     audit.log_event(db, "REPORT_EXPORTED", user_id=user_id, patient_id=patient_id,
                     record_id=report_id, format="pdf")
