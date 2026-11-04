@@ -34,14 +34,14 @@ def list_lifestyle(response: Response, limit: int = Query(default=20, ge=1, le=1
                    current: CurrentUser = Depends(get_current_user),
                    db: Session = Depends(get_db)) -> list[LifestyleResponse]:
     response.headers.update(NO_STORE)
-    return [LifestyleResponse.model_validate(row) for row in services.list_lifestyle(db, limit)]
+    return [LifestyleResponse.model_validate(row) for row in services.list_lifestyle(db, current.patient_id, limit)]
 
 
 @router.get("/lifestyle/{lifestyle_id}", response_model=LifestyleResponse)
 def read_lifestyle(lifestyle_id: int, response: Response, current: CurrentUser = Depends(get_current_user),
                    db: Session = Depends(get_db)) -> LifestyleResponse:
     try:
-        row = services.get_lifestyle(db, lifestyle_id)
+        row = services.get_lifestyle(db, current.patient_id, lifestyle_id)
     except services.NotFound:
         raise _NOT_FOUND
     response.headers.update(NO_STORE)
@@ -62,7 +62,7 @@ def remove_lifestyle(lifestyle_id: int, current: CurrentUser = Depends(get_curre
 def read_health_history(response: Response, current: CurrentUser = Depends(get_current_user),
                         db: Session = Depends(get_db)) -> HealthHistoryResponse:
     response.headers.update(NO_STORE)
-    row = services.get_health_history(db)
+    row = services.get_health_history(db, current.patient_id)
     if row is None:  # not answered yet: every question is still "don't know"
         return HealthHistoryResponse(updated_at=None)
     return HealthHistoryResponse.model_validate(row)
