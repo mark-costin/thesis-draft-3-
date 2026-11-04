@@ -54,6 +54,7 @@ class Feature:
     column: str
     where: tuple  # ((key, value),) or ()
     source: str
+    range: tuple | None = None  # (low, high) from features.yaml; None on a side = no limit there
 
     @property
     def key(self) -> str:
@@ -75,7 +76,7 @@ def load_features(path: Path = FEATURES_PATH) -> tuple[Feature, ...]:
             features.append(Feature(
                 model=model, name=item["name"], label=item["label"], required=bool(item["required"]),
                 table=table, column=column, where=tuple(sorted((item.get("where") or {}).items())),
-                source=item["source"],
+                source=item["source"], range=tuple(item["range"]) if item.get("range") else None,
             ))
     return tuple(features)
 
