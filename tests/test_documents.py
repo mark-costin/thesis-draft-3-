@@ -16,12 +16,13 @@ from backend.main import app
 from backend.middleware import REPLAY_HEADER
 from backend.models import Document, Patient, User
 from backend.schemas import DELETE_CONFIRMATION
+from sample_files import jpeg, png
 
 client = TestClient(app)
 PASSWORD = "correct horse battery"
-PNG = b"\x89PNG\r\n\x1a\n" + b"lab result pixels " * 50
+PNG = png(b"lab result pixels " * 50)
 PDF = b"%PDF-1.4\n" + b"Fasting blood sugar 96 mg/dL\n" * 20
-JPEG = b"\xff\xd8\xff\xe0" + b"jpeg body " * 40
+JPEG = jpeg()
 
 
 @pytest.fixture(autouse=True)
@@ -106,7 +107,9 @@ def test_type_comes_from_the_file_not_the_name(make_patient, data, mime):
     b"just some text pretending to be an image",
     b"MZ\x90\x00 windows program",
     b"\x89PNG\r\n\x1a\n" + b"x" * (10 * 1024 * 1024),  # one byte over 10 MB
-], ids=["empty", "text-named-png", "exe", "over-10mb"])
+    b"\x89PNG\r\n\x1a\n" + b"not really a picture",
+    b"\xff\xd8\xff\xe0" + b"not really a picture",
+], ids=["empty", "text-named-png", "exe", "over-10mb", "damaged-png", "damaged-jpeg"])
 def test_bad_files_are_refused(make_patient, upload_folder, data):
     _, headers = make_patient()
     assert upload(headers, data).status_code == 422
