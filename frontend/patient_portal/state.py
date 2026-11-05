@@ -15,6 +15,7 @@ from typing import Any
 import reflex as rx
 
 from . import api, careplan
+from . import questionnaires as qn
 from .api import GOOGLE_CLIENT_ID
 from .locations import LISTS_COMPLETE, PROVINCES, barangays_for, cities_for
 
@@ -72,6 +73,15 @@ class FamilyEntry:
     onset: str           # shown label, e.g. "Early"
     confirmed: str       # Yes / No / Not sure
     household: bool
+
+
+@dataclass
+class QRow:
+    instrument: str
+    date: str
+    score: int
+    band: str
+    crisis: bool
 
 
 @dataclass
@@ -247,6 +257,15 @@ class State(rx.State):
     fam_relative: str = ""
     fam_disease: str = ""
 
+    # ---- questionnaires (Screen 5) ----
+    q_instrument: str = "PHQ9"
+    q_answers: list[int] = [-1] * 9            # -1 = not answered yet
+    q_history: list[QRow] = []
+    q_saving: bool = False
+    show_crisis: bool = False
+    crisis_message: str = ""
+    crisis_hotlines: list[dict[str, str]] = []
+
     # ---- scan and verify (Sprint 5: sample data) ----
     doc_name: str = "Comprehensive_Metabolic_Panel_Oct2026.pdf"
     doc_status: str = "Ready for review"
@@ -394,6 +413,41 @@ class State(rx.State):
     @rx.var
     def can_run(self) -> bool:
         return self.ready
+
+    @rx.var
+    def q_title(self) -> str:
+        return qn.INSTRUMENTS[self.q_instrument]["title"]
+
+    @rx.var
+    def q_intro(self) -> str:
+        return qn.INSTRUMENTS[self.q_instrument]["intro"]
+
+    @rx.var
+    def q_options(self) -> list[str]:
+        return qn.INSTRUMENTS[self.q_instrument]["options"]
+
+    @rx.var
+    def q_numeric(self) -> bool:
+        """Number scales (PSQI, CAT, ACT) fit in one row; word answers are listed."""
+        return self.q_instrument in ("PSQI", "CAT", "ACT")
+
+    @rx.var
+    def q_items(self) -> list[dict[str, Any]]:
+        spec = qn.INSTRUMENTS[self.q_instrument]
+        options, low = spec["options"], spec["low"]
+        return [{"i": i, "number": i + 1, "text": text,
+                 "answer": options[self.q_answers[i] - low] if i < len(self.q_answers) and self.q_answers[i] >= low else ""}
+                for i, text in enumerate(spec["items"])]
+
+    @rx.var
+    def q_unanswered(self) -> int:
+        return sum(1 for a in self.q_answers if a < qn.INSTRUMENTS[self.q_instrument]["low"])
+
+    @rx.var
+    def q_tabs(self) -> list[dict[str, str]]:
+        """One tab per questionnaire; 'needed' when the readiness check still lists it."""
+        needed = {c.href.rsplit("=", 1)[-1] for c in self.checklist if "/questionnaires" in c.href}
+        return [{"code": code, "title": qn.INSTRUMENTS[code]["title"], "needed": "yes" if code in needed else ""} for code in qn.ORDER]
 
     # ================= helpers =================
     async def _api(self, method: str, path: str, **kwargs) -> api.Reply:
@@ -672,7 +726,7 @@ class State(rx.State):
         if not reply.ok:
             return
         self.ready = bool(reply.data.get("ready"))
-        self.checklist = [Check(item["label"], False, "Missing", item.get("enter_in", ""), _screen_for(item.get("enter_in", "")))
+        self.checklist = [Check(item["label"], False, "Missing", item.get("enter_in", ""), _screen_for(item.get("enter_in", ""), item.get("instrument")))
                           for item in reply.data.get("missing_required", [])]
 
     async def _load_latest_assessment(self):
@@ -891,6 +945,71 @@ class State(rx.State):
         await self._load_family()
         return rx.toast.success("Saved: no known family history.")
 
+    # ================= questionnaires (Screen 5) =================
+    @rx.event
+    async def load_questionnaires_page(self):
+        if not self.is_logged_in:
+            return rx.redirect("/")
+        wanted = self.router.url.query_parameters.get("i", "")
+        if wanted in qn.INSTRUMENTS:
+            self._start(wanted)
+        await self._load_readiness()
+        await self._load_q_history()
+
+    async def _load_q_history(self):
+        reply = await self._api("GET", "/questionnaires", params={"limit": 50})
+        if reply.ok:
+            self.q_history = [QRow(qn.INSTRUMENTS.get(r["instrument"], {}).get("title", r["instrument"]), when_label(r["completed_at"]),
+                                   r["total_score"], r["band"], bool(r["requires_crisis_prompt"])) for r in reply.data]
+
+    def _start(self, code: str):
+        self.q_instrument = code
+        self.q_answers = [-1] * len(qn.INSTRUMENTS[code]["items"])
+
+    @rx.event
+    def set_q_instrument(self, code: str):
+        self._start(code)
+
+    @rx.event
+    def set_q_answer(self, i: int, label: str):
+        spec = qn.INSTRUMENTS[self.q_instrument]
+        score = spec["options"].index(label) + spec["low"]
+        answers = list(self.q_answers)
+        answers[i] = score
+        self.q_answers = answers
+        # Safety: PHQ-9 item 9 above 0 shows the crisis resources at once, before anything is saved
+        if self.q_instrument == "PHQ9" and i == qn.PHQ9_SELF_HARM_ITEM and score > 0:
+            self.crisis_message, self.crisis_hotlines, self.show_crisis = qn.CRISIS_MESSAGE, qn.CRISIS_HOTLINES, True
+
+    @rx.event
+    def close_crisis(self):
+        self.show_crisis = False
+
+    @rx.event
+    async def submit_questionnaire(self):
+        left = sum(1 for a in self.q_answers if a < qn.INSTRUMENTS[self.q_instrument]["low"])
+        if left:
+            yield rx.toast.error(f"Please answer every question ({left} left).")
+            return
+        self.q_saving = True
+        yield
+        reply = await self._api("POST", "/questionnaires", json={"instrument": self.q_instrument, "answers": self.q_answers}, idempotent=True)
+        self.q_saving = False
+        if not reply.ok:
+            yield rx.toast.error(reply.message("Your answers could not be saved."))
+            return
+        data = reply.data
+        if data.get("requires_crisis_prompt"):  # the API's own text and numbers
+            resources = data.get("crisis_resources") or {}
+            self.crisis_message = resources.get("message", qn.CRISIS_MESSAGE)
+            self.crisis_hotlines = resources.get("hotlines", qn.CRISIS_HOTLINES)
+            self.show_crisis = True
+        title = qn.INSTRUMENTS[self.q_instrument]["title"]
+        self._start(self.q_instrument)
+        await self._load_q_history()
+        await self._load_readiness()
+        yield rx.toast.success(f"{title} saved. Score {data['total_score']} ({data['band']}). This is a screening result, not a diagnosis.")
+
     # ================= scan and verify (Sprint 5: sample data) =================
     @rx.event
     async def handle_upload(self, files: list[rx.UploadFile]):
@@ -944,9 +1063,11 @@ class State(rx.State):
             self.goals = self.goals + [Goal(text, False, "My goal")]
 
 
-def _screen_for(enter_in: str) -> str:
+def _screen_for(enter_in: str, instrument: str | None = None) -> str:
     """Readiness 'enter_in' (the screen named by the API) -> page link."""
     text = enter_in.lower()
+    if "questionnaire" in text:
+        return f"/questionnaires?i={instrument}" if instrument else "/questionnaires"
     if "family" in text:
         return "/family"
     if "lab" in text or "document" in text or "scan" in text:

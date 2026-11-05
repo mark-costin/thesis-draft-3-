@@ -9,8 +9,8 @@ import reflex as rx
 from .insights import Insights
 from .state import State
 
-NAV = [("Dashboard", "/dashboard"), ("Vitals & lifestyle", "/vitals"), ("Family history", "/family"), ("Scan & assess", "/scan"), ("Reports", "/reports")]
-NAV_ICONS = {"Dashboard": "layout-dashboard", "Vitals & lifestyle": "activity", "Family history": "users", "Scan & assess": "scan-line", "Reports": "file-text"}
+NAV = [("Dashboard", "/dashboard"), ("Vitals & lifestyle", "/vitals"), ("Questionnaires", "/questionnaires"), ("Family history", "/family"), ("Scan & assess", "/scan"), ("Reports", "/reports")]
+NAV_ICONS = {"Dashboard": "layout-dashboard", "Vitals & lifestyle": "activity", "Questionnaires": "clipboard-list", "Family history": "users", "Scan & assess": "scan-line", "Reports": "file-text"}
 
 # Kept for pages that import it; the look itself now comes from the .pp-card class.
 CARD = dict(width="100%", padding=rx.breakpoints(initial="20px", md="26px 28px"))

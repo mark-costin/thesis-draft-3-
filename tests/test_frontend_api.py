@@ -94,3 +94,25 @@ def test_network_and_rate_limit_messages():
     assert "Cannot reach the server" in api.Reply(0).message()
     assert "wait a minute" in api.Reply(429).message()
     assert api.Reply(500, None).message("Fallback") == "Fallback"
+
+
+@pytest.mark.anyio
+async def test_questionnaire_screen_requests(in_process):
+    """What pages/questionnaires.py sends (State.submit_questionnaire), and the readiness links."""
+    from frontend.patient_portal import questionnaires as qn
+
+    token = await signed_in(in_process)
+    for code in qn.ORDER:  # every questionnaire on the screen has the item count and range the API scores
+        spec = qn.INSTRUMENTS[code]
+        answers = [spec["low"]] * len(spec["items"])
+        reply = await api.call("POST", "/questionnaires", token, json={"instrument": code, "answers": answers}, idempotent=True)
+        assert reply.status == 201, (code, reply.data)
+        top = [spec["low"] + len(spec["options"]) - 1] * len(spec["items"])  # the highest answer each option list allows
+        assert (await api.call("POST", "/questionnaires", token, json={"instrument": code, "answers": top}, idempotent=True)).status == 201, code
+
+    crisis = await api.call("POST", "/questionnaires", token, json={"instrument": "PHQ9", "answers": [0] * 8 + [1]}, idempotent=True)
+    assert crisis.data["requires_crisis_prompt"] is True
+    assert crisis.data["crisis_resources"]["hotlines"][0]["number"] == qn.CRISIS_HOTLINES[0]["number"]  # screen and API agree
+
+    readiness = await api.call("GET", "/assessment/readiness", token)
+    assert not any(item["enter_in"] == "Questionnaire" for item in readiness.data["missing_required"])
