@@ -72,7 +72,9 @@ services:
 
   worker:
     <<: *app
-    command: ["sh", "-c", "exec rq worker ocr --url \"$$REDIS_URL\""]
+    # SimpleWorker runs every job in this process, so the OCR model loads once, not once per
+    # document (backend/ocr/job.py)
+    command: ["sh", "-c", "exec rq worker --worker-class rq.SimpleWorker ocr --url \"$$REDIS_URL\""]
     healthcheck:
       disable: true   # no web server in the worker
     networks: [data]

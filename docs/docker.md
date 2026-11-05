@@ -86,5 +86,5 @@ restore it there, and check that the counts match and an uploaded file still dow
 
 - Frontend container (`docker/Dockerfile.web`) on the `web` network.
 - Nginx with Let's Encrypt HTTPS in front of the API and frontend, then start uvicorn with `--proxy-headers` so the rate limits see the real client IP.
-- Chandra OCR inside the worker image. It needs a GPU, so it is for Costin's laptop only. Other machines keep `OCR_ENGINE=none`.
+- PaddleOCR-VL inside the worker image (docs/ocr.md). It needs an NVIDIA GPU, so it is for Costin's laptop only. `OCR_ENGINE=pdf_text` already works in the image (no GPU); other machines keep `none` or `pdf_text`.
 - Copy the nightly backups off the server automatically.
