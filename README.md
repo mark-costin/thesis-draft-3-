@@ -89,7 +89,9 @@ thesis-d3/
 ├── .env.example             # Template for .env (copy and fill in)
 ├── .gitignore
 ├── .python-version
-├── docker-compose.dev.yml   # Local development containers
+├── docker/                  # Dockerfile.api (API + OCR worker), Dockerfile.db (Postgres + schema)
+├── docker-compose.yml       # Full backend in containers (see docs/docker.md)
+├── docker-compose.dev.yml   # Postgres + Redis only, for running the API with uv
 ├── docs-requirement.md      # Documentation requirements
 ├── pyproject.toml           # Dependencies (uv)
 ├── uv.lock

@@ -1,0 +1,19 @@
+# Keep secrets, local data and big folders out of the images
+.env
+.env.*
+!.env.example
+.git
+.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.web
+*.dump
+backend/uploads/*
+tests
+ml/synthetic
+ml/ai_model
+ml/mlruns
+ml/artifacts
+frontend
+docs
