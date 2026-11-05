@@ -16,7 +16,8 @@ from datetime import datetime, timedelta, timezone
 from cryptography.fernet import InvalidToken
 from sqlalchemy import update
 
-from backend import audit, ocr, ocr_parser, storage
+from backend import audit, storage
+from backend.ocr import engines, parser
 from backend.config import settings
 from backend.database import SessionLocal, set_request_identity
 from backend.models import Document, LabResult
@@ -89,7 +90,7 @@ def process_document(document_id: int, patient_id: int) -> str:
     runs under the same Row-Level Security as the request that queued it, and every query also
     filters on it (RLS is the second layer)."""
     # Before claiming: a wrong OCR_ENGINE raises here and the document stays 'pending'
-    engine = ocr.get_engine()
+    engine = engines.get_engine()
     with SessionLocal() as session:
         set_request_identity(session, patient_id=patient_id)
         reset_stuck(session, patient_id)  # this patient's crashed jobs go back to 'pending'
@@ -118,7 +119,7 @@ def process_document(document_id: int, patient_id: int) -> str:
             _set_failed(session, document_id, patient_id,
                         "The stored file failed its integrity check. Please upload it again.")
             return "failed"
-        except ocr.OcrFailed as exc:
+        except engines.OcrFailed as exc:
             _set_failed(session, document_id, patient_id, str(exc) or _GENERIC_ERROR)
             return "failed"
         except Exception as exc:  # engine crash: log the type only, never the text (health data)
@@ -126,7 +127,7 @@ def process_document(document_id: int, patient_id: int) -> str:
             _set_failed(session, document_id, patient_id, _GENERIC_ERROR)
             return "failed"
 
-        found = ocr_parser.extract(result.text)
+        found = parser.extract(result.text)
         for mapped in found.values:
             session.add(LabResult(patient_id=patient_id, document_id=document_id, test_code=mapped.test_code,
                                   value=mapped.value, unit=mapped.unit, value_as_reported=mapped.value_as_reported,

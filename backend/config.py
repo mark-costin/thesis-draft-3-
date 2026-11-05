@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     # Folder for the encrypted files (a Docker volume on deployment)
     upload_dir: Path = ROOT_DIR / "backend" / "uploads"
 
-    # OCR engine for uploaded lab documents (backend/ocr.py, docs/ocr.md). "none": uploads stay
+    # OCR engine for uploaded lab documents (backend/ocr/engines.py, docs/ocr.md). "none": uploads stay
     # 'pending' and the patient types the values in. "pdf_text": reads PDFs that contain text (no
     # GPU). "paddleocr_vl": PaddleOCR-VL for photos and scans (GPU install step in docs/ocr.md).
     ocr_engine: str = "none"

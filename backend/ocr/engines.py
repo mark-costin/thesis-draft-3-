@@ -1,4 +1,4 @@
-"""OCR engines. The worker only needs read(); which engine runs is set by OCR_ENGINE in .env.
+"""OCR engines. The job (job.py) only needs read(); which engine runs is set by OCR_ENGINE in .env.
 
 - "pdf_text": PDFs that already contain text (lab portal PDFs) are read directly, no OCR and no
   GPU. Photos and scanned PDFs are refused with a safe message (the patient types the values in).
@@ -8,7 +8,7 @@
   tests start without it.
 
 Engines raise OcrFailed with a message that is safe to show and store. Any other exception is
-caught by the worker, which logs only its type: engine error text and document text are never
+caught by the job (job.py), which logs only its type: engine error text and document text are never
 logged (health data).
 """
 
@@ -21,7 +21,7 @@ import threading
 from dataclasses import dataclass
 from typing import Protocol
 
-from backend import ocr_parser
+from backend.ocr import parser
 from backend.config import settings
 
 
@@ -86,7 +86,7 @@ def pdf_text_layer(data: bytes) -> str:
 def has_lab_values(text: str) -> bool:
     """Whether a text layer is worth using: a PDF can carry a printed letterhead as text with
     the lab table itself scanned in as a picture."""
-    return bool(text) and bool(ocr_parser.extract(text).values)
+    return bool(text) and bool(parser.extract(text).values)
 
 
 class PdfTextEngine:
@@ -105,7 +105,7 @@ class PdfTextEngine:
 # PaddleOCR-VL
 # ---------------------------------------------------------------------------
 class _TableRows(html.parser.HTMLParser):
-    """PaddleOCR-VL writes tables as HTML. ocr_parser reads table rows as '| a | b | c |', so
+    """PaddleOCR-VL writes tables as HTML. parser.py reads table rows as '| a | b | c |', so
     each <tr> becomes one such line; text outside tables is kept as it is."""
 
     def __init__(self):
@@ -219,7 +219,7 @@ def _image_pages(data: bytes, mime_type: str) -> list:
 
 
 # PaddleOCR-VL writes some symbols as LaTeX: "\mu mol/L" or "$ \mu $mol/L" for umol/L, "$ \times
-# 10^{9} $/L", "1.73 m^{2}". ocr_parser and labs.py read plain text, so it is turned back first;
+# 10^{9} $/L", "1.73 m^{2}". parser.py and labs.py read plain text, so it is turned back first;
 # without this, every umol/L and uIU/mL line (creatinine, TSH) was skipped.
 _LATEX = [
     (re.compile(r"\\mu\s*"), "µ"),

@@ -2,7 +2,7 @@
 
 OCR engines give either plain lines ("FBS  5.6  mmol/L  3.9 - 5.5") or table rows
 ("| FBS | 5.6 | mmol/L | 3.9 - 5.5 |", as the configured engine writes them: PaddleOCR-VL, whose
-HTML tables backend/ocr.py turns into such rows; Chandra optional). For each line we look for a
+HTML tables engines.py turns into such rows; Chandra optional). For each line we look for a
 label we know (backend/labs.py), the first number after it, and a unit. Reference ranges,
 H/L flags and lines we do not understand are skipped: the patient reviews every value and types
 in anything OCR missed, so it is better to skip a line than to guess.

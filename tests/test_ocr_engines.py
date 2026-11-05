@@ -1,4 +1,4 @@
-"""OCR engines (backend/ocr.py): pdf_text reads PDFs that contain text without OCR; paddleocr_vl
+"""OCR engines (backend/ocr/engines.py): pdf_text reads PDFs that contain text without OCR; paddleocr_vl
 reads photos and scans. Only invented values, made here; no real reports."""
 
 import io
@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, func, select
 
-from backend import ocr, ocr_parser
+from backend.ocr import engines, parser
 from backend.config import settings
 from backend.database import SessionLocal, set_request_identity
 from backend.main import app
@@ -53,40 +53,40 @@ def scanned_pdf(pages=1):
 
 
 def values_of(text):
-    return {mapped.test_code: mapped.value for mapped in ocr_parser.extract(text).values}
+    return {mapped.test_code: mapped.value for mapped in parser.extract(text).values}
 
 
 # ---------------------------------------------------------------------------
 # pdf_text
 # ---------------------------------------------------------------------------
 def test_a_text_pdf_is_read_without_ocr(text_pdf):
-    result = ocr.PdfTextEngine().read(text_pdf, "application/pdf")
+    result = engines.PdfTextEngine().read(text_pdf, "application/pdf")
     assert values_of(result.text) == TRUE_VALUES  # creatinine converted from umol/L
     assert result.confidence is None  # exact text, not an OCR guess
 
 
 def test_a_scanned_pdf_has_no_text_layer():
-    assert ocr.pdf_text_layer(scanned_pdf()) == ""
-    with pytest.raises(ocr.OcrFailed, match="no text to read"):
-        ocr.PdfTextEngine().read(scanned_pdf(), "application/pdf")
+    assert engines.pdf_text_layer(scanned_pdf()) == ""
+    with pytest.raises(engines.OcrFailed, match="no text to read"):
+        engines.PdfTextEngine().read(scanned_pdf(), "application/pdf")
 
 
 def test_pdf_text_does_not_read_photos():
-    with pytest.raises(ocr.OcrFailed, match="no text to read"):
-        ocr.PdfTextEngine().read(b"\x89PNG\r\n\x1a\n", "image/png")
+    with pytest.raises(engines.OcrFailed, match="no text to read"):
+        engines.PdfTextEngine().read(b"\x89PNG\r\n\x1a\n", "image/png")
 
 
 def test_a_damaged_or_very_long_pdf_is_refused_with_a_safe_message():
-    with pytest.raises(ocr.OcrFailed, match="could not be opened"):
-        ocr.PdfTextEngine().read(b"%PDF-1.4\nnot really a pdf", "application/pdf")
-    with pytest.raises(ocr.OcrFailed, match="more than 10 pages"):
-        ocr.PdfTextEngine().read(scanned_pdf(pages=11), "application/pdf")
+    with pytest.raises(engines.OcrFailed, match="could not be opened"):
+        engines.PdfTextEngine().read(b"%PDF-1.4\nnot really a pdf", "application/pdf")
+    with pytest.raises(engines.OcrFailed, match="more than 10 pages"):
+        engines.PdfTextEngine().read(scanned_pdf(pages=11), "application/pdf")
 
 
 def test_letterhead_text_alone_is_not_a_usable_text_layer():
-    assert ocr.has_lab_values("| Fasting Blood Sugar | 96 | mg/dL |")
-    assert not ocr.has_lab_values("Sample Diagnostic Laboratory\nPatient: TEST PATIENT")
-    assert not ocr.has_lab_values("")
+    assert engines.has_lab_values("| Fasting Blood Sugar | 96 | mg/dL |")
+    assert not engines.has_lab_values("Sample Diagnostic Laboratory\nPatient: TEST PATIENT")
+    assert not engines.has_lab_values("")
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +98,7 @@ def test_html_tables_become_rows_the_parser_reads():
                 "<tr><td>Fasting Blood Sugar</td><td>96</td><td>mg/dL</td></tr>"
                 "<tr><td>Total<br>Cholesterol</td><td>4.78</td><td>mmol/L</td></tr>"
                 "<tr><td>HbA1c</td><td>5.4 H</td><td>%</td></tr></table>\n\nNote: &lt;0.1 is not detected")
-    text = ocr.tables_to_rows(markdown)
+    text = engines.tables_to_rows(markdown)
     assert "| Fasting Blood Sugar | 96 | mg/dL |" in text.splitlines()
     assert "Note: <0.1 is not detected" in text.splitlines()
     assert values_of(text) == {"FPG": Decimal("96.000"), "TOTAL_CHOLESTEROL": Decimal("184.843"),
@@ -108,7 +108,7 @@ def test_html_tables_become_rows_the_parser_reads():
 def test_paddleocr_vl_latex_units_are_read_as_plain_text():
     """PaddleOCR-VL writes the micro sign and powers as LaTeX. Without turning them back, every
     umol/L and uIU/mL line (creatinine, TSH) was skipped on the step 4 check."""
-    text = ocr.latex_to_text(
+    text = engines.latex_to_text(
         "| Creatinine | 88 | \\mu mol/L | 62 - 106 |  |\n"
         "| TSH | 2.15 | $ \\mu $IU/mL | 0.34 - 4.25 |  |\n"
         "| Eosinophils | 0.3 | $ \\times 10^{9} $/L |  |\n"
@@ -121,9 +121,9 @@ def test_paddleocr_vl_latex_units_are_read_as_plain_text():
 
 
 def test_paddleocr_vl_output_goes_through_the_latex_step(fake_pipeline, monkeypatch):
-    monkeypatch.setattr(fake_pipeline, "predict", lambda page: [FakeResult(
+    monkeypatch.setattr(fake_pipeline, "predict", lambda page, **kwargs: [FakeResult(
         "<table><tr><td>Creatinine</td><td>88</td><td>\\mu mol/L</td></tr></table>")])
-    result = ocr.PaddleOcrVlEngine().read(scanned_pdf(), "application/pdf")
+    result = engines.PaddleOcrVlEngine().read(scanned_pdf(), "application/pdf")
     assert values_of(result.text) == {"CREATININE": Decimal("0.995")}
 
 
@@ -134,39 +134,41 @@ class FakeResult:
 
 class FakePipeline:
     def __init__(self):
-        self.pages = []
+        self.pages, self.kwargs = [], []
 
-    def predict(self, page):
+    def predict(self, page, **kwargs):
         self.pages.append(page)
+        self.kwargs.append(kwargs)
         return [FakeResult("<table><tr><td>FBS</td><td>101</td><td>mg/dL</td></tr></table>")]
 
 
 @pytest.fixture
 def fake_pipeline(monkeypatch):
     pipeline = FakePipeline()
-    monkeypatch.setattr(ocr, "_get_pipeline", lambda: pipeline)
+    monkeypatch.setattr(engines, "_get_pipeline", lambda: pipeline)
     return pipeline
 
 
 def test_paddleocr_vl_reads_a_text_pdf_directly(text_pdf, fake_pipeline):
-    result = ocr.PaddleOcrVlEngine().read(text_pdf, "application/pdf")
+    result = engines.PaddleOcrVlEngine().read(text_pdf, "application/pdf")
     assert values_of(result.text) == TRUE_VALUES and fake_pipeline.pages == []  # model not used
 
 
 def test_paddleocr_vl_reads_scans_and_photos_as_pictures(fake_pipeline):
     from PIL import Image
 
-    result = ocr.PaddleOcrVlEngine().read(scanned_pdf(pages=2), "application/pdf")
+    result = engines.PaddleOcrVlEngine().read(scanned_pdf(pages=2), "application/pdf")
     assert values_of(result.text) == {"FPG": Decimal("101.000")}
     assert len(fake_pipeline.pages) == 2
+    assert fake_pipeline.kwargs[0] == {"max_new_tokens": engines.MAX_NEW_TOKENS}  # runaway text is capped
     page = fake_pipeline.pages[0]
     assert page.shape == (834, 1112, 3)  # a 400 x 300 pt page at 200 dpi, colour
 
     photo = io.BytesIO()
     Image.new("RGB", (4000, 3000), (255, 0, 0)).save(photo, "JPEG")
-    ocr.PaddleOcrVlEngine().read(photo.getvalue(), "image/jpeg")
+    engines.PaddleOcrVlEngine().read(photo.getvalue(), "image/jpeg")
     page = fake_pipeline.pages[-1]
-    assert max(page.shape[:2]) == ocr.MAX_IMAGE_SIDE  # scaled down for the GPU
+    assert max(page.shape[:2]) == engines.MAX_IMAGE_SIDE  # scaled down for the GPU
     blue, green, red = page[0, 0]
     assert red > 200 and blue < 50 and green < 50  # a red photo, in Paddle's BGR order
 
@@ -178,29 +180,29 @@ def test_paddleocr_vl_turns_a_photo_the_right_way_up(fake_pipeline):
     exif[0x0112] = 6  # taken sideways
     photo = io.BytesIO()
     Image.new("RGB", (300, 100), "white").save(photo, "JPEG", exif=exif.tobytes())
-    ocr.PaddleOcrVlEngine().read(photo.getvalue(), "image/jpeg")
+    engines.PaddleOcrVlEngine().read(photo.getvalue(), "image/jpeg")
     assert fake_pipeline.pages[-1].shape[:2] == (300, 100)
 
 
 def test_paddleocr_vl_with_nothing_found_asks_the_patient_to_type(monkeypatch):
     class Empty:
-        def predict(self, page):
+        def predict(self, page, **kwargs):
             return [FakeResult("")]
 
-    monkeypatch.setattr(ocr, "_get_pipeline", lambda: Empty())
-    with pytest.raises(ocr.OcrFailed, match="type the values in"):
-        ocr.PaddleOcrVlEngine().read(scanned_pdf(), "application/pdf")
-    with pytest.raises(ocr.OcrFailed, match="could not be opened"):
-        ocr.PaddleOcrVlEngine().read(b"\xff\xd8\xff\xe0broken", "image/jpeg")
+    monkeypatch.setattr(engines, "_get_pipeline", lambda: Empty())
+    with pytest.raises(engines.OcrFailed, match="type the values in"):
+        engines.PaddleOcrVlEngine().read(scanned_pdf(), "application/pdf")
+    with pytest.raises(engines.OcrFailed, match="could not be opened"):
+        engines.PaddleOcrVlEngine().read(b"\xff\xd8\xff\xe0broken", "image/jpeg")
 
 
 def test_paddleocr_vl_without_paddle_stops_the_app_at_startup(monkeypatch):
     monkeypatch.setattr(settings, "ocr_engine", "paddleocr_vl")
-    monkeypatch.setattr(ocr.PaddleOcrVlEngine, "available", staticmethod(lambda: False))
+    monkeypatch.setattr(engines.PaddleOcrVlEngine, "available", staticmethod(lambda: False))
     with pytest.raises(RuntimeError, match="needs its packages installed"):
-        ocr.check_engine()
+        engines.check_engine()
     monkeypatch.setattr(settings, "ocr_engine", "pdf_text")
-    ocr.check_engine()  # nothing extra to install
+    engines.check_engine()  # nothing extra to install
 
 
 # ---------------------------------------------------------------------------
@@ -259,7 +261,7 @@ def test_a_document_no_engine_has_read_says_none(headers):
 def test_the_real_paddleocr_vl_reads_a_rendered_report(text_pdf):
     # find_spec, not importorskip: importing paddle here, before the engine sets its memory flags,
     # would load the model without them (out of memory on a 6 GB GPU)
-    if not ocr.PaddleOcrVlEngine.available():
+    if not engines.PaddleOcrVlEngine.available():
         pytest.skip("PaddleOCR-VL is not installed (docs/ocr.md)")
     import pypdfium2 as pdfium
 
@@ -267,5 +269,5 @@ def test_the_real_paddleocr_vl_reads_a_rendered_report(text_pdf):
     picture = io.BytesIO()
     pdf[0].render(scale=200 / 72).to_pil().save(picture, "PNG")  # the report as a screenshot
     pdf.close()
-    result = ocr.PaddleOcrVlEngine().read(picture.getvalue(), "image/png")
+    result = engines.PaddleOcrVlEngine().read(picture.getvalue(), "image/png")
     assert values_of(result.text) == TRUE_VALUES
