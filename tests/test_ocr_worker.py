@@ -1,6 +1,6 @@
 """OCR worker: the text an engine reads becomes unconfirmed lab values, and the document waits for
-the patient's review. A fake engine stands in for Chandra or Tesseract, so these tests need no
-GPU, no OCR install and no Redis."""
+the patient's review. A fake engine stands in for the configured engine (PaddleOCR-VL; Chandra
+optional), so these tests need no GPU, no OCR install and no Redis."""
 
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -10,7 +10,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, func, select, update
 
-from backend import audit, ocr, ocr_parser, storage, worker
+from backend import audit, storage
+from backend.ocr import engines, job, parser
 from backend.config import settings
 from backend.database import SessionLocal, set_request_identity
 from backend.main import app
@@ -37,7 +38,7 @@ LDL <0.1 mg/dL
 Eosinophils Absolute 0.4 x 10^9/L
 """
 
-CHANDRA_TABLE = """| Test | Result | Unit | Reference |
+MARKDOWN_TABLE = """| Test | Result | Unit | Reference |
 |---|---|---|---|
 | Vitamin B12 | 300 | pmol/L | 145-569 |
 | TSH | 2.50 | 0.4 - 4.0 | uIU/mL |
@@ -51,7 +52,7 @@ CHANDRA_TABLE = """| Test | Result | Unit | Reference |
 # Parser (no database)
 # ---------------------------------------------------------------------------
 def values_of(text):
-    return {value.test_code: (str(value.value), value.unit) for value in ocr_parser.extract(text).values}
+    return {value.test_code: (str(value.value), value.unit) for value in parser.extract(text).values}
 
 
 def test_a_plain_text_report_maps_to_the_right_codes_and_units():
@@ -68,7 +69,7 @@ def test_a_plain_text_report_maps_to_the_right_codes_and_units():
 
 
 def test_a_markdown_table_maps_to_the_right_codes_and_units():
-    assert values_of(CHANDRA_TABLE) == {
+    assert values_of(MARKDOWN_TABLE) == {
         "VITAMIN_B12": ("406.614", "pg/mL"),
         "TSH": ("2.500", "mIU/L"),
         "URIC_ACID": ("6.994", "mg/dL"),
@@ -86,23 +87,23 @@ def test_a_markdown_table_maps_to_the_right_codes_and_units():
     "",
 ])
 def test_lines_that_cannot_be_read_safely_are_skipped(line):
-    assert ocr_parser.parse_line(line) is None
+    assert parser.parse_line(line) is None
 
 
 def test_a_decimal_comma_or_wrong_unit_is_counted_as_skipped():
-    found = ocr_parser.extract("FBS 5,6 mmol/L\nHbA1c 6.5 mg/dL\nTSH 2.5 mIU/L")
+    found = parser.extract("FBS 5,6 mmol/L\nHbA1c 6.5 mg/dL\nTSH 2.5 mIU/L")
     assert [value.test_code for value in found.values] == ["TSH"]
     assert found.skipped_lines == 2
 
 
 def test_the_first_value_of_a_test_is_kept():
-    found = ocr_parser.extract("FBS 95 mg/dL\nFasting Blood Sugar 110 mg/dL")
+    found = parser.extract("FBS 95 mg/dL\nFasting Blood Sugar 110 mg/dL")
     assert [(value.test_code, value.value) for value in found.values] == [("FPG", Decimal("95.000"))]
 
 
 def test_a_label_with_a_number_in_it_is_read_whole():
-    assert ocr_parser.parse_line("OGTT 2 hr 140 mg/dL") == ocr_parser.ParsedLine("OGTT_2H", "140", "mg/dL")
-    assert ocr_parser.parse_line("Vitamin B12 300 pmol/L") == ocr_parser.ParsedLine("VITAMIN_B12", "300", "pmol/L")
+    assert parser.parse_line("OGTT 2 hr 140 mg/dL") == parser.ParsedLine("OGTT_2H", "140", "mg/dL")
+    assert parser.parse_line("Vitamin B12 300 pmol/L") == parser.ParsedLine("VITAMIN_B12", "300", "pmol/L")
 
 
 # ---------------------------------------------------------------------------
@@ -118,7 +119,7 @@ class FakeEngine:
         assert data.startswith(b"\x89PNG") and mime_type == "image/png"  # decrypted original
         if self.error:
             raise self.error
-        return ocr.OcrResult(self.text, self.confidence)
+        return engines.OcrResult(self.text, self.confidence)
 
 
 @pytest.fixture(autouse=True)
@@ -132,7 +133,7 @@ def engine(monkeypatch):
     """Switches OCR on with the fake engine. Change its text/error in the test."""
     fake = type("ConfiguredFake", (FakeEngine,), {})
     monkeypatch.setattr(settings, "ocr_engine", "fake")
-    monkeypatch.setitem(ocr.ENGINES, "fake", fake)
+    monkeypatch.setitem(engines.ENGINES, "fake", fake)
     return fake
 
 
@@ -219,7 +220,7 @@ def test_a_report_with_no_values_found_still_goes_to_review(make_patient, engine
 
 
 def test_an_engine_error_marks_the_document_failed_with_its_safe_message(make_patient, engine):
-    engine.error = ocr.OcrFailed("This file has no readable text. Please type the values in.")
+    engine.error = engines.OcrFailed("This file has no readable text. Please type the values in.")
     _, headers = make_patient()
     document = client.get(f"/documents/{upload(headers)}", headers=headers).json()
     assert document["status"] == "failed"
@@ -241,7 +242,7 @@ def test_a_changed_file_on_disk_fails_the_integrity_check(make_patient, engine, 
     document = document_of(email, document_id)
     storage.save(document.storage_key, PNG + b"edited")
     monkeypatch.setattr(settings, "ocr_engine", "fake")
-    assert worker.process_document(document_id, document.patient_id) == "failed"
+    assert job.process_document(document_id, document.patient_id) == "failed"
     assert "integrity" in client.get(f"/documents/{document_id}", headers=headers).json()["error_message"]
 
 
@@ -256,7 +257,7 @@ def test_running_the_job_twice_does_not_save_values_twice(make_patient, engine):
     email, headers = make_patient()
     document_id = upload(headers)
     patient_id = document_of(email, document_id).patient_id
-    assert worker.process_document(document_id, patient_id) == "skipped"
+    assert job.process_document(document_id, patient_id) == "skipped"
     assert len(client.get("/labs", headers=headers).json()) == 8
 
 
@@ -267,7 +268,7 @@ def test_the_job_cannot_touch_another_patients_document(make_patient, engine, mo
     document_id = upload(owner)
     other_patient_id = document_of(other_email, upload(other)).patient_id
     monkeypatch.setattr(settings, "ocr_engine", "fake")
-    assert worker.process_document(document_id, other_patient_id) == "skipped"  # RLS hides it
+    assert job.process_document(document_id, other_patient_id) == "skipped"  # RLS hides it
     assert document_of(owner_email, document_id).status == "pending"
 
 
@@ -303,7 +304,7 @@ def test_with_redis_on_the_job_goes_to_the_rq_queue(make_patient, engine, monkey
     monkeypatch.setattr(settings, "redis_enabled", True)
     _, headers = make_patient()
     document_id = upload(headers)
-    assert queued and queued[0][0] == "ocr" and queued[0][1] is worker.process_document
+    assert queued and queued[0][0] == "ocr" and queued[0][1] is job.process_document
     assert queued[0][2][0] == document_id
     # not processed in the API process: it waits for the worker
     assert client.get(f"/documents/{document_id}", headers=headers).json()["status"] == "pending"
@@ -312,7 +313,7 @@ def test_with_redis_on_the_job_goes_to_the_rq_queue(make_patient, engine, monkey
 def test_an_unknown_engine_name_is_refused(monkeypatch):
     monkeypatch.setattr(settings, "ocr_engine", "typo")
     with pytest.raises(RuntimeError):
-        ocr.get_engine()
+        engines.get_engine()
 
 
 # ---------------------------------------------------------------------------
@@ -335,7 +336,7 @@ def test_a_wrong_engine_name_leaves_the_document_pending(make_patient, monkeypat
     document_id = upload(headers)  # OCR off: pending
     monkeypatch.setattr(settings, "ocr_engine", "typo")
     with pytest.raises(RuntimeError):
-        worker.process_document(document_id, document_of(email, document_id).patient_id)
+        job.process_document(document_id, document_of(email, document_id).patient_id)
     assert document_of(email, document_id).status == "pending"  # not claimed, so not stuck
 
 
@@ -377,7 +378,7 @@ def test_a_stuck_document_is_reset_and_processed_when_the_patient_polls(make_pat
     make_stuck(email, stuck_id, minutes_ago=20)    # crashed job
     make_stuck(email, running_id, minutes_ago=5)   # a job that may still be running
     monkeypatch.setattr(settings, "ocr_engine", "fake")
-    monkeypatch.setitem(ocr.ENGINES, "fake", FakeEngine)
+    monkeypatch.setitem(engines.ENGINES, "fake", FakeEngine)
 
     assert client.get(f"/documents/{stuck_id}", headers=headers).status_code == 200
     assert document_of(email, stuck_id).status == "ready_for_review"  # reset, queued, processed
@@ -412,10 +413,10 @@ def test_a_job_whose_document_was_reset_meanwhile_saves_nothing(make_patient, en
             other.execute(update(Document).where(Document.document_id == document_id)
                           .values(status="pending", processed_at=None))
             other.commit()
-        return ocr.OcrResult(SAMPLE_REPORT, 90.0)
+        return engines.OcrResult(SAMPLE_REPORT, 90.0)
 
     engine.read = read_and_lose_the_claim
-    assert worker.process_document(document_id, patient_id) == "skipped"
+    assert job.process_document(document_id, patient_id) == "skipped"
     with SessionLocal() as session:
         as_patient(session, email)
         assert session.scalar(select(func.count()).select_from(LabResult)

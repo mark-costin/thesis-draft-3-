@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, func
 
 from backend import image_privacy
-from backend import worker
+from backend.ocr import job
 from backend.config import settings
 from backend.database import SessionLocal
 from backend.main import app
@@ -257,7 +257,7 @@ def test_a_retried_upload_of_a_photo_with_metadata_finds_the_pending_document(he
     """With OCR on, the same file again while it is still pending is a retry (Redis was down). The
     stored checksum is of the cleaned file, so the retry must be compared after cleaning too."""
     monkeypatch.setattr(settings, "ocr_engine", "fake")
-    monkeypatch.setattr(worker, "start", lambda *args: None)  # OCR never starts: stays pending
+    monkeypatch.setattr(job, "start", lambda *args: None)  # OCR never starts: stays pending
     photo = jpeg_with_metadata()
     first = client.post("/documents", headers=headers, files={"file": ("a.jpg", photo, "image/jpeg")})
     again = client.post("/documents", headers=headers, files={"file": ("a.jpg", photo, "image/jpeg")})

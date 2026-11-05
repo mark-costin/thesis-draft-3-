@@ -2,7 +2,7 @@
 
 Upload checks the real file type from its first bytes (JPEG, PNG, PDF), the size (10 MB), and
 the SHA-256 (the same file twice is refused), then stores it encrypted under a UUID name.
-Upload answers 202: OCR runs after the response (backend/worker.py) and moves the document from
+Upload answers 202: OCR runs after the response (backend/ocr/job.py) and moves the document from
 'pending' to 'ready_for_review' (or 'failed'). With OCR_ENGINE=none it stays 'pending'.
 
 Review: when OCR is done (status ready_for_review) the patient sees the values it read and the
@@ -14,11 +14,12 @@ Only confirmed values are used by the models.
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
-from backend import labs, readiness, services, worker
+from backend import labs, readiness, services
 from backend.config import settings
 from backend.database import get_db
 from backend.dependencies import CurrentUser, get_current_user
 from backend.middleware import limiter
+from backend.ocr import job
 from backend.routes.labs import lab_out
 from backend.schemas import DocumentConfirm, DocumentResponse, DocumentReviewResponse
 
@@ -46,7 +47,7 @@ def upload(request: Request, response: Response, background_tasks: BackgroundTas
         row = services.pending_duplicate(db, current.patient_id, data) if settings.ocr_engine != "none" else None
         if row is None:
             raise HTTPException(status.HTTP_409_CONFLICT, "You already uploaded this file")
-    worker.start(row.document_id, current.patient_id, background_tasks)  # never fails the upload
+    job.start(row.document_id, current.patient_id, background_tasks)  # never fails the upload
     response.headers.update(NO_STORE)
     response.headers["Location"] = f"/documents/{row.document_id}"  # poll it for the OCR status
     return DocumentResponse.model_validate(row)
@@ -56,7 +57,7 @@ def upload(request: Request, response: Response, background_tasks: BackgroundTas
 def list_documents(response: Response, background_tasks: BackgroundTasks,
                    current: CurrentUser = Depends(get_current_user),
                    db: Session = Depends(get_db)) -> list[DocumentResponse]:
-    worker.requeue_stuck(db, current.patient_id, background_tasks)  # crashed OCR jobs start again
+    job.requeue_stuck(db, current.patient_id, background_tasks)  # crashed OCR jobs start again
     response.headers.update(NO_STORE)
     return [DocumentResponse.model_validate(row) for row in services.list_documents(db, current.patient_id)]
 
@@ -65,7 +66,7 @@ def list_documents(response: Response, background_tasks: BackgroundTasks,
 def read_document(document_id: int, response: Response, background_tasks: BackgroundTasks,
                   current: CurrentUser = Depends(get_current_user),
                   db: Session = Depends(get_db)) -> DocumentResponse:
-    worker.requeue_stuck(db, current.patient_id, background_tasks)  # the patient polls this one
+    job.requeue_stuck(db, current.patient_id, background_tasks)  # the patient polls this one
     try:
         row = services.get_document(db, current.patient_id, document_id)
     except services.NotFound:
