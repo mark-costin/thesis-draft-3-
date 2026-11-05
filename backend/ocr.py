@@ -14,6 +14,9 @@ logged (health data).
 
 import html.parser
 import importlib.util
+import os
+import re
+import sys
 import threading
 from dataclasses import dataclass
 from typing import Protocol
@@ -41,8 +44,12 @@ class OcrEngine(Protocol):
 _NEEDS_OCR = "This file has no text to read. Please type the values in."
 _PDF_DAMAGED = "This PDF could not be opened. Please upload it again or type the values in."
 MAX_PDF_PAGES = 10          # lab reports are a page or two; more is refused, not processed for minutes
+MAX_NEW_TOKENS = 1024       # per layout block (PaddleX default 4096). A lab table needs a few hundred;
+                            # the cap stops a block whose text repeats from running for minutes
 PDF_RENDER_DPI = 200        # scanned pages are turned into pictures at this resolution for OCR
-MAX_IMAGE_SIDE = 2400       # bigger phone photos are scaled down first (GPU memory; text stays readable)
+MAX_IMAGE_SIDE = 2000       # bigger pages are scaled down first. On a 6 GB GPU an A4 page at full
+                            # 200 dpi (2339 px) spilled into system RAM and took >5 minutes; at
+                            # 2000 px it takes ~3 s and reads the same values
 
 
 # ---------------------------------------------------------------------------
@@ -159,9 +166,26 @@ def _get_pipeline():
     which would load the model again for every document."""
     global _pipeline
     if _pipeline is None:
+        # Set before paddle is first imported (it reads these when it loads):
+        # - Loading needs ~6.4 GB for a moment (model + bf16 checkpoint + fp32 copies of the vision
+        #   encoder), more than a 6 GB laptop GPU; running needs ~2.8 GB. Managed memory lets that
+        #   moment spill into system RAM instead of failing with "out of memory".
+        # - The model files are cached in ~/.paddlex after the first run: no need to ping the
+        #   model hosts every time a worker starts.
+        os.environ.setdefault("FLAGS_use_cuda_managed_memory", "true")
+        os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
+        import paddle
         from paddleocr import PaddleOCRVL  # lazy: the app starts without paddle installed
 
-        _pipeline = PaddleOCRVL(device=settings.ocr_device)
+        # Also when something imported paddle before (then the environment variable was too late);
+        # it must be set before the first GPU allocation, which is the model load just below.
+        paddle.set_flags({"FLAGS_use_cuda_managed_memory": True})
+
+        # use_queues=False: run the model in this thread, not in PaddleX's worker threads. One
+        # document at a time runs anyway (the lock), and an error in a worker thread could leave
+        # predict() waiting forever (the document stuck in 'processing') instead of failing.
+        _pipeline = PaddleOCRVL(device=settings.ocr_device, use_queues=False)
+        _free_gpu_cache()
     return _pipeline
 
 
@@ -194,9 +218,47 @@ def _image_pages(data: bytes, mime_type: str) -> list:
     return pages
 
 
+# PaddleOCR-VL writes some symbols as LaTeX: "\mu mol/L" or "$ \mu $mol/L" for umol/L, "$ \times
+# 10^{9} $/L", "1.73 m^{2}". ocr_parser and labs.py read plain text, so it is turned back first;
+# without this, every umol/L and uIU/mL line (creatinine, TSH) was skipped.
+_LATEX = [
+    (re.compile(r"\\mu\s*"), "µ"),
+    (re.compile(r"\\times\s*"), "x "),
+    (re.compile(r"\\%"), "%"),
+    (re.compile(r"m\s*\^\s*\{?\s*2\s*\}?"), "m2"),         # 1.73 m^{2} -> 1.73 m2
+    (re.compile(r"\^\s*\{\s*(\d+)\s*\}"), r"^\1"),           # 10^{9} -> 10^9
+    (re.compile(r"\$"), ""),
+]
+
+
+def latex_to_text(text: str) -> str:
+    for pattern, plain in _LATEX:
+        text = pattern.sub(plain, text)
+    return re.sub(r"[ \t]{2,}", " ", text)
+
+
 def _page_text(result) -> str:
     markdown = result.markdown.get("markdown_texts", "") if hasattr(result, "markdown") else ""
-    return tables_to_rows(markdown if isinstance(markdown, str) else "\n".join(markdown))
+    markdown = markdown if isinstance(markdown, str) else "\n".join(markdown)
+    return tables_to_rows(latex_to_text(markdown))
+
+
+def _dynamic_mode() -> None:
+    """PaddleOCR-VL's text model needs Paddle's dynamic mode, but the layout model runs on
+    Paddle's static inference engine, which can leave the global mode switched to static; the
+    next document then fails with "int(Tensor) is not supported in static graph mode"."""
+    paddle = sys.modules.get("paddle")
+    if paddle is not None and not paddle.in_dynamic_mode():
+        paddle.disable_static()
+
+
+def _free_gpu_cache() -> None:
+    """Give memory Paddle has cached but no longer uses back to the GPU. After loading, that is
+    the ~3 GB the checkpoint needed for a moment; left cached, reading a document spills into
+    system RAM (managed memory) and becomes many times slower."""
+    paddle = sys.modules.get("paddle")  # only if the model was really loaded (never imports it)
+    if paddle is not None and paddle.device.is_compiled_with_cuda():
+        paddle.device.cuda.empty_cache()
 
 
 class PaddleOcrVlEngine:
@@ -214,7 +276,12 @@ class PaddleOcrVlEngine:
         pages = _image_pages(data, mime_type)
         with _pipeline_lock:
             pipeline = _get_pipeline()
-            texts = [_page_text(result) for page in pages for result in pipeline.predict(page)]
+            _dynamic_mode()
+            try:
+                texts = [_page_text(result) for page in pages
+                         for result in pipeline.predict(page, max_new_tokens=MAX_NEW_TOKENS)]
+            finally:
+                _free_gpu_cache()
         text = "\n".join(t for t in texts if t).strip()
         if not text:
             raise OcrFailed("No text was found in this file. Please type the values in.")

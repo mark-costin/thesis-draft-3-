@@ -105,6 +105,28 @@ def test_html_tables_become_rows_the_parser_reads():
                                "HBA1C": Decimal("5.400")}
 
 
+def test_paddleocr_vl_latex_units_are_read_as_plain_text():
+    """PaddleOCR-VL writes the micro sign and powers as LaTeX. Without turning them back, every
+    umol/L and uIU/mL line (creatinine, TSH) was skipped on the step 4 check."""
+    text = ocr.latex_to_text(
+        "| Creatinine | 88 | \\mu mol/L | 62 - 106 |  |\n"
+        "| TSH | 2.15 | $ \\mu $IU/mL | 0.34 - 4.25 |  |\n"
+        "| Eosinophils | 0.3 | $ \\times 10^{9} $/L |  |\n"
+        "| eGFR | 95 | mL/min/1.73 m^{2} |  |\n"
+        "| HbA1c | 5.9 | \\% |  |")
+    assert "\\" not in text and "$" not in text
+    assert values_of(text) == {"CREATININE": Decimal("0.995"), "TSH": Decimal("2.150"),
+                               "EOSINOPHILS": Decimal("300.000"), "EGFR": Decimal("95.000"),
+                               "HBA1C": Decimal("5.900")}
+
+
+def test_paddleocr_vl_output_goes_through_the_latex_step(fake_pipeline, monkeypatch):
+    monkeypatch.setattr(fake_pipeline, "predict", lambda page: [FakeResult(
+        "<table><tr><td>Creatinine</td><td>88</td><td>\\mu mol/L</td></tr></table>")])
+    result = ocr.PaddleOcrVlEngine().read(scanned_pdf(), "application/pdf")
+    assert values_of(result.text) == {"CREATININE": Decimal("0.995")}
+
+
 class FakeResult:
     def __init__(self, text):
         self.markdown = {"markdown_texts": text}
@@ -235,8 +257,10 @@ def test_a_document_no_engine_has_read_says_none(headers):
 # The real PaddleOCR-VL model (only where it is installed: GPU machine, docs/ocr.md)
 # ---------------------------------------------------------------------------
 def test_the_real_paddleocr_vl_reads_a_rendered_report(text_pdf):
-    pytest.importorskip("paddleocr", reason="PaddleOCR-VL is not installed (docs/ocr.md)")
-    pytest.importorskip("paddle", reason="PaddlePaddle is not installed (docs/ocr.md)")
+    # find_spec, not importorskip: importing paddle here, before the engine sets its memory flags,
+    # would load the model without them (out of memory on a 6 GB GPU)
+    if not ocr.PaddleOcrVlEngine.available():
+        pytest.skip("PaddleOCR-VL is not installed (docs/ocr.md)")
     import pypdfium2 as pdfium
 
     pdf = pdfium.PdfDocument(text_pdf)
