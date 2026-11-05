@@ -1,4 +1,4 @@
-"""HTTP middleware: CORS, rate limiting (SlowAPI) and idempotency keys.
+"""HTTP middleware: security headers, CORS, rate limiting (SlowAPI) and idempotency keys.
 
 Redis is optional during development. With REDIS_ENABLED=false (the default) the rate limit
 counters and saved idempotent responses live in this process's memory, which is enough for one
@@ -232,11 +232,42 @@ def _crisis_flag(scope: Scope) -> bool | None:
 
 
 # ---------------------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------------------
+# Sent on every response, errors included. A route that sets its own value keeps it.
+# HSTS (force HTTPS) is not here: it belongs on the HTTPS reverse proxy at deployment.
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",  # the browser must not guess a type, e.g. read JSON as HTML
+    "X-Frame-Options": "DENY",            # no page can show the API inside a frame (clickjacking)
+    "Referrer-Policy": "no-referrer",     # URLs with record IDs are never sent to other sites
+}
+
+
+class SecurityHeadersMiddleware:
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+
+        async def add_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                present = {name.lower() for name, _ in message.get("headers", [])}
+                extra = [(name.lower().encode(), value.encode()) for name, value in SECURITY_HEADERS.items()
+                         if name.lower().encode() not in present]
+                message["headers"] = list(message.get("headers", [])) + extra
+            await send(message)
+
+        await self.app(scope, receive, add_headers)
+
+
+# ---------------------------------------------------------------------------
 # Wiring
 # ---------------------------------------------------------------------------
 def install(app: FastAPI) -> None:
     """Adds the middleware. Starlette runs the last one added first, so a request passes
-    CORS -> rate limit -> idempotency -> route."""
+    security headers -> CORS -> rate limit -> idempotency -> route."""
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -250,3 +281,4 @@ def install(app: FastAPI) -> None:
         allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
         expose_headers=[REPLAY_HEADER, "Retry-After"],
     )
+    app.add_middleware(SecurityHeadersMiddleware)  # outermost, so CORS and 429 answers get them too
