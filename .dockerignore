@@ -17,3 +17,5 @@ ml/mlruns
 ml/artifacts
 frontend
 docs
+backups
+deploy

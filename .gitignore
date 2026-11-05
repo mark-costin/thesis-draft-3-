@@ -8,3 +8,5 @@ all_tables.sql
 backend/uploads/*
 !backend/uploads/.gitkeep
 .pytest_cache/
+# Backups hold health data (deploy/backup.sh)
+backups/

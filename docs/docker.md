@@ -46,6 +46,30 @@ For a demo, load them by hand:
 docker compose exec -T db psql -U postgres -d med_db < database/seed_care_plan_templates.sql
 ```
 
+## 4. Backup and restore
+
+| | Windows | Linux / server |
+| --- | --- | --- |
+| Back up | `powershell -ExecutionPolicy Bypass -File deploy\backup.ps1` | `./deploy/backup.sh` |
+| Restore | `powershell -ExecutionPolicy Bypass -File deploy\restore.ps1 backups\<date-time>` | `./deploy/restore.sh backups/<date-time>` |
+
+- A backup is a folder `backups/<date-time>/` with `med_db.dump` (the whole database, `pg_dump -Fc`),
+  `uploads.tar.gz` (the encrypted files) and `SHA256SUMS`.
+- The restore checks the checksums first, asks you to type `RESTORE`, stops the API and worker,
+  replaces the database in one transaction (all or nothing), and puts back the files. Then it
+  prints the number of tables, patients and saved reports, and checks the audit chain
+  (`verify_audit_chain()`).
+- **The backup holds health data.** `backups/` is in `.gitignore`. Copy it to a second place
+  (another disk or computer), not to a public cloud folder.
+- **`DOCUMENT_ENCRYPTION_KEY` is not in the backup, on purpose.** Keep it somewhere else. Without
+  the same key in `.env`, the restored files cannot be opened.
+- On the server, `backup.sh` deletes backups older than 14 days (`KEEP_DAYS`). Run it every
+  night with cron (see the top of the script).
+
+**Restore test (Sprint 8 "Done when"):** make a backup on one computer, copy the folder to
+another computer that runs the same compose files with the same `DOCUMENT_ENCRYPTION_KEY`,
+restore it there, and check that the counts match and an uploaded file still downloads.
+
 ## How it is protected
 
 - **Secrets:** every password comes from `.env`. The compose files contain none, and `.dockerignore` keeps `.env` out of the images.
@@ -63,4 +87,4 @@ docker compose exec -T db psql -U postgres -d med_db < database/seed_care_plan_t
 - Frontend container (`docker/Dockerfile.web`) on the `web` network.
 - Nginx with Let's Encrypt HTTPS in front of the API and frontend, then start uvicorn with `--proxy-headers` so the rate limits see the real client IP.
 - Chandra OCR inside the worker image. It needs a GPU, so it is for Costin's laptop only. Other machines keep `OCR_ENGINE=none`.
-- Backups: `pg_dump` of the database and a copy of the `uploads` volume.
+- Copy the nightly backups off the server automatically.
