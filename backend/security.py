@@ -21,12 +21,18 @@ def hash_password(password: str) -> str:
     return password_hash.hash(password)
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
+def verify_password(plain_password: str, hashed_password: str | None) -> bool:
+    if hashed_password is None:  # an account that signs in with Google only has no password
+        burn_dummy_check(plain_password)  # same time as a real check
+        return False
     return password_hash.verify(plain_password, hashed_password)
 
 
-def verify_and_update_password(plain_password: str, hashed_password: str) -> tuple[bool, str | None]:
+def verify_and_update_password(plain_password: str, hashed_password: str | None) -> tuple[bool, str | None]:
     """Returns (matches, new_hash). new_hash is set when the stored hash uses old settings."""
+    if hashed_password is None:
+        burn_dummy_check(plain_password)
+        return False, None
     return password_hash.verify_and_update(plain_password, hashed_password)
 
 

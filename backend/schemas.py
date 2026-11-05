@@ -41,25 +41,55 @@ def check_adult_birth_date(value: date) -> date:
 def strip_text(value):
     return value.strip() if isinstance(value, str) else value
 
+# Same pattern as patients_contact_number_check in 22_contact_and_google.sql
+CONTACT_PATTERN = r"^(09[0-9]{9}|\+639[0-9]{9})$"
+ADDRESS_FIELDS = ("province", "city_municipality", "barangay")
 
-class RegisterRequest(BaseModel):
+
+class ContactFields(BaseModel):
+    """Contact number and home address (22_contact_and_google.sql). All optional; never a model
+    input. Province, city and barangay are sent together, because the screens pick them in order
+    and a barangay alone means nothing (patients_address_order_check)."""
+
+    contact_number: str | None = Field(default=None, pattern=CONTACT_PATTERN)
+    province: str | None = Field(default=None, min_length=1, max_length=100)
+    city_municipality: str | None = Field(default=None, min_length=1, max_length=100)
+    barangay: str | None = Field(default=None, min_length=1, max_length=100)
+    street: str | None = Field(default=None, max_length=150)
+
+    @field_validator("contact_number", mode="before")
+    @classmethod
+    def strip_contact(cls, value):
+        # "0917 123 4567" and "0917-123-4567" are the same number
+        return value.replace(" ", "").replace("-", "") if isinstance(value, str) else value
+
+    @field_validator("province", "city_municipality", "barangay", "street", mode="before")
+    @classmethod
+    def clean_address(cls, value):
+        value = clean_text(value)
+        return None if value == "" else value  # an empty street line means "no street"
+
+    @model_validator(mode="after")
+    def address_together(self):
+        sent = [name for name in ADDRESS_FIELDS if name in self.model_fields_set]
+        if sent and len(sent) != len(ADDRESS_FIELDS):
+            raise ValueError("Send province, city_municipality and barangay together")
+        if sent and any(getattr(self, name) is None for name in ADDRESS_FIELDS):
+            raise ValueError("Province, city or municipality, and barangay cannot be empty")
+        return self
+
+
+class PatientDetails(ContactFields):
+    """What a new account needs besides how it signs in: shared by password sign-up and
+    Google sign-up, so both follow the same rules (18+, current privacy notice, names)."""
     model_config = ConfigDict(extra="forbid")
 
-    email: str = Field(max_length=254, pattern=EMAIL_PATTERN)
-    # Not stripped: spaces in a password are allowed and kept
-    password: str = Field(min_length=8, max_length=128)
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
     date_of_birth: date
     biological_sex: Literal["Female", "Male"]
     privacy_consent: bool
     consent_version: str = Field(max_length=20)
-
-    @field_validator("email", mode="before")
-    @classmethod
-    def normalize_email(cls, value):
-        # One account per address, whatever the capitalization (matches ux_users_email_lower)
-        return value.strip().lower() if isinstance(value, str) else value
 
     @field_validator("first_name", "last_name", mode="before")
     @classmethod
@@ -85,6 +115,40 @@ class RegisterRequest(BaseModel):
         if value != settings.privacy_notice_version:
             raise ValueError("The privacy notice has changed; please review the current version")
         return value
+
+
+class RegisterRequest(PatientDetails):
+    email: str = Field(max_length=254, pattern=EMAIL_PATTERN)
+    # Not stripped: spaces in a password are allowed and kept
+    password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value):
+        # One account per address, whatever the capitalization (matches ux_users_email_lower)
+        return value.strip().lower() if isinstance(value, str) else value
+
+
+class GoogleSignInRequest(BaseModel):
+    """credential = the ID token from the Google button. signup is sent only to create a new
+    account: Google does not give the birth date or sex, and consent must be given here."""
+    model_config = ConfigDict(extra="forbid")
+
+    credential: str = Field(min_length=20, max_length=4096)
+    signup: PatientDetails | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)  # same rule as registration
+
+    @model_validator(mode="after")
+    def must_differ(self):
+        if self.current_password == self.new_password:
+            raise ValueError("The new password must be different from the current one")
+        return self
 
 
 class RegisterResponse(BaseModel):
@@ -144,9 +208,16 @@ class ProfileResponse(BaseModel):
     biological_sex: Literal["Female", "Male"]
     consent_version: str
     consent_at: datetime
+    contact_number: str | None = None
+    province: str | None = None
+    city_municipality: str | None = None
+    barangay: str | None = None
+    street: str | None = None
+    # How the account signs in: "email" (email + password), "google", or both
+    sign_in: Literal["email", "google", "email_and_google"]
 
 
-class ProfileUpdate(BaseModel):
+class ProfileUpdate(ContactFields):
     """Fields a patient may change. Email, consent and IDs are not editable here."""
     model_config = ConfigDict(extra="forbid")
 
@@ -170,7 +241,8 @@ class ProfileUpdate(BaseModel):
         if not self.model_fields_set:
             raise ValueError("Send at least one field to change")
         for name in self.model_fields_set:
-            if getattr(self, name) is None:
+            # contact_number and street may be cleared with null; the others always need a value
+            if getattr(self, name) is None and name not in ("contact_number", "street"):
                 raise ValueError(f"{name} cannot be empty")
         return self
 
@@ -556,7 +628,10 @@ class AccountDeleteRequest(BaseModel):
     so a stolen session or a mis-tap cannot erase an account."""
     model_config = ConfigDict(extra="forbid")
 
-    password: str = Field(min_length=1, max_length=128)
+    # One of the two: the password, or (for an account that signs in with Google and has no
+    # password) a fresh ID token from the Google button
+    password: str | None = Field(default=None, min_length=1, max_length=128)
+    google_credential: str | None = Field(default=None, min_length=20, max_length=4096)
     confirm: str
 
     @field_validator("confirm")
@@ -565,6 +640,12 @@ class AccountDeleteRequest(BaseModel):
         if value != DELETE_CONFIRMATION:
             raise ValueError(f'Type "{DELETE_CONFIRMATION}" to confirm')
         return value
+
+    @model_validator(mode="after")
+    def one_proof(self):
+        if (self.password is None) == (self.google_credential is None):
+            raise ValueError("Send your password, or sign in with Google again")
+        return self
 
 
 

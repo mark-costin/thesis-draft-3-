@@ -24,6 +24,12 @@ def _response(user: User, patient: Patient) -> ProfileResponse:
         biological_sex=patient.biological_sex,
         consent_version=patient.consent_version,
         consent_at=patient.consent_at,
+        contact_number=patient.contact_number,
+        province=patient.province,
+        city_municipality=patient.city_municipality,
+        barangay=patient.barangay,
+        street=patient.street,
+        sign_in=services.sign_in_methods(user),
     )
 
 

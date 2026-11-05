@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import set_request_identity
-from backend import audit, fhrs, image_privacy, labs, mailer, questionnaires, storage
+from backend import audit, fhrs, google_auth, image_privacy, labs, mailer, questionnaires, storage
 from backend.models import (
     Document,
     HealthReport,
@@ -33,7 +33,7 @@ from backend.models import (
     User,
     VitalsRecord,
 )
-from backend.schemas import RegisterRequest
+from backend.schemas import PatientDetails, RegisterRequest
 from backend.security import (
     burn_dummy_check,
     create_access_token,
@@ -68,18 +68,28 @@ class AccountLocked(Exception):
         self.locked_until = locked_until
 
 
+CONTACT_FIELDS = ("contact_number", "province", "city_municipality", "barangay", "street")
+
+
 def register_patient(db: Session, data: RegisterRequest) -> None:
-    """Creates the users row and the patients row in one transaction.
+    """Password sign-up: the users row and the patients row in one transaction."""
+    _create_account(db, data.email, data, password_hash=hash_password(data.password))
+    db.commit()
+
+
+def _create_account(db: Session, email: str, data: PatientDetails, *, password_hash: str | None = None,
+                    google_sub: str | None = None) -> tuple[User, Patient]:
+    """Creates the users row and the patients row (not committed).
 
     Order matters for RLS: the users row comes first (users has no RLS), then app.user_id
     is set to the new user, because the patients policy only accepts a row whose user_id
     matches app.user_id.
     """
-    exists = db.scalar(select(User.user_id).where(func.lower(User.email) == data.email))
+    exists = db.scalar(select(User.user_id).where(func.lower(User.email) == email))
     if exists is not None:
         raise EmailAlreadyRegistered
 
-    user = User(email=data.email, password_hash=hash_password(data.password))
+    user = User(email=email, password_hash=password_hash, google_sub=google_sub)
     db.add(user)
     try:
         db.flush()
@@ -100,12 +110,61 @@ def register_patient(db: Session, data: RegisterRequest) -> None:
         biological_sex=data.biological_sex,
         privacy_consent=data.privacy_consent,
         consent_version=data.consent_version,
+        **{name: getattr(data, name) for name in CONTACT_FIELDS},
     )
     db.add(patient)
     db.flush()
     audit.log_event(db, "REGISTER", user_id=user.user_id, patient_id=patient.patient_id,
-                    consent_version=data.consent_version)
+                    consent_version=data.consent_version,
+                    **({"method": "google"} if google_sub else {}))
+    return user, patient
+
+
+# ---------------------------------------------------------------------------
+# Sign in with Google
+# ---------------------------------------------------------------------------
+class SignUpNeeded(Exception):
+    """A verified Google account with no account here yet, and no sign-up details sent."""
+
+    def __init__(self, identity: google_auth.GoogleIdentity):
+        super().__init__("signup_required")
+        self.identity = identity
+
+
+class EmailUsesPassword(Exception):
+    """The Google email already belongs to a password account. It is not linked automatically:
+    the patient logs in with the password (linking from Account settings can come later)."""
+
+
+def google_sign_in(db: Session, credential: str, signup: PatientDetails | None) -> tuple[str, bool]:
+    """Returns (access token, created). Raises google_auth.InvalidGoogleToken / GoogleSignInOff,
+    SignUpNeeded or EmailUsesPassword."""
+    identity = google_auth.verify(credential)
+    user = db.scalars(select(User).where(User.google_sub == identity.sub)).one_or_none()
+    created = False
+    if user is None:
+        if db.scalar(select(User.user_id).where(func.lower(User.email) == identity.email)) is not None:
+            db.rollback()
+            raise EmailUsesPassword
+        if signup is None:
+            db.rollback()
+            raise SignUpNeeded(identity)
+        try:
+            user, _ = _create_account(db, identity.email, signup, google_sub=identity.sub)
+        except EmailAlreadyRegistered:
+            raise EmailUsesPassword
+        created = True
+
+    user.last_login_at = datetime.now(timezone.utc)
+    set_request_identity(db, user_id=user.user_id)
+    patient_id = db.scalar(select(Patient.patient_id).where(Patient.user_id == user.user_id))
+    if patient_id is None:
+        db.rollback()
+        raise google_auth.InvalidGoogleToken
+    token = create_access_token(user.user_id, patient_id, user.token_version)
+    audit.log_event(db, "LOGIN_SUCCESS", user_id=user.user_id, patient_id=patient_id, method="google")
     db.commit()
+    return token, created
 
 
 def login(db: Session, email: str, password: str) -> str:
@@ -228,7 +287,68 @@ def confirm_password_reset(db: Session, token: str, new_password: str) -> None:
     db.commit()
 
 
-PROFILE_FIELDS = ("first_name", "last_name", "date_of_birth", "biological_sex")
+class NoPassword(Exception):
+    """The account signs in with Google only."""
+
+
+def change_password(db: Session, user_id: int, patient_id: int, current_password: str,
+                    new_password: str) -> str:
+    """Checks the current password (wrong tries count toward the login lockout), sets the new
+    one, and logs out every other session. Returns a new token for this session."""
+    user = _check_password_for(db, user_id, patient_id, current_password, reason="change_wrong_password")
+    user.password_hash = hash_password(new_password)
+    user.password_changed_at = func.now()
+    user.token_version = user.token_version + 1
+    db.flush()
+    db.refresh(user)
+    audit.log_event(db, "PASSWORD_CHANGED", user_id=user_id, via="account_settings", sessions_revoked=True)
+    token = create_access_token(user_id, patient_id, user.token_version)
+    db.commit()
+    return token
+
+
+def _check_password_for(db: Session, user_id: int, patient_id: int, password: str, reason: str) -> User:
+    """The current password of a signed-in patient, with the same lockout as login
+    (MAX_FAILED_ATTEMPTS in a row locks the account), so a stolen token cannot be used to
+    guess it. While locked, the password is not checked at all."""
+    now = datetime.now(timezone.utc)
+    # FOR UPDATE: two attempts at once cannot both read the same failed_attempts count
+    user = db.scalars(select(User).where(User.user_id == user_id).with_for_update()).one_or_none()
+    if user is None:
+        db.rollback()
+        raise WrongPassword
+    if user.password_hash is None:
+        db.rollback()
+        raise NoPassword
+    if user.locked_until is not None and user.locked_until > now:
+        db.rollback()
+        raise AccountLocked(user.locked_until)
+    if not verify_password(password, user.password_hash):
+        user.failed_attempts += 1
+        if user.failed_attempts >= MAX_FAILED_ATTEMPTS:
+            user.failed_attempts = 0
+            user.locked_until = now + timedelta(minutes=LOCKOUT_MINUTES)
+            audit.log_event(db, "ACCOUNT_LOCKED", user_id=user_id, patient_id=patient_id,
+                            failed_attempts=MAX_FAILED_ATTEMPTS, locked_minutes=LOCKOUT_MINUTES,
+                            reason=reason)
+            db.commit()
+            raise AccountLocked(user.locked_until)
+        audit.log_event(db, "LOGIN_FAILED", user_id=user_id, patient_id=patient_id,
+                        reason=reason, failed_attempts=user.failed_attempts)
+        db.commit()
+        raise WrongPassword
+    user.failed_attempts = 0
+    return user
+
+
+def sign_in_methods(user: User) -> str:
+    # "email" rather than "password", so no response ever carries the word "password"
+    if user.password_hash and user.google_sub:
+        return "email_and_google"
+    return "google" if user.google_sub else "email"
+
+
+PROFILE_FIELDS = ("first_name", "last_name", "date_of_birth", "biological_sex") + CONTACT_FIELDS
 
 
 def get_profile(db: Session, user_id: int) -> tuple[User, Patient]:
@@ -726,7 +846,8 @@ def export_account(db: Session, user_id: int, patient_id: int) -> dict:
     return data
 
 
-def delete_account(db: Session, user_id: int, patient_id: int, password: str) -> list[str]:
+def delete_account(db: Session, user_id: int, patient_id: int, password: str | None,
+                   google_credential: str | None = None) -> list[str]:
     """Permanently deletes the account and every patient row. Deleting the users row cascades to
     patients and from there to every patient-owned table (ON DELETE CASCADE). The audit
     ledger has no foreign keys, so the ACCOUNT_DELETED entry stays.
@@ -735,29 +856,21 @@ def delete_account(db: Session, user_id: int, patient_id: int, password: str) ->
     A wrong password counts toward the same lockout as login (MAX_FAILED_ATTEMPTS in a row
     locks the account for LOCKOUT_MINUTES), so a stolen token cannot be used to guess the
     password. While locked, deletion is refused without checking the password."""
-    now = datetime.now(timezone.utc)
-    # FOR UPDATE: two attempts at once cannot both read the same failed_attempts count
-    user = db.scalars(select(User).where(User.user_id == user_id).with_for_update()).one_or_none()
-    if user is None:
-        db.rollback()
-        raise WrongPassword
-    if user.locked_until is not None and user.locked_until > now:
-        db.rollback()
-        raise AccountLocked(user.locked_until)
-    if not verify_password(password, user.password_hash):
-        user.failed_attempts += 1
-        if user.failed_attempts >= MAX_FAILED_ATTEMPTS:
-            user.failed_attempts = 0
-            user.locked_until = now + timedelta(minutes=LOCKOUT_MINUTES)
-            audit.log_event(db, "ACCOUNT_LOCKED", user_id=user_id, patient_id=patient_id,
-                            failed_attempts=MAX_FAILED_ATTEMPTS, locked_minutes=LOCKOUT_MINUTES,
-                            reason="delete_wrong_password")
-            db.commit()
-            raise AccountLocked(user.locked_until)
-        audit.log_event(db, "LOGIN_FAILED", user_id=user_id, patient_id=patient_id,
-                        reason="delete_wrong_password", failed_attempts=user.failed_attempts)
-        db.commit()
-        raise WrongPassword
+    if google_credential is not None:
+        # An account that signs in with Google proves it is the owner with a fresh Google sign-in
+        try:
+            identity = google_auth.verify(google_credential)
+        except (google_auth.InvalidGoogleToken, google_auth.GoogleSignInOff):
+            raise WrongPassword
+        owner = db.scalar(select(User.google_sub).where(User.user_id == user_id))
+        if owner is None or owner != identity.sub:
+            db.rollback()
+            raise WrongPassword
+    else:
+        try:
+            _check_password_for(db, user_id, patient_id, password, reason="delete_wrong_password")
+        except NoPassword:
+            raise WrongPassword
     storage_keys = [str(k) for k in db.scalars(select(Document.storage_key)
                                                .where(Document.patient_id == patient_id))]
     audit.log_event(db, "ACCOUNT_DELETED", user_id=user_id, patient_id=patient_id, files=len(storage_keys))

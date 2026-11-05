@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     jwt_secret_key: str = Field(min_length=32)
     access_token_expire_minutes: int = Field(default=30, ge=5, le=1440)
 
+    # Sign in with Google: the OAuth client id (Google Cloud Console, type "Web application").
+    # Empty = Google sign-in is off (POST /auth/google answers 503). Not a secret: the browser
+    # sees it too. The ID token's audience must equal it, so tokens made for other apps fail.
+    google_client_id: str = ""
+
     # Encrypts uploaded lab documents on disk (Fernet). Required; losing it makes every stored
     # file unreadable, so keep a copy somewhere safe. Generate one with:
     #   uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
