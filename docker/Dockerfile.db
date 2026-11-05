@@ -5,3 +5,8 @@
 FROM postgres:18
 
 COPY database/00_roles.sh database/[0-9][0-9]_*.sql /docker-entrypoint-initdb.d/
+
+# A Windows checkout can give the scripts CRLF line endings, and bash then fails on
+# 00_roles.sh ("set: pipefail\r: invalid option"). Strip the CR so the image works from any PC.
+RUN sed -i 's/\r$//' /docker-entrypoint-initdb.d/* \
+ && chmod 755 /docker-entrypoint-initdb.d/00_roles.sh
