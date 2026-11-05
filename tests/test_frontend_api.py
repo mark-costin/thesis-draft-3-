@@ -168,3 +168,64 @@ async def test_goal_and_report_requests(in_process):
 def test_messages_from_a_detail_object():
     reply = api.Reply(409, {"detail": {"message": "This assessment is already saved as a report.", "report_id": 7}})
     assert reply.message() == "This assessment is already saved as a report."
+
+
+# ---------------------------------------------------------------------------
+# Double submit (Sprint 6 failure cases)
+# ---------------------------------------------------------------------------
+@pytest.mark.anyio
+async def test_a_double_click_saves_one_record(in_process):
+    """Reflex runs the second click after the first one finishes, so the second request must
+    reuse the first one's Idempotency-Key. The repeat still gets the saved record's data."""
+    token = await signed_in(in_process)
+    body = {"sbp": 131, "dbp": 85}
+    first = await api.call("POST", "/vitals", token, json=body, idempotent=True)
+    second = await api.call("POST", "/vitals", token, json=body, idempotent=True)
+    assert first.status == second.status == 201
+    assert second.headers.get("idempotent-replayed") == "true"
+    assert second.data["vitals_id"] == first.data["vitals_id"] and second.data["sbp"] == 131
+    assert len((await api.call("GET", "/vitals", token)).data) == 1
+
+
+@pytest.mark.anyio
+async def test_a_double_submit_keeps_the_crisis_prompt(in_process):
+    token = await signed_in(in_process)
+    body = {"instrument": "PHQ9", "answers": [0] * 8 + [2]}
+    first = await api.call("POST", "/questionnaires", token, json=body, idempotent=True)
+    second = await api.call("POST", "/questionnaires", token, json=body, idempotent=True)
+    assert second.data["response_id"] == first.data["response_id"]
+    assert second.data["requires_crisis_prompt"] is True and second.data["crisis_resources"]["hotlines"]
+    assert len((await api.call("GET", "/questionnaires", token)).data) == 1
+
+
+@pytest.mark.anyio
+async def test_a_new_entry_is_saved_again(in_process, monkeypatch):
+    """Different values, or the same values after the window, are a new entry."""
+    token = await signed_in(in_process)
+    await api.call("POST", "/vitals", token, json={"sbp": 120, "dbp": 80}, idempotent=True)
+    await api.call("POST", "/vitals", token, json={"sbp": 121, "dbp": 80}, idempotent=True)
+    monkeypatch.setattr(api, "REPEAT_WINDOW", 0.0)  # as if the window has passed
+    await api.call("POST", "/vitals", token, json={"sbp": 120, "dbp": 80}, idempotent=True)
+    assert len((await api.call("GET", "/vitals", token)).data) == 3
+
+
+def test_the_key_is_kept_for_a_retry_but_not_shared():
+    _, key = api._request_key("token-a", "POST", "/vitals", {"sbp": 1})
+    assert api._request_key("token-a", "POST", "/vitals", {"sbp": 1})[1] == key  # retry after a lost connection
+    assert api._request_key("token-b", "POST", "/vitals", {"sbp": 1})[1] != key  # another patient
+    assert api._request_key("token-a", "POST", "/labs", {"sbp": 1})[1] != key
+    assert all("token-a" not in fingerprint for fingerprint in api._recent)  # only hashes are kept
+
+
+@pytest.mark.anyio
+async def test_a_server_error_lets_the_retry_run_again(monkeypatch):
+    calls = []
+
+    def handler(request):
+        calls.append(request.headers["idempotency-key"])
+        return httpx.Response(500 if len(calls) == 1 else 201, json={"detail": "x"})
+
+    monkeypatch.setattr(api, "_TRANSPORT", httpx.MockTransport(handler))
+    assert (await api.call("POST", "/vitals", "t", json={"sbp": 2}, idempotent=True)).status == 500
+    assert (await api.call("POST", "/vitals", "t", json={"sbp": 2}, idempotent=True)).status == 201
+    assert calls[0] != calls[1]

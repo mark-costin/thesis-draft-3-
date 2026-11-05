@@ -89,3 +89,5 @@ account is not linked: the API answers 409 and the patient logs in with the pass
 - **Dashboard:** the missing-information list comes from `GET /assessment/readiness`; risk cards show the latest assessment, or "No assessment yet".
 - **Delete account** asks for the password (or a fresh Google sign-in) and the phrase DELETE MY ACCOUNT, as the API requires.
 - New page `/reset-password` for the emailed link.
+- **Double click / lost connection:** the same save sent again within 10 seconds reuses its Idempotency-Key
+  (`api.REPEAT_WINDOW`), so the API saves one record and the screen still gets the saved record back.
