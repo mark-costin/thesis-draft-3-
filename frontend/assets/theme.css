@@ -1,0 +1,203 @@
+/* =====================================================================
+   Patient Portal theme  (Radix Themes, accent_color="teal", gray="slate")
+   One brand colour (clinic teal-blue) on cool clinic neutrals. Green / amber / red are used
+   only to show status (risk tier, in-range, warnings).
+   Layers: 1) design tokens  2) base  3) components  4) toasts  5) a11y  6) print
+   ===================================================================== */
+
+/* ---------- 1. Design tokens ---------------------------------------- */
+/* Clinic palette: clean white and cool pale-blue neutrals with a calm teal-blue brand. Easy on the eyes and high contrast. */
+:root {
+  --pp-bg: #F4F8FA;              /* cool clinic white */
+  --pp-surface: #FFFFFF;
+  --pp-surface-muted: #EDF3F6;
+  --pp-ink: #12262B;             /* headings, 15.7:1 on white */
+  --pp-ink-soft: #455A60;        /* body-muted, 7.3:1 on white */
+  --pp-border: #DAE4E8;
+  --pp-border-strong: #C3D2D8;
+  --pp-brand: #0B7285;           /* 5.6:1 on white */
+  --pp-brand-dark: #095C6B;
+  --pp-radius-sm: 10px;
+  --pp-radius-md: 14px;
+  --pp-radius-lg: 18px;
+  --pp-shadow-sm: 0 1px 2px rgba(18, 38, 43, .05);
+  --pp-shadow-md: 0 4px 14px rgba(18, 38, 43, .09);
+  --pp-ring: 0 0 0 3px rgba(11, 114, 133, .30);
+  --pp-ease: cubic-bezier(.2, .7, .2, 1);
+  --pp-topbar-bg: rgba(244, 248, 250, .92);
+}
+
+/* Dark mode: same tokens, darker values (Reflex puts .dark on <html>) */
+.dark, .dark-theme {
+  --pp-bg: #0F1A1D; --pp-surface: #162326; --pp-surface-muted: #1B2B2F;
+  --pp-ink: #EAF3F5; --pp-ink-soft: #9FB3B8;
+  --pp-border: #26393D; --pp-border-strong: #365055;
+  --pp-brand: #5CC4D6; --pp-brand-dark: #9ADCE8;
+  --pp-shadow-sm: 0 1px 2px rgba(0, 0, 0, .35);
+  --pp-shadow-md: 0 4px 14px rgba(0, 0, 0, .40);
+  --pp-ring: 0 0 0 3px rgba(92, 196, 214, .40);
+  --pp-topbar-bg: rgba(15, 26, 29, .92);
+}
+
+/* Radix accent override (clinic teal-blue, deepened so white text passes AA) */
+.radix-themes {
+  --default-font-family: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --heading-font-family: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+.radix-themes[data-accent-color="teal"] {
+  --accent-2: #F1F8FA; --accent-3: #E1F1F4; --accent-4: #CDE7ED; --accent-5: #B8DCE5;
+  --accent-8: #4FA3B5; --accent-9: #0B7285; --accent-10: #095C6B; --accent-11: #0A6676;
+  --accent-contrast: #fff;
+}
+.dark .radix-themes[data-accent-color="teal"], .radix-themes.dark[data-accent-color="teal"] {
+  --accent-2: #0F2329; --accent-3: #12303A; --accent-4: #173D49; --accent-5: #1D4B59;
+  --accent-8: #2A8DA3; --accent-9: #2A9BB3; --accent-10: #5CC4D6; --accent-11: #8EDBE8;
+  --accent-contrast: #04202A;
+}
+
+/* ---------- 2. Base --------------------------------------------------- */
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--pp-bg);
+  color: var(--pp-ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1, h2, h3, h4 { letter-spacing: -0.01em; color: var(--pp-ink); }
+.rt-Text, .rt-Heading { text-wrap: pretty; }
+/* numbers line up in tables, stats and inputs */
+.pp-num, .rt-TableCell, .rt-TextFieldInput[type="number"] { font-variant-numeric: tabular-nums; }
+
+/* ---------- 3. Components -------------------------------------------- */
+
+/* Top bar */
+.pp-topbar {
+  position: sticky; top: 0; z-index: 40;
+  background: var(--pp-topbar-bg);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--pp-border);
+}
+.pp-nav-link {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 14px; border-radius: 999px;
+  font-weight: 500; font-size: 15px; color: var(--pp-ink-soft); white-space: nowrap;
+  transition: background .18s var(--pp-ease), color .18s var(--pp-ease);
+}
+.pp-nav-link:hover { background: var(--pp-surface-muted); color: var(--pp-ink); }
+.pp-nav-link[aria-current="page"] { background: var(--accent-3); color: var(--accent-11); font-weight: 600; }
+
+/* Cards: flat, one hairline border, almost no shadow */
+.pp-card {
+  background: var(--pp-surface); border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius-lg); box-shadow: var(--pp-shadow-sm);
+}
+.pp-card-lift { transition: box-shadow .2s var(--pp-ease), border-color .2s var(--pp-ease); }
+.pp-card-lift:hover { box-shadow: var(--pp-shadow-md); border-color: var(--pp-border-strong); }
+
+/* Sub-panels inside cards (stats, chart boxes) */
+.pp-panel { background: var(--pp-surface-muted); border: 1px solid var(--pp-border); border-radius: var(--pp-radius-md); }
+
+/* Small label above a page title (sentence case, no shouting) */
+.pp-eyebrow { font-weight: 600; font-size: 14px; color: var(--pp-brand); }
+
+/* Icon tile: flat tint, no gradient */
+.pp-icon-tile { background: var(--accent-3); color: var(--accent-11); }
+
+/* Log in / create account card: a little lift off the page, like a sign-in card should */
+.pp-auth-card { box-shadow: var(--pp-shadow-md); }
+
+/* Text for screen readers only */
+.pp-sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* Tables */
+.rt-TableRoot { --table-row-background-color: transparent; }
+.rt-TableColumnHeaderCell { font-size: 13px; font-weight: 600; color: var(--pp-ink-soft); background: var(--pp-surface-muted); white-space: nowrap; }
+.rt-TableBody .rt-TableRow { transition: background .15s var(--pp-ease); }
+.rt-TableBody .rt-TableRow:hover { background: var(--pp-surface-muted); }
+.rt-TableCell, .rt-TableRowHeaderCell { vertical-align: middle; }
+
+/* Form controls: comfortable touch targets */
+.rt-TextFieldRoot { min-height: 44px; }
+.rt-TextFieldRoot:focus-within { box-shadow: var(--pp-ring); }
+.rt-SelectTrigger { min-height: 44px; }
+.rt-Button:where(.rt-r-size-3) { font-weight: 600; }
+.rt-Button, .rt-IconButton { transition: background .18s var(--pp-ease), transform .12s var(--pp-ease); }
+.rt-Button:not(:disabled):active { transform: translateY(1px); }
+
+/* Tabs: bigger, easier to hit */
+.rt-TabsTrigger { font-size: 15px; font-weight: 600; }
+.rt-TabsList { box-shadow: inset 0 -1px 0 var(--pp-border); }
+
+/* Charts follow the theme */
+.recharts-text, .recharts-cartesian-axis-tick-value { fill: var(--pp-ink-soft); }
+.recharts-cartesian-grid line { stroke: var(--pp-border); }
+
+/* Step indicator */
+.pp-step-dot { transition: background .2s var(--pp-ease), color .2s var(--pp-ease); }
+
+/* Empty states */
+.pp-empty { border: 1.5px dashed var(--pp-border-strong); border-radius: var(--pp-radius-lg); background: var(--pp-surface-muted); }
+
+/* Risk-card buttons (native <button> so Tab / Enter / Space work) */
+.pp-choice { all: unset; box-sizing: border-box; display: block; width: 100%; cursor: pointer; text-align: left; color: inherit; }
+.pp-choice:focus-visible { outline: 3px solid var(--pp-brand); outline-offset: 3px; border-radius: var(--pp-radius-lg); }
+
+/* Callouts + progress */
+.rt-CalloutRoot { border-radius: var(--pp-radius-md); }
+.rt-ProgressRoot { height: 8px; border-radius: 999px; }
+.rt-ProgressIndicator { border-radius: 999px; }
+
+/* Upload dropzone */
+.pp-dropzone { transition: border-color .18s var(--pp-ease), background .18s var(--pp-ease); }
+.pp-dropzone:hover { border-color: var(--pp-brand) !important; background: var(--accent-2) !important; }
+
+/* Checklist / list rows */
+.pp-row { transition: background .15s var(--pp-ease); border-radius: var(--pp-radius-sm); }
+.pp-row:hover { background: var(--pp-surface-muted); }
+
+/* ---------- 4. Toast notifications (top right) ------------------------ */
+[data-sonner-toaster] { font-family: var(--default-font-family); }
+[data-sonner-toast] {
+  background: var(--pp-surface) !important; color: var(--pp-ink) !important;
+  border: 1px solid var(--pp-border) !important; border-radius: var(--pp-radius-md) !important;
+  box-shadow: var(--pp-shadow-md) !important; font-size: 14px; padding: 14px 16px;
+}
+[data-sonner-toast] [data-icon] { color: var(--pp-brand); }
+[data-sonner-toast][data-type="error"] [data-icon] { color: var(--red-9); }
+[data-sonner-toast] [data-close-button] { background: var(--pp-surface); border-color: var(--pp-border); color: var(--pp-ink-soft); }
+@media (max-width: 600px) { [data-sonner-toaster][data-x-position="right"] { right: 12px !important; left: 12px !important; width: auto !important; } }
+
+/* ---------- 5. Accessibility ----------------------------------------- */
+.pp-skip {
+  position: absolute; left: 12px; top: -64px; z-index: 100;
+  background: var(--pp-ink); color: var(--pp-bg); padding: 10px 16px; border-radius: var(--pp-radius-sm);
+  font-weight: 600; transition: top .15s;
+}
+.pp-skip:focus { top: 12px; }
+
+:focus-visible { outline: 3px solid var(--pp-brand); outline-offset: 2px; border-radius: 6px; }
+.rt-TextFieldInput:focus-visible, .rt-SelectTrigger:focus-visible { outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+@media (forced-colors: active) {
+  .pp-card, .pp-panel { border: 1px solid CanvasText; }
+}
+
+/* ---------- 6. Print (reports) --------------------------------------- */
+@media print {
+  body { background: #fff; }
+  .pp-topbar, .pp-skip, .rt-Button, .rt-IconButton, .pp-noprint { display: none !important; }
+  .pp-card { box-shadow: none; break-inside: avoid; }
+}
+
+/* User menu in the top bar */
+.pp-usermenu { height: auto !important; padding: 6px 10px 6px 6px !important; border-radius: 999px !important; cursor: pointer; }
+.pp-usermenu:hover { background: var(--pp-surface-muted) !important; }
+
+/* Live "passwords match" message under Confirm password */
+.pp-match { min-height: 20px; font-size: 14px; font-weight: 600; }
+.pp-match[data-state="ok"] { color: var(--green-11); }
+.pp-match[data-state="no"] { color: var(--red-11); }

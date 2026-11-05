@@ -1,0 +1,1311 @@
+{
+ "version": "1.0",
+ "source": "careplan_2026-10-27",
+ "templates": {
+  "CVD-LOW": {
+   "id": "CVD-LOW",
+   "disease": "CVD",
+   "tier": "Low",
+   "items": [
+    {
+     "n": 1,
+     "category": "Check-up and tests",
+     "text": "Have your blood pressure checked in a clinic at least once a year.",
+     "why": "Regular checks find high blood pressure before it causes harm.",
+     "source": "PHEx 2021, Sec. 3.4",
+     "basis": "Sourced / System rule",
+     "goal": true
+    },
+    {
+     "n": 2,
+     "category": "Lifestyle",
+     "text": "Eat a DASH-style diet and reduce salt added to meals.",
+     "why": "Less salt helps keep blood pressure in a healthy range.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 3,
+     "category": "Lifestyle",
+     "text": "Keep a healthy weight and a waist-to-height ratio below 0.5.",
+     "why": "A healthy body size lowers long-term strain on your heart.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 4,
+     "category": "Lifestyle",
+     "text": "Do 30 minutes of moderate aerobic exercise on 5 to 7 days a week.",
+     "why": "Regular activity supports blood flow and heart fitness.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 5,
+     "category": "Lifestyle",
+     "text": "Limit alcohol to 2 standard drinks a day for men, or 1.5 for women.",
+     "why": "Too much alcohol raises blood pressure.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 6,
+     "category": "Lifestyle",
+     "text": "Reduce daily stress and get 7 to 9 hours of sleep each night.",
+     "why": "Good sleep and less stress support healthy blood vessels.",
+     "source": "ISH 2020, Table 8 and Fig. 6",
+     "basis": "Sourced (verify sleep hours)",
+     "goal": true
+    },
+    {
+     "n": 7,
+     "category": "Urgent warning signs",
+     "text": "Get urgent care now for chest pain, severe breathlessness, or blood pressure of 180/110 or higher with headache, chest pain, or blurred vision.",
+     "why": "These can be signs of a heart or blood pressure emergency.",
+     "source": "ISH 2020, Sec. 3 and 9",
+     "basis": "Sourced",
+     "goal": false
+    }
+   ],
+   "addons": [
+    {
+     "id": "A1",
+     "trigger": "Current smoker",
+     "text": "Stop smoking completely and ask your healthcare provider about quit support.",
+     "why": "Quitting protects the lining of your blood vessels.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A2",
+     "trigger": "CVD family history band 3 or 4",
+     "text": "Ask your doctor about getting a lipid profile test.",
+     "why": "Heart disease in your family makes checking blood fats more important.",
+     "source": "PHEx 2021, Sec. 3.5",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A3",
+     "trigger": "Daily sodium above 2,300 mg",
+     "text": "Avoid processed, canned, and instant foods to lower your salt intake.",
+     "why": "Processed foods hide a lot of salt.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    }
+   ]
+  },
+  "CVD-MODERATE": {
+   "id": "CVD-MODERATE",
+   "disease": "CVD",
+   "tier": "Moderate",
+   "items": [
+    {
+     "n": 1,
+     "category": "See a doctor",
+     "text": "Schedule a follow-up visit in 3 to 6 months to review your heart health.",
+     "why": "A review checks whether your lifestyle changes are working.",
+     "source": "CDSS Data Dictionary",
+     "basis": "System rule",
+     "goal": true
+    },
+    {
+     "n": 2,
+     "category": "Check-up and tests",
+     "text": "Check your blood pressure at home for 3 to 7 days before your visit.",
+     "why": "Home readings show your usual blood pressure outside the clinic.",
+     "source": "ISH 2020, Sec. 4 and Fig. 6",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 3,
+     "category": "Lifestyle",
+     "text": "Eat a DASH-style diet and reduce salt added to meals.",
+     "why": "Less salt helps keep blood pressure in a healthy range.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 4,
+     "category": "Lifestyle",
+     "text": "Keep a healthy weight and a waist-to-height ratio below 0.5.",
+     "why": "A healthy body size lowers long-term strain on your heart.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 5,
+     "category": "Lifestyle",
+     "text": "Do 30 minutes of moderate aerobic exercise on 5 to 7 days a week.",
+     "why": "Regular activity supports blood flow and heart fitness.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 6,
+     "category": "Lifestyle",
+     "text": "Limit alcohol to 2 standard drinks a day for men, or 1.5 for women.",
+     "why": "Too much alcohol raises blood pressure.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 7,
+     "category": "Lifestyle",
+     "text": "Reduce daily stress and get 7 to 9 hours of sleep each night.",
+     "why": "Good sleep and less stress support healthy blood vessels.",
+     "source": "ISH 2020, Table 8 and Fig. 6",
+     "basis": "Sourced (verify sleep hours)",
+     "goal": true
+    },
+    {
+     "n": 8,
+     "category": "Urgent warning signs",
+     "text": "Get urgent care now for chest pain, severe breathlessness, or blood pressure of 180/110 or higher with headache, chest pain, or blurred vision.",
+     "why": "These can be signs of a heart or blood pressure emergency.",
+     "source": "ISH 2020, Sec. 3 and 9",
+     "basis": "Sourced",
+     "goal": false
+    }
+   ],
+   "addons": [
+    {
+     "id": "A1",
+     "trigger": "Current smoker",
+     "text": "Stop smoking completely and ask your healthcare provider about quit support.",
+     "why": "Quitting protects the lining of your blood vessels.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A2",
+     "trigger": "CVD family history band 3 or 4",
+     "text": "Have a yearly blood pressure check and ask your doctor about a lipid profile.",
+     "why": "Heart disease in your family calls for closer tracking.",
+     "source": "PHEx 2021, Sec. 3.4 and 3.5",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A3",
+     "trigger": "Daily sodium above 2,300 mg",
+     "text": "Avoid processed, canned, and instant foods to lower your salt intake.",
+     "why": "Processed foods hide a lot of salt.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    }
+   ]
+  },
+  "CVD-HIGH": {
+   "id": "CVD-HIGH",
+   "disease": "CVD",
+   "tier": "High",
+   "items": [
+    {
+     "n": 1,
+     "category": "See a doctor",
+     "text": "See a doctor within 30 to 60 days to confirm your blood pressure and check your lipid profile and fasting blood sugar.",
+     "why": "Your results suggest a higher risk of heart disease that needs a medical check.",
+     "source": "ISH 2020, Sec. 4; PHEx 2021, Sec. 3.4 and 3.5",
+     "basis": "Sourced / System rule",
+     "goal": true
+    },
+    {
+     "n": 2,
+     "category": "Check-up and tests",
+     "text": "Record home blood pressure readings for 7 days before your visit.",
+     "why": "Repeat readings help your doctor see if your pressure is high most of the time.",
+     "source": "ISH 2020, Sec. 4 and Table 5",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 3,
+     "category": "Lifestyle",
+     "text": "Eat a DASH-style diet and reduce salt added to meals.",
+     "why": "Less salt helps keep blood pressure in a healthy range.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 4,
+     "category": "Lifestyle",
+     "text": "Keep a healthy weight and a waist-to-height ratio below 0.5.",
+     "why": "A healthy body size lowers long-term strain on your heart.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 5,
+     "category": "Lifestyle",
+     "text": "Do 30 minutes of moderate aerobic exercise on 5 to 7 days a week.",
+     "why": "Regular activity supports blood flow and heart fitness.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 6,
+     "category": "Lifestyle",
+     "text": "Limit alcohol to 2 standard drinks a day for men, or 1.5 for women.",
+     "why": "Too much alcohol raises blood pressure.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 7,
+     "category": "Lifestyle",
+     "text": "Reduce daily stress and get 7 to 9 hours of sleep each night.",
+     "why": "Managing stress and rest helps protect your heart.",
+     "source": "ISH 2020, Table 8 and Fig. 6",
+     "basis": "Sourced (verify sleep hours)",
+     "goal": true
+    },
+    {
+     "n": 8,
+     "category": "Urgent warning signs",
+     "text": "Get urgent care now for chest pain, severe breathlessness, or blood pressure of 180/110 or higher with headache, chest pain, or blurred vision.",
+     "why": "These can be signs of a heart or blood pressure emergency.",
+     "source": "ISH 2020, Sec. 3 and 9",
+     "basis": "Sourced",
+     "goal": false
+    }
+   ],
+   "addons": [
+    {
+     "id": "A1",
+     "trigger": "Current smoker",
+     "text": "Stop smoking completely and ask your healthcare provider about quit support.",
+     "why": "Quitting protects the lining of your blood vessels.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A2",
+     "trigger": "CVD family history band 3 or 4",
+     "text": "Have a yearly blood pressure check after your doctor visit and keep your lipid profile up to date.",
+     "why": "Heart disease in your family calls for closer tracking.",
+     "source": "PHEx 2021, Sec. 3.4 and 3.5",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A3",
+     "trigger": "Daily sodium above 2,300 mg",
+     "text": "Avoid processed, canned, and instant foods to lower your salt intake.",
+     "why": "Processed foods hide a lot of salt.",
+     "source": "ISH 2020, Table 8",
+     "basis": "Sourced",
+     "goal": true
+    }
+   ]
+  },
+  "T2D-LOW": {
+   "id": "T2D-LOW",
+   "disease": "T2D",
+   "tier": "Low",
+   "items": [
+    {
+     "n": 1,
+     "category": "Check-up and tests",
+     "text": "Have your fasting blood sugar or HbA1c checked at your yearly health visit.",
+     "why": "Early testing finds blood sugar changes before symptoms appear.",
+     "source": "PHEx 2021, Sec. 3.3; ADA 2019, Sec. 2",
+     "basis": "Sourced / System rule",
+     "goal": true
+    },
+    {
+     "n": 2,
+     "category": "Lifestyle",
+     "text": "Choose whole grains, vegetables, and lean proteins, and watch your portion sizes.",
+     "why": "Healthy foods and portions help keep blood sugar steady.",
+     "source": "ADA 2019, Sec. 5",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 3,
+     "category": "Lifestyle",
+     "text": "Drink water instead of sugar-sweetened drinks.",
+     "why": "Fewer sugary drinks lower your daily sugar and calories.",
+     "source": "ADA 2019, Rec. 5.23",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 4,
+     "category": "Lifestyle",
+     "text": "Do 30 minutes of moderate activity on at least 5 days a week (150 minutes).",
+     "why": "Regular activity helps your body use insulin better.",
+     "source": "ADA 2019, Rec. 3.2",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 5,
+     "category": "Urgent warning signs",
+     "text": "Get urgent medical care if you have extreme thirst and frequent urination with vomiting, confusion, or drowsiness.",
+     "why": "These can signal a dangerous rise in blood sugar.",
+     "source": "ADA 2019, Sec. 2",
+     "basis": "Sourced",
+     "goal": false
+    }
+   ],
+   "addons": [
+    {
+     "id": "A1",
+     "trigger": "T2D family history band 3 or 4",
+     "text": "Ask your doctor about earlier fasting blood sugar screening because of diabetes in your family.",
+     "why": "Diabetes in your family raises your lifetime risk.",
+     "source": "ADA 2019, Table 2.3",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A2",
+     "trigger": "History of gestational diabetes",
+     "text": "Get tested for diabetes at least every 3 years.",
+     "why": "Diabetes during pregnancy raises your risk for life.",
+     "source": "ADA 2019, Table 2.3 and Rec. 2.10",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A3",
+     "trigger": "Acanthosis nigricans present",
+     "text": "Ask your doctor for a blood sugar test.",
+     "why": "Dark, velvety skin patches [acanthosis nigricans] can be a sign of insulin resistance.",
+     "source": "ADA 2019, Table 2.3",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A4",
+     "trigger": "Current smoker",
+     "text": "Stop smoking completely and ask your healthcare provider about quit support.",
+     "why": "Quitting lowers your risk of diabetes and its complications.",
+     "source": "ADA 2019, Sec. 5",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A5",
+     "trigger": "Sedentary time 8 hours a day or more",
+     "text": "Break up long periods of sitting by standing or walking every 30 minutes.",
+     "why": "Short movement breaks help your muscles use blood sugar.",
+     "source": "ADA 2019, Rec. 5.26",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A6",
+     "trigger": "BMI 25 or more (see open question on 23)",
+     "text": "Aim to lose 7% of your body weight and keep it off.",
+     "why": "Losing 7% of body weight lowers the chance of developing diabetes.",
+     "source": "ADA 2019, Rec. 3.2",
+     "basis": "Sourced",
+     "goal": true
+    }
+   ]
+  },
+  "T2D-MODERATE": {
+   "id": "T2D-MODERATE",
+   "disease": "T2D",
+   "tier": "Moderate",
+   "items": [
+    {
+     "n": 1,
+     "category": "See a doctor",
+     "text": "Schedule a follow-up in 3 to 6 months to review your blood sugar risk.",
+     "why": "A review checks whether your diet and activity changes are working.",
+     "source": "CDSS Data Dictionary",
+     "basis": "System rule",
+     "goal": true
+    },
+    {
+     "n": 2,
+     "category": "Check-up and tests",
+     "text": "Ask your doctor about testing your fasting blood sugar or HbA1c.",
+     "why": "Tests show whether your blood sugar is moving toward prediabetes.",
+     "source": "ADA 2019, Tables 2.2 and 2.5",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 3,
+     "category": "Lifestyle",
+     "text": "Choose whole grains, vegetables, and lean proteins, and watch your portion sizes.",
+     "why": "Healthy foods and portions help keep blood sugar steady.",
+     "source": "ADA 2019, Sec. 5",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 4,
+     "category": "Lifestyle",
+     "text": "Drink water instead of sugar-sweetened drinks.",
+     "why": "Fewer sugary drinks lower your daily sugar and calories.",
+     "source": "ADA 2019, Rec. 5.23",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 5,
+     "category": "Lifestyle",
+     "text": "Do 30 minutes of moderate activity on at least 5 days a week (150 minutes).",
+     "why": "Regular activity helps your body use insulin better.",
+     "source": "ADA 2019, Rec. 3.2",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 6,
+     "category": "Urgent warning signs",
+     "text": "Get urgent medical care if you have extreme thirst and frequent urination with vomiting, confusion, or drowsiness.",
+     "why": "These can signal a dangerous rise in blood sugar.",
+     "source": "ADA 2019, Sec. 2",
+     "basis": "Sourced",
+     "goal": false
+    }
+   ],
+   "addons": [
+    {
+     "id": "A2",
+     "trigger": "History of gestational diabetes",
+     "text": "Get tested for diabetes at least every 3 years.",
+     "why": "Diabetes during pregnancy raises your risk for life.",
+     "source": "ADA 2019, Table 2.3 and Rec. 2.10",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A3",
+     "trigger": "Acanthosis nigricans present",
+     "text": "Ask your doctor for a blood sugar test.",
+     "why": "Dark, velvety skin patches [acanthosis nigricans] can be a sign of insulin resistance.",
+     "source": "ADA 2019, Table 2.3",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A4",
+     "trigger": "Current smoker",
+     "text": "Stop smoking completely and ask your healthcare provider about quit support.",
+     "why": "Quitting lowers your risk of diabetes and its complications.",
+     "source": "ADA 2019, Sec. 5",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A5",
+     "trigger": "Sedentary time 8 hours a day or more",
+     "text": "Break up long periods of sitting by standing or walking every 30 minutes.",
+     "why": "Short movement breaks help your muscles use blood sugar.",
+     "source": "ADA 2019, Rec. 5.26",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A6",
+     "trigger": "BMI 25 or more (see open question on 23)",
+     "text": "Aim to lose 7% of your body weight and keep it off.",
+     "why": "Losing 7% of body weight lowers the chance of developing diabetes.",
+     "source": "ADA 2019, Rec. 3.2",
+     "basis": "Sourced",
+     "goal": true
+    }
+   ]
+  },
+  "T2D-HIGH": {
+   "id": "T2D-HIGH",
+   "disease": "T2D",
+   "tier": "High",
+   "items": [
+    {
+     "n": 1,
+     "category": "See a doctor",
+     "text": "See a doctor within 30 to 60 days for a fasting blood sugar or HbA1c test.",
+     "why": "Your results suggest a higher risk of diabetes that needs a lab check.",
+     "source": "ADA 2019, Table 2.2",
+     "basis": "Sourced / System rule",
+     "goal": true
+    },
+    {
+     "n": 2,
+     "category": "Check-up and tests",
+     "text": "If the result is high, expect a second test to confirm it.",
+     "why": "A second test makes the result reliable.",
+     "source": "ADA 2019, Table 2.2",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 3,
+     "category": "Lifestyle",
+     "text": "Choose whole grains, vegetables, and lean proteins, and watch your portion sizes.",
+     "why": "Healthy foods and portions help keep blood sugar steady.",
+     "source": "ADA 2019, Sec. 5",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 4,
+     "category": "Lifestyle",
+     "text": "Drink water instead of sugar-sweetened drinks.",
+     "why": "Fewer sugary drinks lower your daily sugar and calories.",
+     "source": "ADA 2019, Rec. 5.23",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 5,
+     "category": "Lifestyle",
+     "text": "Do 30 minutes of moderate activity on at least 5 days a week (150 minutes).",
+     "why": "Regular activity helps your body use insulin better.",
+     "source": "ADA 2019, Rec. 3.2",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 6,
+     "category": "Urgent warning signs",
+     "text": "Get urgent medical care if you have extreme thirst and frequent urination with vomiting, confusion, or drowsiness.",
+     "why": "These can signal a dangerous rise in blood sugar.",
+     "source": "ADA 2019, Sec. 2",
+     "basis": "Sourced",
+     "goal": false
+    }
+   ],
+   "addons": [
+    {
+     "id": "A2",
+     "trigger": "History of gestational diabetes",
+     "text": "Get tested for diabetes at least every 3 years.",
+     "why": "Diabetes during pregnancy raises your risk for life.",
+     "source": "ADA 2019, Table 2.3 and Rec. 2.10",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A3",
+     "trigger": "Acanthosis nigricans present",
+     "text": "Ask your doctor for a blood sugar test.",
+     "why": "Dark, velvety skin patches [acanthosis nigricans] can be a sign of insulin resistance.",
+     "source": "ADA 2019, Table 2.3",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A4",
+     "trigger": "Current smoker",
+     "text": "Stop smoking completely and ask your healthcare provider about quit support.",
+     "why": "Quitting lowers your risk of diabetes and its complications.",
+     "source": "ADA 2019, Sec. 5",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A5",
+     "trigger": "Sedentary time 8 hours a day or more",
+     "text": "Break up long periods of sitting by standing or walking every 30 minutes.",
+     "why": "Short movement breaks help your muscles use blood sugar.",
+     "source": "ADA 2019, Rec. 5.26",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A6",
+     "trigger": "BMI 25 or more (see open question on 23)",
+     "text": "Aim to lose 7% of your body weight and keep it off.",
+     "why": "Losing 7% of body weight lowers the chance of developing diabetes.",
+     "source": "ADA 2019, Rec. 3.2",
+     "basis": "Sourced",
+     "goal": true
+    }
+   ]
+  },
+  "CRD-LOW": {
+   "id": "CRD-LOW",
+   "disease": "CRD",
+   "tier": "Low",
+   "items": [
+    {
+     "n": 1,
+     "category": "Check-up and tests",
+     "text": "Have your breathing checked at your yearly doctor visit.",
+     "why": "Regular checks find breathing changes early.",
+     "source": "CDSS Data Dictionary",
+     "basis": "System rule",
+     "goal": true
+    },
+    {
+     "n": 2,
+     "category": "Lifestyle",
+     "text": "Do not smoke, and stay away from secondhand smoke and e-cigarette vapor.",
+     "why": "Smoke irritates and slowly damages your airways.",
+     "source": "GOLD 2020, Ch. 3; GINA 2026",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 3,
+     "category": "Lifestyle",
+     "text": "Avoid wood smoke, cooking fumes, dust, and heavy air pollution.",
+     "why": "Breathing in smoke and fumes can inflame your airways.",
+     "source": "GOLD 2020, Ch. 1 and 3",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 4,
+     "category": "Lifestyle",
+     "text": "Do 30 minutes of moderate activity on at least 5 days a week (150 minutes).",
+     "why": "Regular activity keeps your breathing muscles and stamina strong.",
+     "source": "ISH 2020, Table 8; ADA 2019, Rec. 3.2",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 5,
+     "category": "Check-up and tests",
+     "text": "Ask your doctor whether you should get yearly flu and pneumococcal vaccines.",
+     "why": "Vaccines protect your lungs from serious infections.",
+     "source": "GOLD 2020, Ch. 3; GINA 2026",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 6,
+     "category": "Check-up and tests",
+     "text": "Watch for breathing symptoms such as long-lasting cough, wheezing, or shortness of breath.",
+     "why": "Noticing changes early helps you get advice in time.",
+     "source": "GOLD 2020, Ch. 1 and 2",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 7,
+     "category": "Lifestyle",
+     "text": "Avoid asthma triggers such as cold air and allergens, and note if you wheeze with exercise or at night.",
+     "why": "Knowing your triggers can point to sensitive airways.",
+     "source": "GINA 2026",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 8,
+     "category": "Urgent warning signs",
+     "text": "Get emergency care now for severe breathlessness, trouble speaking in sentences, blue lips, or drowsiness or confusion.",
+     "why": "These are signs of a breathing emergency.",
+     "source": "GINA 2026; GOLD 2020",
+     "basis": "Sourced",
+     "goal": false
+    }
+   ],
+   "addons": [
+    {
+     "id": "A1",
+     "trigger": "Current smoker",
+     "text": "Stop smoking completely and ask your healthcare provider about quit programs.",
+     "why": "Quitting is the most effective way to protect your lungs.",
+     "source": "GOLD 2020, Ch. 3",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A2",
+     "trigger": "Occupational dust or fume exposure",
+     "text": "Use a proper mask and good ventilation at work.",
+     "why": "Less exposure prevents lung damage from building up.",
+     "source": "GOLD 2020, Ch. 3",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A3",
+     "trigger": "Allergic rhinitis, childhood asthma history, or CRD family history band 3 or 4 (any)",
+     "text": "Ask your doctor whether you need a lung function test.",
+     "why": "Nasal allergies, childhood asthma, and lung disease in your family raise your risk.",
+     "source": "GINA 2026; GOLD 2020, Ch. 1; CDSS Data Dictionary (FHRS)",
+     "basis": "Sourced",
+     "goal": true
+    }
+   ]
+  },
+  "CRD-MODERATE": {
+   "id": "CRD-MODERATE",
+   "disease": "CRD",
+   "tier": "Moderate",
+   "items": [
+    {
+     "n": 1,
+     "category": "See a doctor",
+     "text": "Schedule a doctor visit in 3 to 6 months to review your breathing.",
+     "why": "A review catches new breathing symptoms early.",
+     "source": "CDSS Data Dictionary",
+     "basis": "System rule",
+     "goal": true
+    },
+    {
+     "n": 2,
+     "category": "Lifestyle",
+     "text": "Do not smoke, and stay away from secondhand smoke and e-cigarette vapor.",
+     "why": "Smoke irritates and slowly damages your airways.",
+     "source": "GOLD 2020, Ch. 3; GINA 2026",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 3,
+     "category": "Lifestyle",
+     "text": "Avoid wood smoke, cooking fumes, dust, and heavy air pollution.",
+     "why": "Breathing in smoke and fumes can inflame your airways.",
+     "source": "GOLD 2020, Ch. 1 and 3",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 4,
+     "category": "Lifestyle",
+     "text": "Do 30 minutes of moderate activity on at least 5 days a week (150 minutes).",
+     "why": "Regular activity keeps your breathing muscles and stamina strong.",
+     "source": "ISH 2020, Table 8; ADA 2019, Rec. 3.2",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 5,
+     "category": "Check-up and tests",
+     "text": "Ask your doctor whether you should get yearly flu and pneumococcal vaccines.",
+     "why": "Vaccines protect your lungs from serious infections.",
+     "source": "GOLD 2020, Ch. 3; GINA 2026",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 6,
+     "category": "Check-up and tests",
+     "text": "Keep track of any lasting cough, phlegm, or wheezing and tell your doctor at your visit.",
+     "why": "A symptom record helps your doctor decide if tests are needed.",
+     "source": "GOLD 2020, Ch. 2",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 7,
+     "category": "Lifestyle",
+     "text": "Avoid asthma triggers such as cold air and allergens, and note if you wheeze with exercise or at night.",
+     "why": "Knowing your triggers can point to sensitive airways.",
+     "source": "GINA 2026",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 8,
+     "category": "Urgent warning signs",
+     "text": "Get emergency care now for severe breathlessness, trouble speaking in sentences, blue lips, or drowsiness or confusion.",
+     "why": "These are signs of a breathing emergency.",
+     "source": "GINA 2026; GOLD 2020",
+     "basis": "Sourced",
+     "goal": false
+    }
+   ],
+   "addons": [
+    {
+     "id": "A1",
+     "trigger": "Current smoker",
+     "text": "Stop smoking completely and ask your healthcare provider about quit programs.",
+     "why": "Quitting is the most effective way to protect your lungs.",
+     "source": "GOLD 2020, Ch. 3",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A2",
+     "trigger": "Occupational dust or fume exposure",
+     "text": "Use a proper mask and good ventilation at work.",
+     "why": "Less exposure prevents lung damage from building up.",
+     "source": "GOLD 2020, Ch. 3",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A3",
+     "trigger": "Allergic rhinitis, childhood asthma history, or CRD family history band 3 or 4 (any)",
+     "text": "Ask your doctor whether you need a lung function test.",
+     "why": "Nasal allergies, childhood asthma, and lung disease in your family raise your risk.",
+     "source": "GINA 2026; GOLD 2020, Ch. 1; CDSS Data Dictionary (FHRS)",
+     "basis": "Sourced",
+     "goal": true
+    }
+   ]
+  },
+  "CRD-HIGH": {
+   "id": "CRD-HIGH",
+   "disease": "CRD",
+   "tier": "High",
+   "items": [
+    {
+     "n": 1,
+     "category": "See a doctor",
+     "text": "See a doctor within 30 to 60 days and ask about a lung function test [spirometry] to check for asthma or COPD.",
+     "why": "Your results suggest a higher risk of lung disease that needs testing.",
+     "source": "GOLD 2020, Ch. 2",
+     "basis": "Sourced / System rule",
+     "goal": true
+    },
+    {
+     "n": 2,
+     "category": "Lifestyle",
+     "text": "Do not smoke, and stay away from secondhand smoke and e-cigarette vapor.",
+     "why": "Smoke irritates and slowly damages your airways.",
+     "source": "GOLD 2020, Ch. 3; GINA 2026",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 3,
+     "category": "Lifestyle",
+     "text": "Avoid wood smoke, cooking fumes, dust, and heavy air pollution.",
+     "why": "Breathing in smoke and fumes can inflame your airways.",
+     "source": "GOLD 2020, Ch. 1 and 3",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 4,
+     "category": "Lifestyle",
+     "text": "Do 30 minutes of moderate activity on at least 5 days a week (150 minutes).",
+     "why": "Regular activity keeps your breathing muscles and stamina strong.",
+     "source": "ISH 2020, Table 8; ADA 2019, Rec. 3.2",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 5,
+     "category": "Check-up and tests",
+     "text": "Ask your doctor whether you should get yearly flu and pneumococcal vaccines.",
+     "why": "Vaccines protect your lungs from serious infections.",
+     "source": "GOLD 2020, Ch. 3; GINA 2026",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 6,
+     "category": "Check-up and tests",
+     "text": "Track your breathing symptoms and note patterns of cough or breathlessness.",
+     "why": "A symptom record helps your doctor read your test results.",
+     "source": "GOLD 2020, Ch. 2",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 7,
+     "category": "Lifestyle",
+     "text": "Avoid asthma triggers such as cold air and allergens, and note if you wheeze with exercise or at night.",
+     "why": "Knowing your triggers can point to sensitive airways.",
+     "source": "GINA 2026",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 8,
+     "category": "Urgent warning signs",
+     "text": "Get emergency care now for severe breathlessness, trouble speaking in sentences, blue lips, or drowsiness or confusion.",
+     "why": "These are signs of a breathing emergency.",
+     "source": "GINA 2026; GOLD 2020",
+     "basis": "Sourced",
+     "goal": false
+    }
+   ],
+   "addons": [
+    {
+     "id": "A1",
+     "trigger": "Current smoker",
+     "text": "Stop smoking completely and ask your healthcare provider about quit programs.",
+     "why": "Quitting is the most effective way to protect your lungs.",
+     "source": "GOLD 2020, Ch. 3",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A2",
+     "trigger": "Occupational dust or fume exposure",
+     "text": "Use a proper mask and good ventilation at work.",
+     "why": "Less exposure prevents lung damage from building up.",
+     "source": "GOLD 2020, Ch. 3",
+     "basis": "Sourced",
+     "goal": true
+    }
+   ]
+  },
+  "NEURO-LOW": {
+   "id": "NEURO-LOW",
+   "disease": "NEURO",
+   "tier": "Low",
+   "items": [
+    {
+     "n": 1,
+     "category": "Safety",
+     "text": "If you have thoughts of harming yourself, call the NCMH Crisis Hotline at 1553 or go to the nearest emergency room now.",
+     "why": "Immediate support keeps you safe during a crisis.",
+     "source": "System rule",
+     "basis": "System rule",
+     "goal": false
+    },
+    {
+     "n": 2,
+     "category": "Check-up and tests",
+     "text": "Retake the PHQ-9 (mood) and GAD-7 (anxiety) questionnaires at your yearly check-up.",
+     "why": "Regular tracking shows changes in mood and anxiety over time.",
+     "source": "PHEx 2021, Sec. 3.15 (PHQ-9)",
+     "basis": "Sourced (PHQ-9) / System rule (GAD-7, yearly)",
+     "goal": true
+    },
+    {
+     "n": 3,
+     "category": "Lifestyle",
+     "text": "Do 30 minutes of moderate activity on at least 5 days a week (150 minutes).",
+     "why": "Regular exercise supports a better mood.",
+     "source": "NICE NG222, Sec. 1.4 (exercise); ISH 2020, Table 8 (minutes)",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 4,
+     "category": "Lifestyle",
+     "text": "Keep a daily routine and stay connected with family, friends, and others who support you.",
+     "why": "Routines and social contact give emotional stability.",
+     "source": "NICE NG222, Sec. 1.1; WHO Module 6",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 5,
+     "category": "Lifestyle",
+     "text": "Keep regular sleep and wake times.",
+     "why": "Good sleep supports emotional health.",
+     "source": "NICE NG222, Sec. 1.4; WHO Module 6",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 6,
+     "category": "Lifestyle",
+     "text": "Limit alcohol to 2 standard drinks a day for men, or 1.5 for women.",
+     "why": "Too much alcohol can worsen mood and sleep.",
+     "source": "ISH 2020, Table 8 (limits); WHO Module 6",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 7,
+     "category": "Urgent warning signs",
+     "text": "Get urgent medical care now if you are unable to eat, sleep, or care for yourself.",
+     "why": "Being unable to manage daily needs calls for prompt help.",
+     "source": "None",
+     "basis": "Plan default",
+     "goal": false
+    }
+   ],
+   "addons": [
+    {
+     "id": "A1",
+     "trigger": "Daily sleep below 7 or above 9 hours",
+     "text": "Aim for 7 to 9 hours of sleep each night with consistent bedtimes.",
+     "why": "Too little or too much sleep can upset your mood.",
+     "source": "WHO Module 6; CDSS Data Dictionary (Harrison's, 7 to 9 hours)",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A2",
+     "trigger": "Alcohol use: current",
+     "text": "Cut down or stop drinking alcohol.",
+     "why": "Alcohol can disturb your mood and sleep.",
+     "source": "WHO Module 6",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A3",
+     "trigger": "PSQI above 5",
+     "text": "Relax before bed and cut down screen time at bedtime.",
+     "why": "Better sleep habits improve sleep quality.",
+     "source": "NICE NG222, Sec. 1.4",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A4",
+     "trigger": "TSH outside 0.34 to 4.25 mIU/L, or vitamin B12 below 200 pg/mL",
+     "text": "Show your TSH or vitamin B12 result to your doctor.",
+     "why": "Thyroid and vitamin levels can affect energy and mood.",
+     "source": "CDSS Data Dictionary (Harrison's)",
+     "basis": "Sourced",
+     "goal": true
+    }
+   ]
+  },
+  "NEURO-MODERATE": {
+   "id": "NEURO-MODERATE",
+   "disease": "NEURO",
+   "tier": "Moderate",
+   "items": [
+    {
+     "n": 1,
+     "category": "Safety",
+     "text": "If you have thoughts of harming yourself, call the NCMH Crisis Hotline at 1553 or go to the nearest emergency room now.",
+     "why": "Immediate support keeps you safe during a crisis.",
+     "source": "System rule",
+     "basis": "System rule",
+     "goal": false
+    },
+    {
+     "n": 2,
+     "category": "See a doctor",
+     "text": "Schedule a follow-up in 3 to 6 months to review your emotional well-being.",
+     "why": "A review checks whether self-care is helping your mood.",
+     "source": "CDSS Data Dictionary",
+     "basis": "System rule",
+     "goal": true
+    },
+    {
+     "n": 3,
+     "category": "Check-up and tests",
+     "text": "Retake the PHQ-9 and GAD-7 questionnaires in 3 to 6 months.",
+     "why": "Re-screening shows whether mood and anxiety are getting better or worse.",
+     "source": "PHEx 2021, Sec. 3.15 (PHQ-9)",
+     "basis": "Sourced (PHQ-9) / System rule (GAD-7, interval)",
+     "goal": true
+    },
+    {
+     "n": 4,
+     "category": "See a doctor",
+     "text": "Ask your healthcare provider about guided self-help or talking therapy.",
+     "why": "Structured support gives practical tools for coping with low mood.",
+     "source": "NICE NG222",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 5,
+     "category": "Lifestyle",
+     "text": "Do 30 minutes of moderate activity on at least 5 days a week (150 minutes).",
+     "why": "Regular exercise supports a better mood.",
+     "source": "NICE NG222, Sec. 1.4 (exercise); ISH 2020, Table 8 (minutes)",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 6,
+     "category": "Lifestyle",
+     "text": "Keep a daily routine and stay connected with family, friends, and others who support you.",
+     "why": "Routines and social contact give emotional stability.",
+     "source": "NICE NG222, Sec. 1.1; WHO Module 6",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 7,
+     "category": "Lifestyle",
+     "text": "Keep regular sleep and wake times.",
+     "why": "Good sleep supports emotional health.",
+     "source": "NICE NG222, Sec. 1.4; WHO Module 6",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 8,
+     "category": "Lifestyle",
+     "text": "Limit alcohol to 2 standard drinks a day for men, or 1.5 for women.",
+     "why": "Too much alcohol can worsen mood and sleep.",
+     "source": "ISH 2020, Table 8 (limits); WHO Module 6",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 9,
+     "category": "Urgent warning signs",
+     "text": "Get urgent medical care now if you are unable to eat, sleep, or care for yourself.",
+     "why": "Being unable to manage daily needs calls for prompt help.",
+     "source": "None",
+     "basis": "Plan default",
+     "goal": false
+    }
+   ],
+   "addons": [
+    {
+     "id": "A1",
+     "trigger": "Daily sleep below 7 or above 9 hours",
+     "text": "Aim for 7 to 9 hours of sleep each night with consistent bedtimes.",
+     "why": "Too little or too much sleep can upset your mood.",
+     "source": "WHO Module 6; CDSS Data Dictionary (Harrison's, 7 to 9 hours)",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A2",
+     "trigger": "Alcohol use: current",
+     "text": "Cut down or stop drinking alcohol.",
+     "why": "Alcohol can disturb your mood and sleep.",
+     "source": "WHO Module 6",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A3",
+     "trigger": "PSQI above 5",
+     "text": "Relax before bed and cut down screen time at bedtime.",
+     "why": "Better sleep habits improve sleep quality.",
+     "source": "NICE NG222, Sec. 1.4",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A4",
+     "trigger": "TSH outside 0.34 to 4.25 mIU/L, or vitamin B12 below 200 pg/mL",
+     "text": "Show your TSH or vitamin B12 result to your doctor.",
+     "why": "Thyroid and vitamin levels can affect energy and mood.",
+     "source": "CDSS Data Dictionary (Harrison's)",
+     "basis": "Sourced",
+     "goal": true
+    }
+   ]
+  },
+  "NEURO-HIGH": {
+   "id": "NEURO-HIGH",
+   "disease": "NEURO",
+   "tier": "High",
+   "items": [
+    {
+     "n": 1,
+     "category": "Safety",
+     "text": "If you have thoughts of harming yourself, call the NCMH Crisis Hotline at 1553 or go to the nearest emergency room now.",
+     "why": "Immediate support keeps you safe during a crisis.",
+     "source": "System rule",
+     "basis": "System rule",
+     "goal": false
+    },
+    {
+     "n": 2,
+     "category": "See a doctor",
+     "text": "See a doctor within 30 to 60 days for a mental health assessment, and retake the PHQ-9 and GAD-7 before the visit.",
+     "why": "Your results suggest a higher risk that needs a clinical check.",
+     "source": "PHEx 2021, Sec. 3.15; NICE NG222",
+     "basis": "Sourced (assessment) / System rule (timeframe, GAD-7)",
+     "goal": true
+    },
+    {
+     "n": 3,
+     "category": "See a doctor",
+     "text": "Ask your healthcare provider about guided self-help or talking therapy.",
+     "why": "Structured support gives practical tools for coping with low mood.",
+     "source": "NICE NG222",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 4,
+     "category": "Lifestyle",
+     "text": "Do 30 minutes of moderate activity on at least 5 days a week (150 minutes).",
+     "why": "Regular exercise supports a better mood.",
+     "source": "NICE NG222, Sec. 1.4 (exercise); ISH 2020, Table 8 (minutes)",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 5,
+     "category": "Lifestyle",
+     "text": "Keep a daily routine and stay connected with family, friends, and others who support you.",
+     "why": "Routines and social contact give emotional stability.",
+     "source": "NICE NG222, Sec. 1.1; WHO Module 6",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 6,
+     "category": "Lifestyle",
+     "text": "Keep regular sleep and wake times.",
+     "why": "Good sleep supports emotional health.",
+     "source": "NICE NG222, Sec. 1.4; WHO Module 6",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 7,
+     "category": "Lifestyle",
+     "text": "Limit alcohol to 2 standard drinks a day for men, or 1.5 for women.",
+     "why": "Too much alcohol can worsen mood and sleep.",
+     "source": "ISH 2020, Table 8 (limits); WHO Module 6",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "n": 8,
+     "category": "Urgent warning signs",
+     "text": "Get urgent medical care now if you are unable to eat, sleep, or care for yourself.",
+     "why": "Being unable to manage daily needs calls for prompt help.",
+     "source": "None",
+     "basis": "Plan default",
+     "goal": false
+    }
+   ],
+   "addons": [
+    {
+     "id": "A1",
+     "trigger": "Daily sleep below 7 or above 9 hours",
+     "text": "Aim for 7 to 9 hours of sleep each night with consistent bedtimes.",
+     "why": "Too little or too much sleep can upset your mood.",
+     "source": "WHO Module 6; CDSS Data Dictionary (Harrison's, 7 to 9 hours)",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A2",
+     "trigger": "Alcohol use: current",
+     "text": "Cut down or stop drinking alcohol.",
+     "why": "Alcohol can disturb your mood and sleep.",
+     "source": "WHO Module 6",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A3",
+     "trigger": "PSQI above 5",
+     "text": "Relax before bed and cut down screen time at bedtime.",
+     "why": "Better sleep habits improve sleep quality.",
+     "source": "NICE NG222, Sec. 1.4",
+     "basis": "Sourced",
+     "goal": true
+    },
+    {
+     "id": "A4",
+     "trigger": "TSH outside 0.34 to 4.25 mIU/L, or vitamin B12 below 200 pg/mL",
+     "text": "Show your TSH or vitamin B12 result to your doctor.",
+     "why": "Thyroid and vitamin levels can affect energy and mood.",
+     "source": "CDSS Data Dictionary (Harrison's)",
+     "basis": "Sourced",
+     "goal": true
+    }
+   ]
+  }
+ }
+}

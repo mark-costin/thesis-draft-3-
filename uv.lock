@@ -1583,6 +1583,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/eb/a3/87fe9b7203ec2e56ea6a57c75e6d632eaf9487c7f7978cdad1d801bee0af/google_auth-2.62.0-py3-none-any.whl", hash = "sha256:4ff4319aeb4ad128409759d397a9fcafad126d0031d241cc0dd6b9a00b43e3f3", size = 267911, upload-time = "2026-10-12T19:20:46.355Z" },
 ]
 
+[package.optional-dependencies]
+requests = [
+    { name = "requests" },
+]
+
 [[package]]
 name = "granian"
 version = "2.8.5"
@@ -4978,6 +4983,19 @@ wheels = [
 ]
 
 [[package]]
+name = "reflex-google-auth"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-auth", extra = ["requests"] },
+    { name = "reflex" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a2/23/fc192b961c4f87cabf4b10232a1dc923a5fcb710e73ed59c50ee14938cf3/reflex_google_auth-0.2.0.tar.gz", hash = "sha256:313ec15470039f0d71a39f49efad4560716248856b76818febd31a98d08ee4ea", size = 12335, upload-time = "2025-10-14T01:31:47.975Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/73/52/62916f90216470ab3069a8e63846d31fdb8ca5b27decf318f2161c9b0990/reflex_google_auth-0.2.0-py3-none-any.whl", hash = "sha256:e60bc355b64352948bbacf4d9eee6f96b688ee28646bf9628d52ca8bee7bd55c", size = 7353, upload-time = "2025-10-14T01:31:47.096Z" },
+]
+
+[[package]]
 name = "reflex-hosting-cli"
 version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -5913,6 +5931,7 @@ dependencies = [
     { name = "python-multipart" },
     { name = "redis" },
     { name = "reflex" },
+    { name = "reflex-google-auth" },
     { name = "rq" },
     { name = "scikit-learn" },
     { name = "shap", version = "0.51.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
@@ -5960,6 +5979,7 @@ requires-dist = [
     { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "redis", specifier = ">=7.4.1" },
     { name = "reflex", specifier = ">=0.10.0" },
+    { name = "reflex-google-auth", specifier = ">=0.2.0" },
     { name = "rq", specifier = ">=2.12.0" },
     { name = "scikit-learn", specifier = ">=1.9.1" },
     { name = "shap", specifier = ">=0.51.0" },
