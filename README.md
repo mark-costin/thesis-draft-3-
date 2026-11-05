@@ -16,22 +16,55 @@ This is a web-based clinical decision support system that estimates a patient's 
 3. Type in any details OCR missed.
 4. The AI risk model analyzes the data.
 5. View the risk results.
-6. Receive a care plan based on doctor-validated templates matched to the risk assessment.
+6. Receive a care plan from templates matched to the risk assessment and reviewed by a physician
+   (the 12 templates are drafts until the physician approves them).
 7. Save the report to the database and export it.
 
 > This project is developed as an undergraduate thesis.
 
 ## Tech Stack
 
-| Layer      | Technology            |
-|------------|-----------------------|
-| Backend    | Python, FastAPI       |
-| Database   | PostgreSQL            |
-| ORM        | SQLAlchemy            |
-| Frontend   | Reflex (Python)       |
-| Packages   | uv                    |
-| OCR        | PaddleOCR-VL (GPU), PDF text layer (pypdfium2) |
-| AI Model   | _TODO_                |
+| Layer           | Technology |
+|-----------------|------------|
+| Backend         | Python 3.11, FastAPI |
+| Database        | PostgreSQL with Row-Level Security |
+| ORM             | SQLAlchemy |
+| Frontend        | Reflex (Python), planned for Sprint 4 |
+| Packages        | uv |
+| Background jobs | RQ + Redis (optional: without Redis, OCR runs in the API process) |
+| OCR             | PaddleOCR-VL on a GPU (Chandra optional); PDF text layer (pypdfium2) |
+| AI Model        | XGBoost with calibration (scikit-learn) and SHAP explanations; logistic regression baseline. Trained in `ml/ai_model/train_models.ipynb`; not registered yet |
+| PDF reports     | WeasyPrint |
+
+## Getting Started
+
+1. Install the dependencies:
+   ```
+   uv sync
+   ```
+   On the GPU laptop that runs OCR, use `uv sync --inexact` (plain `uv sync` removes PaddleOCR,
+   which is installed separately: see `docs/ocr.md`).
+2. Copy `.env.example` to `.env` and fill in the secrets it lists.
+3. Create the database `med_db`: with Docker, `docker compose -f docker-compose.dev.yml up -d`
+   (PostgreSQL and Redis; the scripts in `database/` run on the first start). On Windows without
+   Docker, follow `database/README.md`.
+4. Create the test database `med_db_test` (asks for the `postgres` password; again after any
+   change in `database/`):
+   ```
+   bash tests/create_test_db.sh                                     # Fedora / Linux
+   powershell -ExecutionPolicy Bypass -File tests\create_test_db.ps1  # Windows
+   ```
+5. Run the API and open <http://localhost:8000/docs>:
+   ```
+   uv run uvicorn backend.main:app --reload
+   ```
+6. Run the tests:
+   ```
+   uv run pytest
+   ```
+
+OCR is off by default (`OCR_ENGINE=none`): patients type their lab values in. To read uploaded
+lab results, see `docs/ocr.md`.
 
 ## Project Folder
 
