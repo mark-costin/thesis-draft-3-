@@ -5,6 +5,8 @@ their TODO comments mark where the API plugs in.
 The login token lives in `_token`: a backend-only variable (leading underscore), so Reflex never
 sends it to the browser. Passwords pass through an event handler once and are never stored.
 """
+import asyncio
+import base64
 import json
 import re
 from dataclasses import dataclass, replace
@@ -16,6 +18,7 @@ import reflex as rx
 
 from . import api, careplan
 from . import questionnaires as qn
+from .labinfo import DOC_STATUS, LAB_LABEL, LAB_UNIT
 from .api import GOOGLE_CLIENT_ID
 from .locations import LISTS_COMPLETE, PROVINCES, barangays_for, cities_for
 
@@ -86,10 +89,23 @@ class QRow:
 
 @dataclass
 class Lab:
+    """A lab value under review (from GET /documents/{id}/review)."""
+    lab_id: int
+    code: str
     label: str
     value: str
     unit: str
-    source: str
+    reported: str     # what the report said, when the API converted the unit ("5.6 mmol/L")
+    source: str       # Scanned / Typed by me
+    flagged: bool     # outside the usual range: likely a misread or a wrong unit
+
+
+@dataclass
+class MissingLab:
+    """A lab value the models still need: typed in on Scan & assess."""
+    code: str
+    label: str
+    unit: str
 
 
 @dataclass
@@ -266,11 +282,19 @@ class State(rx.State):
     crisis_message: str = ""
     crisis_hotlines: list[dict[str, str]] = []
 
-    # ---- scan and verify (Sprint 5: sample data) ----
-    doc_name: str = "Comprehensive_Metabolic_Panel_Oct2026.pdf"
-    doc_status: str = "Ready for review"
-    labs: list[Lab] = [Lab("Fasting glucose (FPG)", "92", "mg/dL", "Scanned"), Lab("HbA1c", "5.4", "%", "Scanned"),
-                       Lab("Total cholesterol", "178", "mg/dL", "Scanned"), Lab("Creatinine", "", "mg/dL", "Typed by me")]
+    # ---- scan and verify ----
+    doc_id: int = 0
+    doc_name: str = ""
+    doc_status: str = ""           # API status: pending, processing, ready_for_review, verified, failed, rejected
+    doc_error: str = ""
+    doc_preview: str = ""          # data: URL for a photo (decrypted by the API, shown only to this patient)
+    doc_is_pdf: bool = False
+    labs: list[Lab] = []           # values under review
+    missing_labs: list[MissingLab] = []
+    other_missing: list[Check] = []  # non-lab inputs still needed, with links
+    uploading: bool = False
+    running: bool = False
+    assessment_id: int = 0
 
     # ---- results, reports, goals (Sprint 5: sample data) ----
     selected: str = "T2D"
@@ -398,8 +422,12 @@ class State(rx.State):
         return self.current.tier == "High"
 
     @rx.var
-    def is_image(self) -> bool:
-        return self.doc_name.lower().endswith((".png", ".jpg", ".jpeg"))
+    def doc_status_label(self) -> str:
+        return DOC_STATUS.get(self.doc_status, "")
+
+    @rx.var
+    def in_review(self) -> bool:
+        return self.doc_status == "ready_for_review"
 
     @rx.var
     def missing_for_run(self) -> list[str]:
@@ -1010,23 +1038,192 @@ class State(rx.State):
         await self._load_readiness()
         yield rx.toast.success(f"{title} saved. Score {data['total_score']} ({data['band']}). This is a screening result, not a diagnosis.")
 
-    # ================= scan and verify (Sprint 5: sample data) =================
+    # ================= scan and verify =================
+    @rx.event
+    async def load_scan_page(self):
+        if not self.is_logged_in:
+            return rx.redirect("/")
+        await self._load_readiness()
+        await self._load_scan_missing()
+        if not self.doc_id:  # pick up the newest document still waiting for review
+            docs = await self._api("GET", "/documents")
+            if docs.ok and docs.data:
+                newest = docs.data[0]
+                if newest["status"] in ("pending", "processing", "ready_for_review"):
+                    await self._load_document(newest["document_id"])
+
+    async def _load_scan_missing(self):
+        """Splits the readiness list: lab values (typed in here) and everything else (links)."""
+        reply = await self._api("GET", "/assessment/readiness")
+        if not reply.ok:
+            return
+        other = [Check(item["label"], False, "Missing", item.get("enter_in", ""), _screen_for(item.get("enter_in", ""), item.get("instrument")))
+                 for item in reply.data.get("missing_required", []) if item["name"].upper() not in LAB_UNIT]
+        # Lab values are optional model inputs (ml/features.yaml): list every one a model could still use
+        codes = []
+        for model in reply.data.get("models", {}).values():
+            for item in model.get("missing_required", []) + model.get("missing_optional", []):
+                code = item["name"].upper()
+                if code in LAB_UNIT and code not in codes:
+                    codes.append(code)
+        order = list(LAB_UNIT)
+        self.missing_labs = [MissingLab(code, LAB_LABEL[code], LAB_UNIT[code]) for code in sorted(codes, key=order.index)]
+        self.other_missing = other
+
+    async def _load_document(self, document_id: int):
+        reply = await self._api("GET", f"/documents/{document_id}/review")
+        if not reply.ok:
+            return
+        doc = reply.data["document"]
+        self.doc_id, self.doc_status, self.doc_error = doc["document_id"], doc["status"], doc.get("error_message") or ""
+        self.doc_is_pdf = doc["mime_type"] == "application/pdf"
+        self.labs = [Lab(r["lab_result_id"], r["test_code"], LAB_LABEL.get(r["test_code"], r["test_code"]), _num(r["value"]), r["unit"],
+                         f"{_num(r['value_as_reported'])} {r['unit_as_reported']}" if r.get("unit_as_reported") else "",
+                         "Scanned" if r["source"] == "ocr" else "Typed by me", bool(r.get("out_of_expected_range")))
+                     for r in reply.data["lab_results"]]
+        if not self.doc_is_pdf and not self.doc_preview:  # show the photo beside the values
+            file = await self._api("GET", f"/documents/{document_id}/file")
+            if file.ok:
+                self.doc_preview = f"data:{doc['mime_type']};base64,{base64.b64encode(file.content).decode()}"
+
     @rx.event
     async def handle_upload(self, files: list[rx.UploadFile]):
-        for f in files:  # TODO (Sprint 5): POST /documents, then poll GET /documents/{id}/review
-            name = Path(getattr(f, "filename", None) or getattr(f, "name", "upload")).name
-            await f.read()
-            self.doc_name, self.doc_status = name, "Ready for review"
-        yield rx.toast.info("Sample data: uploads are connected to the API in Sprint 5.")
+        if not files:
+            return
+        f = files[0]
+        data = await f.read()
+        self.uploading, self.doc_preview, self.labs = True, "", []
+        self.doc_name = Path(getattr(f, "filename", None) or getattr(f, "name", "upload")).name
+        yield
+        reply = await self._api("POST", "/documents", files={"file": (self.doc_name, data, "application/octet-stream")})
+        if not reply.ok:
+            self.uploading = False
+            yield rx.toast.error(reply.message("The file could not be uploaded."))
+            return
+        self.doc_id, self.doc_status = reply.data["document_id"], reply.data["status"]
+        yield rx.toast.success("Document received. Reading the values...")
+        # Wait for the OCR worker. A document that is still 'pending' after a few seconds means no
+        # OCR engine runs here (OCR_ENGINE=none): stop waiting at once. Once OCR has started
+        # ('processing'), wait up to about 40 seconds for it to finish.
+        started = False
+        for check in range(20):
+            await self._load_document(self.doc_id)
+            started = started or self.doc_status == "processing"
+            if self.doc_status not in ("pending", "processing") or (not started and check >= 2):
+                break
+            yield
+            await asyncio.sleep(2)
+        self.uploading = False
+        await self._load_scan_missing()
+        if self.doc_status == "ready_for_review":
+            yield rx.toast.success("Check each value below, fix any mistake, then confirm.")
+        elif self.doc_status == "pending" and not started:
+            self.doc_error = "Your file is saved, but automatic reading (OCR) is not running on this computer. Please type the values from your report below."
+            yield rx.toast.info("Please type the values from your report below.")
+        else:
+            yield rx.toast.info(self.doc_error or "The document could not be read yet. Please type the values in below.")
 
     @rx.event
-    def set_lab(self, i: int, value: str):
-        self.labs = [replace(l, value=value, source="Typed by me") if k == i else l for k, l in enumerate(self.labs)]
+    async def fix_lab(self, lab_id: int, form: Form):
+        """PATCH /labs/{id}: the value and unit exactly as printed on the report."""
+        lab = next((l for l in self.labs if l.lab_id == lab_id), None)
+        if lab is None:
+            return
+        try:
+            value = _number(form.get("value"))
+        except ValueError:
+            return rx.toast.error("Please enter a number.")
+        if value is None:
+            return rx.toast.error("Please enter the value, or remove the line.")
+        reply = await self._api("PATCH", f"/labs/{lab_id}", json={"test_code": lab.code, "value": value, "unit": _clean(form, "unit") or lab.unit})
+        if not reply.ok:
+            return rx.toast.error(reply.message("The value could not be changed."))
+        await self._load_document(self.doc_id)
+        return rx.toast.success(f"{lab.label} updated.")
 
     @rx.event
-    def run_assessment(self):  # TODO (Sprint 5): POST /assessment/run
-        self.doc_status = "Verified"
-        return rx.redirect("/results")
+    async def remove_lab(self, lab_id: int):
+        reply = await self._api("DELETE", f"/labs/{lab_id}")
+        if not reply.ok:
+            return rx.toast.error(reply.message("This line could not be removed."))
+        await self._load_document(self.doc_id)
+        await self._load_scan_missing()
+        return rx.toast.success("Line removed.")
+
+    def _typed_values(self, form: Form) -> list[dict[str, Any]]:
+        """Lab values typed into the 'missing' boxes (field names lab_<CODE>)."""
+        typed = []
+        for lab in self.missing_labs:
+            value = _number(form.get(f"lab_{lab.code}"))
+            if value is not None:
+                typed.append({"test_code": lab.code, "value": value, "unit": lab.unit})
+        return typed
+
+    @rx.event
+    async def confirm_document(self, form: Form):
+        """POST /documents/{id}/confirm: every reviewed value plus what was typed for what OCR missed."""
+        try:
+            body = {"typed_values": self._typed_values(form)}
+        except ValueError:
+            return rx.toast.error("Please enter numbers only.")
+        if _clean(form, "collected_on"):
+            body["collected_on"] = _clean(form, "collected_on")
+        reply = await self._api("POST", f"/documents/{self.doc_id}/confirm", json=body)
+        if not reply.ok:
+            return rx.toast.error(reply.message("The values could not be confirmed."))
+        await self._load_document(self.doc_id)
+        await self._load_scan_missing()
+        await self._load_readiness()
+        return rx.toast.success("Values confirmed. Only confirmed values are used for your assessment.")
+
+    @rx.event
+    async def reject_document(self):
+        reply = await self._api("POST", f"/documents/{self.doc_id}/reject")
+        if not reply.ok:
+            return rx.toast.error(reply.message())
+        self.doc_id, self.doc_status, self.labs, self.doc_preview = 0, "", [], ""
+        await self._load_scan_missing()
+        return rx.toast.info("The scanned values were dropped. The file is kept; you can type the values in instead.")
+
+    @rx.event
+    async def save_typed_labs(self, form: Form):
+        """No document (or OCR is off): each value is saved as a typed-in lab result (POST /labs)."""
+        try:
+            typed = self._typed_values(form)
+        except ValueError:
+            return rx.toast.error("Please enter numbers only.")
+        if not typed:
+            return rx.toast.error("Type at least one value.")
+        collected = _clean(form, "collected_on")
+        for value in typed:
+            reply = await self._api("POST", "/labs", json=value | ({"collected_on": collected} if collected else {}), idempotent=True)
+            if not reply.ok:
+                return rx.toast.error(reply.message(f"{LAB_LABEL.get(value['test_code'], value['test_code'])} could not be saved."))
+        await self._load_scan_missing()
+        await self._load_readiness()
+        return [rx.toast.success(f"{len(typed)} lab value(s) saved."), rx.set_value("lab_collected_on", "")]
+
+    @rx.event
+    async def run_assessment(self):
+        self.running = True
+        yield
+        reply = await self._api("POST", "/assessment/run", idempotent=True)
+        self.running = False
+        if reply.status == 503:
+            yield rx.toast.info("The risk models are not switched on yet: they are still being trained and checked. Your data is saved and ready.")
+            return
+        if reply.status == 409:
+            await self._load_readiness()
+            await self._load_scan_missing()
+            yield rx.toast.error("Some required information is still missing. See the list on this page.")
+            return
+        if not reply.ok:
+            yield rx.toast.error(reply.message("The assessment could not be run."))
+            return
+        self.assessment_id = reply.data["assessment_id"]
+        self.probs = {r["disease"]: float(r["probability"]) for r in reply.data["results"]}
+        self.tiers = {r["disease"]: r["risk_level"] for r in reply.data["results"]}
+        yield rx.redirect("/results")
 
     # ================= results, reports, goals (Sprint 5: sample data) =================
     @rx.event

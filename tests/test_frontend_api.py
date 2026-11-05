@@ -116,3 +116,33 @@ async def test_questionnaire_screen_requests(in_process):
 
     readiness = await api.call("GET", "/assessment/readiness", token)
     assert not any(item["enter_in"] == "Questionnaire" for item in readiness.data["missing_required"])
+
+
+def test_scan_screen_lab_lists_match_the_api():
+    """Scan & assess types lab values in the API's own units, and knows every lab the models need."""
+    from backend import labs, readiness
+    from frontend.patient_portal.labinfo import LAB_LABEL, LAB_UNIT
+
+    assert LAB_UNIT == labs.STANDARD_UNIT
+    assert set(LAB_LABEL) == set(LAB_UNIT)
+    lab_features = {f.name.upper() for f in readiness.load_features() if f.source == "lab_ocr"}
+    assert lab_features <= set(LAB_UNIT), lab_features - set(LAB_UNIT)
+
+
+@pytest.mark.anyio
+async def test_typed_lab_values_leave_the_scan_list(in_process):
+    """State.save_typed_labs: each missing lab is sent to POST /labs in its standard unit."""
+    from frontend.patient_portal.labinfo import LAB_UNIT
+
+    token = await signed_in(in_process)
+    def lab_codes(readiness):  # the way State._load_scan_missing reads the list
+        return {i["name"].upper() for m in readiness["models"].values() for i in m["missing_required"] + m["missing_optional"]
+                if i["name"].upper() in LAB_UNIT}
+
+    before = await api.call("GET", "/assessment/readiness", token)
+    missing = sorted(lab_codes(before.data))
+    assert missing  # a new patient has no lab values yet
+    reply = await api.call("POST", "/labs", token, json={"test_code": missing[0], "value": 1, "unit": LAB_UNIT[missing[0]]}, idempotent=True)
+    assert reply.status == 201
+    after = await api.call("GET", "/assessment/readiness", token)
+    assert missing[0] not in lab_codes(after.data)

@@ -15,7 +15,7 @@ app.add_page(reset.page, route="/reset-password", title="New password | Patient 
 # Each signed-in page loads its data from the API when it opens (and sends the visitor to log in if needed)
 for route, mod, name, load in [("/dashboard", dashboard, "Dashboard", State.load_dashboard), ("/vitals", vitals, "Vitals & lifestyle", State.load_vitals_page),
                                ("/questionnaires", questionnaires, "Questionnaires", State.load_questionnaires_page),
-                               ("/family", family, "Family history", State.load_family_page), ("/scan", scan, "Scan & assess", State.load_dashboard),
+                               ("/family", family, "Family history", State.load_family_page), ("/scan", scan, "Scan & assess", State.load_scan_page),
                                ("/results", results, "Results", State.check_login), ("/reports", reports, "Reports", State.check_login),
                                ("/account", account, "Account settings", State.check_login)]:
     app.add_page(mod.page, route=route, title=f"{name} | Patient Portal", on_load=load)
