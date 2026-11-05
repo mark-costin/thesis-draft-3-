@@ -34,6 +34,10 @@ test_engine = create_engine(settings.test_database_url, pool_pre_ping=True)
 # rate limits. They are switched off here and switched on only in tests/test_middleware.py.
 limiter.enabled = False
 
+# OCR is off in tests, whatever the developer's .env says (OCR_ENGINE=paddleocr_vl on the GPU
+# laptop): an upload stays 'pending' unless a test switches an engine on itself.
+settings.ocr_engine = "none"
+
 # Point the app's session factory at the test database. The RLS identity hook in
 # database.py is attached to SessionLocal, so it keeps working.
 SessionLocal.configure(bind=test_engine)

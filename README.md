@@ -30,16 +30,21 @@ This is a web-based clinical decision support system that estimates a patient's 
 | ORM        | SQLAlchemy            |
 | Frontend   | Reflex (Python)       |
 | Packages   | uv                    |
-| OCR        | _TODO_                |
+| OCR        | PaddleOCR-VL (GPU), PDF text layer (pypdfium2) |
 | AI Model   | _TODO_                |
 
 ## Project Folder
 
-The tree below matches `main`. Items marked _(coming in …)_ are in an open pull request.
+The tree below matches `main`.
 
 ```
 thesis-d3/
 ├── backend/                       # FastAPI app (Python)
+│   ├── ocr/                       # OCR for uploaded lab documents (docs/ocr.md)
+│   │   ├── __init__.py
+│   │   ├── engines.py             # Engines: pdf_text, paddleocr_vl (chosen by OCR_ENGINE in .env)
+│   │   ├── job.py                 # The OCR job (RQ worker, or in-process when Redis is off)
+│   │   └── parser.py              # OCR text -> lab values
 │   ├── routes/                    # API endpoints, one file per feature
 │   │   ├── __init__.py
 │   │   ├── account.py             # Export all my data, delete my account (RA 10173)
@@ -73,8 +78,6 @@ thesis-d3/
 │   ├── middleware.py              # CORS, rate limits, idempotency keys
 │   ├── model_registry.py          # Loads the registered risk models, refuses changed files
 │   ├── models.py                  # SQLAlchemy models for the 19 tables
-│   ├── ocr.py                     # OCR engines (chosen by OCR_ENGINE in .env)
-│   ├── ocr_parser.py              # OCR text -> lab values
 │   ├── questionnaires.py          # Questionnaire scoring
 │   ├── readiness.py               # What each model still needs from the patient
 │   ├── reports.py                 # Frozen report snapshots
@@ -82,20 +85,19 @@ thesis-d3/
 │   ├── schemas.py                 # Request/response schemas (Pydantic)
 │   ├── security.py                # Password hashing (Argon2id) and JWT tokens
 │   ├── services.py                # Business logic used by the routes
-│   ├── storage.py                 # Encrypted file storage (Fernet)
-│   └── worker.py                  # The OCR job (RQ worker, or in-process when Redis is off)
+│   └── storage.py                 # Encrypted file storage (Fernet)
 ├── database/                      # PostgreSQL schema, run in number order
 │   ├── 00_roles.sh                # Creates the med_app role (Docker only)
 │   ├── 01_functions.sql           # Shared SQL functions (RLS identity, triggers)
 │   ├── 02_users.sql … 20_health_reports.sql   # One script per table (see below)
 │   ├── 21_famhistory.sql          # Changes to the family history tables (FHRS guide)
-│   ├── 22_ocr_engine_default.sql  # documents.ocr_engine default 'none' (coming in feat/ocr-engines)
+│   ├── 22_ocr_engine_default.sql  # documents.ocr_engine default 'none'
 │   ├── 99_security.sql            # Row-level security and permissions (runs last)
 │   ├── seed_care_plan_templates.sql   # The 12 draft care plan templates (run by hand)
 │   ├── setup_windows.ps1          # One-step database setup on Windows
 │   ├── windows_setup.sql          # All scripts in one file, for pgAdmin on Windows
 │   └── README.md                  # Database setup guide
-├── docs/                          # (coming in feat/ocr-engines)
+├── docs/
 │   └── ocr.md                     # OCR engines and the PaddleOCR-VL GPU install
 ├── frontend/                      # Planned, Sprint 4 (empty)
 │   ├── patient_app/               # Planned, Sprint 4 (empty files)
@@ -114,9 +116,14 @@ thesis-d3/
 ├── ml/
 │   ├── ai_model/
 │   │   ├── __init__.py
-│   │   └── train_models.ipynb     # Trains the 4 risk models (coming in #35)
-│   ├── artifacts/                 # Trained model files (*.joblib: not committed)
+│   │   └── train_models.ipynb     # Trains the 4 risk models
+│   ├── artifacts/                 # Trained model files and run reports (not committed)
 │   │   └── __init__.py
+│   ├── OCR/                       # OCR check on 3 synthetic lab reports (README.md)
+│   │   ├── __init__.py
+│   │   ├── make_reports.py        # Makes the 3 report images + true values -> output/
+│   │   ├── run_check.py           # Real OCR job on each: true vs extracted, time, GPU memory
+│   │   └── README.md
 │   ├── synthetic/                 # Synthetic patient data
 │   │   ├── 01_syntgen.ipynb       # Notebook 1: generates the synthetic patients
 │   │   ├── 02_synthval.ipynb      # Notebook 2: checks the synthetic data
@@ -137,8 +144,8 @@ thesis-d3/
 └── README.md
 ```
 
-**Where OCR lives:** `backend/ocr.py` (the engines), `backend/ocr_parser.py` (text to lab values),
-`backend/worker.py` (the job that runs it) and `backend/labs.py` (test names and units).
+**Where OCR lives:** `backend/ocr/` (`engines.py`, `parser.py`, `job.py`) and `backend/labs.py`
+(test names and units). Install and settings: `docs/ocr.md`. Checking it: `ml/OCR/`.
 
 ### Database scripts
 
@@ -166,7 +173,7 @@ thesis-d3/
 | `19_care_plan_templates.sql` | `care_plan_templates` |
 | `20_health_reports.sql` | `health_reports` |
 | `21_famhistory.sql` | changes to `patient_family_history`, `patient_fhrs_stratification` |
-| `22_ocr_engine_default.sql` | change to `documents` (coming in feat/ocr-engines) |
+| `22_ocr_engine_default.sql` | change to `documents` (`ocr_engine` default `'none'`) |
 | `99_security.sql` | RLS policies and grants (runs last) |
 
-Generated folders (`.venv/`, `.pytest_cache/`, `__pycache__/`, `ml/mlruns/`), uploaded files and `.env` are left out because Git ignores them.
+Generated folders (`.venv/`, `.pytest_cache/`, `__pycache__/`, `ml/mlruns/`, `ml/OCR/output/`), uploaded files and `.env` are left out because Git ignores them.
