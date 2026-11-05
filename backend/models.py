@@ -119,7 +119,7 @@ class Document(Base):
     mime_type: Mapped[str] = mapped_column(String(30), nullable=False)
     file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     file_sha256: Mapped[str] = mapped_column(CHAR(64), nullable=False)
-    ocr_engine: Mapped[str] = mapped_column(String(50), server_default=text("'Chandra OCR'::character varying"), nullable=False)
+    ocr_engine: Mapped[str] = mapped_column(String(50), server_default=text("'none'::character varying"), nullable=False)
     ocr_text: Mapped[str | None] = mapped_column(Text)
     ocr_confidence: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     status: Mapped[str] = mapped_column(String(20), server_default=text("'pending'::character varying"), nullable=False)

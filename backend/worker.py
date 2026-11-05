@@ -2,7 +2,9 @@
 for review (status ready_for_review). Values are saved unconfirmed (source = ocr); nothing is
 used by the models until the patient confirms them (POST /documents/{id}/confirm).
 
-Runs in an RQ worker when REDIS_ENABLED=true (Linux / Docker: `rq worker ocr`), or right after
+Runs in an RQ worker when REDIS_ENABLED=true (Linux / Docker:
+`rq worker --worker-class rq.SimpleWorker ocr`; the default worker forks per job and would load
+the OCR model again for every document), or right after
 the upload response in the API process when Redis is off (development; RQ does not run on
 Windows).
 """

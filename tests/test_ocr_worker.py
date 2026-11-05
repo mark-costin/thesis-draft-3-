@@ -1,6 +1,6 @@
 """OCR worker: the text an engine reads becomes unconfirmed lab values, and the document waits for
-the patient's review. A fake engine stands in for Chandra or Tesseract, so these tests need no
-GPU, no OCR install and no Redis."""
+the patient's review. A fake engine stands in for the configured engine (PaddleOCR-VL; Chandra
+optional), so these tests need no GPU, no OCR install and no Redis."""
 
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -37,7 +37,7 @@ LDL <0.1 mg/dL
 Eosinophils Absolute 0.4 x 10^9/L
 """
 
-CHANDRA_TABLE = """| Test | Result | Unit | Reference |
+MARKDOWN_TABLE = """| Test | Result | Unit | Reference |
 |---|---|---|---|
 | Vitamin B12 | 300 | pmol/L | 145-569 |
 | TSH | 2.50 | 0.4 - 4.0 | uIU/mL |
@@ -68,7 +68,7 @@ def test_a_plain_text_report_maps_to_the_right_codes_and_units():
 
 
 def test_a_markdown_table_maps_to_the_right_codes_and_units():
-    assert values_of(CHANDRA_TABLE) == {
+    assert values_of(MARKDOWN_TABLE) == {
         "VITAMIN_B12": ("406.614", "pg/mL"),
         "TSH": ("2.500", "mIU/L"),
         "URIC_ACID": ("6.994", "mg/dL"),
