@@ -13,7 +13,7 @@ import uuid
 import pytest
 from sqlalchemy import func, select
 
-from backend import audit, ocr
+from backend import audit
 from backend.config import settings
 from backend.database import SessionLocal, set_request_identity
 from backend.models import (
@@ -21,6 +21,7 @@ from backend.models import (
     PatientHealthHistory, QuestionnaireResponse, RiskAssessment, RiskResult, ShapExplanation, User,
     VitalsRecord,
 )
+from backend.ocr import engines
 from risk_helpers import (  # noqa: F401  (fixtures are used by name)
     MODELS, client, fill_required, make_patient, models_on, placeholder_ids, send,
 )
@@ -35,7 +36,7 @@ class FakeEngine:
     confidence = 90.0
 
     def read(self, data, mime_type):
-        return ocr.OcrResult(self.text, self.confidence)
+        return engines.OcrResult(self.text, self.confidence)
 
 
 @pytest.fixture(autouse=True)
@@ -48,7 +49,7 @@ def upload_folder(tmp_path, monkeypatch):
 def ocr_on(monkeypatch):
     fake = type("ConfiguredFake", (FakeEngine,), {})
     monkeypatch.setattr(settings, "ocr_engine", "fake")
-    monkeypatch.setitem(ocr.ENGINES, "fake", fake)
+    monkeypatch.setitem(engines.ENGINES, "fake", fake)
     return fake
 
 
