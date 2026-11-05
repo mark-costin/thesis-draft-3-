@@ -2,24 +2,36 @@
 before they are stored. A phone photo of a lab result can carry where and when it was taken;
 the app does not need that, so it is never kept (RA 10173: data minimization).
 
-Lossless: the image data itself is copied byte for byte; only metadata blocks are dropped.
-- JPEG: drops APP1 (EXIF, XMP), APP12, APP13 (IPTC/Photoshop) and COM (comments). Keeps APP0
-  (JFIF), APP2 (colour profile) and APP14 (Adobe colour), which are needed to show the image
-  correctly. The EXIF orientation is kept in a tiny new EXIF block, so a photo taken sideways is
-  still shown (and read by OCR) the right way up.
-- PNG: drops eXIf, tEXt, zTXt, iTXt and tIME chunks.
+Only what is needed to show the picture is kept (a keep list, not a drop list, so metadata
+blocks this module has never heard of are removed too):
+- JPEG: keeps APP0 (JFIF), APP2 ICC_PROFILE (colour profile), APP14 Adobe (colour transform) and
+  the image segments. Everything else goes: APP1 (EXIF, XMP), APP2 MPF / FlashPix, APP3-APP13,
+  APP11 (C2PA / JUMBF), APP15, comments, and anything after the end of the image (a second MPF
+  picture, the video of a "motion photo"). The EXIF orientation is kept in a tiny new EXIF
+  block, so a photo taken sideways is still shown (and read by OCR) the right way up.
+- PNG: keeps the critical chunks and the ones that change how it looks (transparency, gamma,
+  colour, pixel size); eXIf, tEXt, zTXt, iTXt, tIME, caBX (C2PA) and the rest go.
 - PDF: unchanged (scanned reports rarely carry GPS; PDF metadata cleaning would need a PDF library).
 
-If a file is damaged part way, everything up to the damage is cleaned and the rest is kept as it
-is, so a strange file never crashes the upload.
+Lossless: the image data itself is copied byte for byte; only metadata blocks are dropped.
+A file whose structure is broken before the image data is refused (DamagedImage): no viewer
+could show it, and what follows the damage cannot be checked for metadata. A JPEG cut off inside
+its image data (a partial download) is kept as far as it goes.
 """
 
 import struct
 
-_JPEG_DROP = {0xE1, 0xEC, 0xED, 0xFE}           # APP1, APP12, APP13, COM
-_PNG_DROP = {b"eXIf", b"tEXt", b"zTXt", b"iTXt", b"tIME"}
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+# Ancillary PNG chunks that change how the picture looks. Critical chunks (IHDR, PLTE, IDAT,
+# IEND: upper-case first letter) are always kept.
+_PNG_KEEP = {b"tRNS", b"gAMA", b"cHRM", b"sRGB", b"iCCP", b"sBIT", b"bKGD", b"pHYs", b"hIST",
+             b"cICP", b"mDCV", b"cLLI"}
 _ORIENTATION_TAG = 0x0112
+_SOS, _EOI = 0xDA, 0xD9
+
+
+class DamagedImage(ValueError):
+    pass
 
 
 def strip_metadata(data: bytes, mime_type: str) -> bytes:
@@ -65,6 +77,30 @@ def orientation_segment(orientation: int) -> bytes:
     return b"\xff\xe1" + struct.pack(">H", len(payload) + 2) + payload
 
 
+def _keep_jpeg_segment(marker: int, payload: bytes) -> bool:
+    if marker == 0xE0:                                   # APP0 JFIF / JFXX
+        return True
+    if marker == 0xE2:                                   # APP2: only the colour profile
+        return payload.startswith(b"ICC_PROFILE\x00")
+    if marker == 0xEE:                                   # APP14 Adobe colour transform
+        return payload.startswith(b"Adobe")
+    return not (0xE0 <= marker <= 0xEF or marker == 0xFE)  # other APPn and COM: metadata
+
+
+def _end_of_scan(data: bytes, position: int) -> int:
+    """Where the entropy-coded image data that starts at position ends: the next marker that is
+    not a stuffed byte (FF 00) or a restart marker (FF D0-D7), or the end of the file."""
+    while True:
+        position = data.find(b"\xff", position)
+        if position < 0 or position + 1 >= len(data):
+            return len(data)
+        following = data[position + 1]
+        if following == 0x00 or 0xD0 <= following <= 0xD7:
+            position += 2
+            continue
+        return position
+
+
 def _strip_jpeg(data: bytes) -> bytes:
     if not data.startswith(b"\xff\xd8"):
         return data
@@ -72,45 +108,54 @@ def _strip_jpeg(data: bytes) -> bytes:
     position = 2
     orientation = None
     inserted = False
+    in_image = False  # True after the first start of scan
+
+    def add_orientation():
+        nonlocal inserted
+        if orientation and orientation != 1 and not inserted:
+            out.extend(orientation_segment(orientation))
+            inserted = True
+
     while position < len(data):
         if data[position] != 0xFF or position + 1 >= len(data):
-            break  # damaged: keep the rest as is
+            if not in_image:
+                raise DamagedImage("The image file is damaged")
+            return bytes(out)  # junk after the picture: not kept
         marker = data[position + 1]
         if marker == 0xFF:  # fill byte
             position += 1
             continue
-        if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:  # markers without a length
+        if marker == 0x01 or 0xD0 <= marker <= 0xD7:  # markers without a length
             out += data[position:position + 2]
             position += 2
             continue
-        if marker == 0xD9:  # end of image
+        if marker == _EOI:
             out += data[position:position + 2]
-            position += 2
-            break
-        if position + 4 > len(data):
-            break
-        (length,) = struct.unpack(">H", data[position + 2:position + 4])
+            return bytes(out)  # anything after the picture (MPF images, motion-photo video) goes
+        if marker == 0xD8:
+            raise DamagedImage("The image file is damaged")
+        length = struct.unpack(">H", data[position + 2:position + 4])[0] if position + 4 <= len(data) else 0
         end = position + 2 + length
         if length < 2 or end > len(data):
-            break
-        payload = data[position + 4:end]
-        if marker == 0xDA:  # start of scan: the image data follows; copy everything after it
-            if orientation and orientation != 1 and not inserted:
-                out += orientation_segment(orientation)
-                inserted = True
-            out += data[position:]
+            if not in_image:
+                raise DamagedImage("The image file is damaged")
             return bytes(out)
-        if marker in _JPEG_DROP:
-            if marker == 0xE1 and orientation is None:
-                orientation = exif_orientation(payload)
-        else:
-            if marker != 0xE0 and orientation and orientation != 1 and not inserted:
-                out += orientation_segment(orientation)  # right after APP0, before the rest
-                inserted = True
+        payload = data[position + 4:end]
+        if marker == _SOS:
+            add_orientation()
+            in_image = True
+            end = _end_of_scan(data, end)  # the scan header plus its image data
             out += data[position:end]
+        elif _keep_jpeg_segment(marker, payload):
+            if marker != 0xE0:
+                add_orientation()  # right after APP0, before the rest
+            out += data[position:end]
+        elif marker == 0xE1 and orientation is None:
+            orientation = exif_orientation(payload)
         position = end
-    out += data[position:]
-    return bytes(out)
+    if not in_image:
+        raise DamagedImage("The image file is damaged")
+    return bytes(out)  # cut off inside the image data: kept as far as it goes
 
 
 # ---------------------------------------------------------------------------
@@ -126,11 +171,10 @@ def _strip_png(data: bytes) -> bytes:
         kind = data[position + 4:position + 8]
         end = position + 12 + length  # length, type, data, CRC
         if end > len(data) or not kind.isalpha():
-            break  # damaged: keep the rest as is
-        if kind not in _PNG_DROP:
+            raise DamagedImage("The image file is damaged")
+        if kind[:1].isupper() or kind in _PNG_KEEP:
             out += data[position:end]
         position = end
         if kind == b"IEND":
-            return bytes(out)
-    out += data[position:]
-    return bytes(out)
+            return bytes(out)  # anything after the picture goes
+    raise DamagedImage("The image file is damaged")  # no IEND: cut off

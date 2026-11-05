@@ -16,10 +16,10 @@ from backend.config import settings
 from backend.database import SessionLocal, set_request_identity
 from backend.main import app
 from backend.models import Document, LabResult, Patient, User
+from sample_files import png
 
 client = TestClient(app)
 PASSWORD = "correct horse battery"
-PNG = b"\x89PNG\r\n\x1a\n" + b"lab report pixels "
 REPORT = [("FBS", "5.6", "mmol/L"), ("Cholesterol", "5.2", "mmol/L"), ("HDL-C", "45", "mg/dL")]
 
 
@@ -59,7 +59,7 @@ def as_patient(session, email):
 
 
 def upload(headers):
-    data = PNG + uuid.uuid4().bytes  # a different file each time (same file twice is refused)
+    data = png(uuid.uuid4().bytes)  # a different file each time (same file twice is refused)
     response = client.post("/documents", headers=headers, files={"file": ("lab.png", data, "image/png")})
     assert response.status_code == 202
     return response.json()["document_id"]

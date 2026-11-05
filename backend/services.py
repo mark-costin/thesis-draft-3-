@@ -796,10 +796,21 @@ def detect_mime(data: bytes) -> str:
     raise UnsupportedFile("Only JPEG, PNG or PDF files are accepted")
 
 
+def stored_bytes(data: bytes) -> tuple[str, bytes]:
+    """The real file type and the bytes that are stored: photos lose their hidden metadata
+    (GPS, camera, comments) first (RA 10173). The checksum and duplicate check use these bytes."""
+    mime = detect_mime(data)
+    try:
+        return mime, image_privacy.strip_metadata(data, mime)
+    except image_privacy.DamagedImage as exc:
+        raise UnsupportedFile(str(exc)) from exc
+
+
 def pending_duplicate(db: Session, patient_id: int, data: bytes) -> Document | None:
     """The caller's earlier upload of this same file, if its OCR has not started yet."""
+    digest = hashlib.sha256(stored_bytes(data)[1]).hexdigest()  # the stored checksum is of the cleaned file
     return db.scalars(select(Document).where(Document.patient_id == patient_id,
-                                             Document.file_sha256 == hashlib.sha256(data).hexdigest(),
+                                             Document.file_sha256 == digest,
                                              Document.status == "pending")).one_or_none()
 
 
@@ -808,8 +819,7 @@ def upload_document(db: Session, user_id: int, patient_id: int, data: bytes) -> 
         raise UnsupportedFile("The file is empty")
     if len(data) > MAX_UPLOAD_BYTES:
         raise UnsupportedFile("The file is larger than 10 MB")
-    mime = detect_mime(data)
-    data = image_privacy.strip_metadata(data, mime)  # no GPS / camera / comments kept (RA 10173)
+    mime, data = stored_bytes(data)
     digest = hashlib.sha256(data).hexdigest()
 
     key = uuid.uuid4()

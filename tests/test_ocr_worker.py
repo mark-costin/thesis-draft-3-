@@ -15,10 +15,11 @@ from backend.config import settings
 from backend.database import SessionLocal, set_request_identity
 from backend.main import app
 from backend.models import Document, LabResult, Patient, User
+from sample_files import png
 
 client = TestClient(app)
 PASSWORD = "correct horse battery"
-PNG = b"\x89PNG\r\n\x1a\n" + b"lab report pixels "
+PNG = png()
 
 SAMPLE_REPORT = """CLINICAL CHEMISTRY
 Patient: Juan Dela Cruz   Age: 45
@@ -166,7 +167,7 @@ def as_patient(session, email):
 
 def upload(headers):
     response = client.post("/documents", headers=headers,
-                           files={"file": ("lab.png", PNG + uuid.uuid4().bytes, "image/png")})
+                           files={"file": ("lab.png", png(uuid.uuid4().bytes), "image/png")})
     assert response.status_code == 202
     return response.json()["document_id"]
 
@@ -344,7 +345,7 @@ def upload_bytes(headers, data):
 
 def test_redis_down_still_accepts_the_upload_and_the_same_file_retries(make_patient, engine, monkeypatch):
     email, headers = make_patient()
-    data = PNG + uuid.uuid4().bytes
+    data = png(uuid.uuid4().bytes)
     monkeypatch.setattr(settings, "redis_enabled", True)
     monkeypatch.setattr(settings, "redis_url", "redis://127.0.0.1:1/0")  # nothing listens here
     first = upload_bytes(headers, data)
