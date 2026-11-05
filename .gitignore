@@ -9,3 +9,7 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 .pytest_cache/
 ml/mlruns/
+
+# Trained model files: never committed (pickled code; registered by SHA-256 on each machine)
+ml/artifacts/*.joblib
+ml/artifacts/*.ubj
