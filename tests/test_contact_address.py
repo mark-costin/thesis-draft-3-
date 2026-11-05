@@ -1,4 +1,4 @@
-"""Contact number and home address on the profile (22_contact_and_google.sql)."""
+"""Contact number and home address on the profile (23_contact_and_google.sql)."""
 
 import uuid
 

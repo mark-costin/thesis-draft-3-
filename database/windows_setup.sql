@@ -1,6 +1,6 @@
 -- windows_setup.sql
 -- Purpose: Sets up med_db on Windows without Docker (DBeaver or psql).
--- Replaces 00_roles.sh (bash, Docker only), then runs 01-21, 99_security and the draft
+-- Replaces 00_roles.sh (bash, Docker only), then runs 01-23, 99_security and the draft
 -- care plan templates (seed_care_plan_templates.sql), in the same order as tests/create_test_db.ps1.
 -- Run ONCE on a NEW, EMPTY database named med_db, connected as postgres.
 -- Keep in sync: when a script in database/ is added or changed, update this file in the same PR.
@@ -1001,6 +1001,50 @@ UPDATE public.documents SET ocr_engine = 'none' WHERE ocr_engine = 'Chandra OCR'
 COMMENT ON COLUMN public.documents.ocr_engine IS
     'Engine that read the document (set by the OCR worker); ''none'' until an engine has read it';
 
+-- ============ 23_contact_and_google.sql ============
+-- 23_contact_and_google.sql
+-- Purpose: (1) contact number and home address on the patient's profile, as collected on the
+-- Create account and Account settings screens; (2) sign in with Google.
+-- Run on an existing med_db as postgres, then run 99_security.sql again (it grants the app
+-- UPDATE on the new profile columns). New databases run it in order like the other scripts.
+--
+-- RA 10173 (data minimization): the address is kept at barangay level plus an optional street
+-- line, the contact number is one mobile number, and none of it is a model input, an audit
+-- payload or part of a saved report. It is in the account export and is deleted with the account.
+
+-- ---------------------------------------------------------------------------
+-- 1. Contact number and home address (patients)
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.patients
+    ADD COLUMN IF NOT EXISTS contact_number    character varying(13),   -- 09171234567 or +639171234567
+    ADD COLUMN IF NOT EXISTS province          character varying(100),
+    ADD COLUMN IF NOT EXISTS city_municipality character varying(100),
+    ADD COLUMN IF NOT EXISTS barangay          character varying(100),
+    ADD COLUMN IF NOT EXISTS street            character varying(150);  -- optional house no. / street
+
+ALTER TABLE public.patients
+    ADD CONSTRAINT patients_contact_number_check
+        CHECK (contact_number IS NULL OR contact_number ~ '^(09[0-9]{9}|\+639[0-9]{9})$'),
+    -- A barangay needs its city, and a city needs its province (the screens pick them in that order)
+    ADD CONSTRAINT patients_address_order_check
+        CHECK ((barangay IS NULL OR city_municipality IS NOT NULL)
+           AND (city_municipality IS NULL OR province IS NOT NULL));
+
+-- ---------------------------------------------------------------------------
+-- 2. Sign in with Google (users)
+-- ---------------------------------------------------------------------------
+-- A Google account has no password: password_hash becomes optional and google_sub (Google's
+-- permanent account id from the verified ID token) identifies it. Every account has one or both.
+ALTER TABLE public.users
+    ALTER COLUMN password_hash DROP NOT NULL,
+    ADD COLUMN IF NOT EXISTS google_sub character varying(255);
+
+ALTER TABLE public.users
+    ADD CONSTRAINT users_has_a_sign_in_check CHECK (password_hash IS NOT NULL OR google_sub IS NOT NULL);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_users_google_sub ON public.users (google_sub)
+    WHERE google_sub IS NOT NULL;
+
 -- ============ 99_security.sql ============
 -- 99_security.sql
 -- Purpose: Zero Trust enforcement inside the database. Runs last.
@@ -1049,6 +1093,12 @@ CREATE POLICY patient_self ON public.patients
     USING (patient_id = public.current_patient_id()
            OR user_id = public.current_app_user_id())
     WITH CHECK (user_id = public.current_app_user_id());
+
+-- patients: the app may edit only the profile fields. Consent (privacy_consent,
+-- consent_version) and the IDs are not editable at the DB level, whatever the API does.
+REVOKE UPDATE ON public.patients FROM med_app;
+GRANT UPDATE (first_name, last_name, date_of_birth, biological_sex,
+              contact_number, province, city_municipality, barangay, street) ON public.patients TO med_app;
 
 -- users has no RLS: login must look up an account by email before anyone is authenticated.
 -- It holds credentials only (no health data); password hashes are Argon2id.

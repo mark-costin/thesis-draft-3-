@@ -30,6 +30,7 @@ folder in alphabetical order the first time the database volume is created.
 | `20_health_reports.sql` | `health_reports` | Saved report snapshots (patient-owned, RLS, never edited) |
 | `21_famhistory.sql` | changes to `patient_family_history`, `patient_fhrs_stratification` | Relatives, onset levels, 5 risk bands |
 | `22_ocr_engine_default.sql` | change to `documents` | `ocr_engine` default `'none'` (was `'Chandra OCR'`) |
+| `23_contact_and_google.sql` | changes to `patients`, `users` | Contact number and home address; sign in with Google (`google_sub`, optional password) |
 | `99_security.sql` | RLS policies, grants | Zero Trust enforcement (runs last) |
 | `seed_care_plan_templates.sql` | 12 draft templates | Not numbered, so Docker never loads unreviewed advice; run by hand as `postgres` |
 

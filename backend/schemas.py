@@ -41,13 +41,13 @@ def check_adult_birth_date(value: date) -> date:
 def strip_text(value):
     return value.strip() if isinstance(value, str) else value
 
-# Same pattern as patients_contact_number_check in 22_contact_and_google.sql
+# Same pattern as patients_contact_number_check in 23_contact_and_google.sql
 CONTACT_PATTERN = r"^(09[0-9]{9}|\+639[0-9]{9})$"
 ADDRESS_FIELDS = ("province", "city_municipality", "barangay")
 
 
 class ContactFields(BaseModel):
-    """Contact number and home address (22_contact_and_google.sql). All optional; never a model
+    """Contact number and home address (23_contact_and_google.sql). All optional; never a model
     input. Province, city and barangay are sent together, because the screens pick them in order
     and a barangay alone means nothing (patients_address_order_check)."""
 

@@ -49,7 +49,7 @@ class User(Base):
 
     user_id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
     email: Mapped[str] = mapped_column(String(254), nullable=False)
-    password_hash: Mapped[str | None] = mapped_column(Text)  # NULL for a Google-only account (22_contact_and_google.sql)
+    password_hash: Mapped[str | None] = mapped_column(Text)  # NULL for a Google-only account (23_contact_and_google.sql)
     failed_attempts: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"), nullable=False)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     token_version: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
@@ -76,7 +76,7 @@ class Patient(Base):
     consent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("now()"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("now()"), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("now()"), nullable=False)
-    # 22_contact_and_google.sql: optional, never a model input
+    # 23_contact_and_google.sql: optional, never a model input
     contact_number: Mapped[str | None] = mapped_column(String(13))
     province: Mapped[str | None] = mapped_column(String(100))
     city_municipality: Mapped[str | None] = mapped_column(String(100))

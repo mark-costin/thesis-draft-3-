@@ -1,4 +1,4 @@
--- 22_contact_and_google.sql
+-- 23_contact_and_google.sql
 -- Purpose: (1) contact number and home address on the patient's profile, as collected on the
 -- Create account and Account settings screens; (2) sign in with Google.
 -- Run on an existing med_db as postgres, then run 99_security.sql again (it grants the app

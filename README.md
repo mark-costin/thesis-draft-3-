@@ -71,6 +71,7 @@ thesis-d3/
 │   ├── explanations.py            # Plain-language sentences for SHAP factors
 │   ├── feature_builder.py         # Builds each model's inputs from the patient's saved data
 │   ├── fhrs.py                    # Family History Risk Score (Data Dictionary FHRS Guide)
+│   ├── google_auth.py             # Checks Google sign-in ID tokens (GOOGLE_CLIENT_ID)
 │   ├── image_privacy.py           # Removes GPS/camera metadata from uploaded photos
 │   ├── labs.py                    # Lab test names and unit conversion (OCR and manual entry)
 │   ├── mailer.py                  # Account emails (password reset)
@@ -92,6 +93,7 @@ thesis-d3/
 │   ├── 02_users.sql … 20_health_reports.sql   # One script per table (see below)
 │   ├── 21_famhistory.sql          # Changes to the family history tables (FHRS guide)
 │   ├── 22_ocr_engine_default.sql  # documents.ocr_engine default 'none'
+│   ├── 23_contact_and_google.sql  # Contact number, address, sign in with Google
 │   ├── 99_security.sql            # Row-level security and permissions (runs last)
 │   ├── seed_care_plan_templates.sql   # The 12 draft care plan templates (run by hand)
 │   ├── setup_windows.ps1          # One-step database setup on Windows
@@ -174,6 +176,7 @@ thesis-d3/
 | `20_health_reports.sql` | `health_reports` |
 | `21_famhistory.sql` | changes to `patient_family_history`, `patient_fhrs_stratification` |
 | `22_ocr_engine_default.sql` | change to `documents` (`ocr_engine` default `'none'`) |
+| `23_contact_and_google.sql` | changes to `patients`, `users` (contact, address, `google_sub`) |
 | `99_security.sql` | RLS policies and grants (runs last) |
 
 Generated folders (`.venv/`, `.pytest_cache/`, `__pycache__/`, `ml/mlruns/`, `ml/OCR/output/`), uploaded files and `.env` are left out because Git ignores them.
