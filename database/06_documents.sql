@@ -1,6 +1,7 @@
 -- 06_documents.sql
 -- Table: documents
--- Purpose: Uploaded lab documents and their Chandra OCR job status.
+-- Purpose: Uploaded lab documents and their OCR job status (the configured engine:
+-- PaddleOCR-VL; Chandra optional).
 -- The file itself is Fernet-encrypted on the Docker volume; only its storage key is stored here.
 
 CREATE TABLE IF NOT EXISTS public.documents (
@@ -12,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.documents (
     mime_type       character varying(30) NOT NULL,
     file_size_bytes integer NOT NULL,
     file_sha256     character(64) NOT NULL,                          -- integrity check of the original file
-    ocr_engine      character varying(50) NOT NULL DEFAULT 'Chandra OCR',
+    ocr_engine      character varying(50) NOT NULL DEFAULT 'none',          -- engine that read it (22_ocr_engine_default.sql)
     ocr_text        text,                                            -- cleared after verification (data minimization)
     ocr_confidence  numeric(5,2),
     status          character varying(20) NOT NULL DEFAULT 'pending',
