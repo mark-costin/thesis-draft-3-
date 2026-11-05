@@ -16,6 +16,6 @@ app.add_page(reset.page, route="/reset-password", title="New password | Patient 
 for route, mod, name, load in [("/dashboard", dashboard, "Dashboard", State.load_dashboard), ("/vitals", vitals, "Vitals & lifestyle", State.load_vitals_page),
                                ("/questionnaires", questionnaires, "Questionnaires", State.load_questionnaires_page),
                                ("/family", family, "Family history", State.load_family_page), ("/scan", scan, "Scan & assess", State.load_scan_page),
-                               ("/results", results, "Results", State.check_login), ("/reports", reports, "Reports", State.check_login),
+                               ("/results", results, "Results", State.load_results_page), ("/reports", reports, "Reports", State.load_reports_page),
                                ("/account", account, "Account settings", State.check_login)]:
     app.add_page(mod.page, route=route, title=f"{name} | Patient Portal", on_load=load)

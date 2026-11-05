@@ -49,6 +49,8 @@ class Reply:
         detail = self.data.get("detail") if isinstance(self.data, dict) else None
         if isinstance(detail, str):
             return detail
+        if isinstance(detail, dict) and isinstance(detail.get("message"), str):  # e.g. 409 with the existing id
+            return detail["message"]
         if isinstance(detail, list) and detail:  # FastAPI validation errors
             first = detail[0]
             text = str(first.get("msg", fallback)).removeprefix("Value error, ")

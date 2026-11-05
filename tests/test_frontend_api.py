@@ -146,3 +146,25 @@ async def test_typed_lab_values_leave_the_scan_list(in_process):
     assert reply.status == 201
     after = await api.call("GET", "/assessment/readiness", token)
     assert missing[0] not in lab_codes(after.data)
+
+
+@pytest.mark.anyio
+async def test_goal_and_report_requests(in_process):
+    """Reports & goals: the goal calls the screens make, and the messages for a missing assessment."""
+    token = await signed_in(in_process)
+    created = await api.call("POST", "/goals", token, json={"description": "Walk 30 minutes a day"}, idempotent=True)
+    assert created.status == 201
+    goal_id = created.data["goal_id"]
+    assert (await api.call("PATCH", f"/goals/{goal_id}", token, json={"is_completed": True})).data["is_completed"] is True
+    assert [g["goal_id"] for g in (await api.call("GET", "/goals", token, params={"limit": 200})).data] == [goal_id]
+
+    assert (await api.call("GET", "/reports", token)).data == []
+    missing = await api.call("POST", "/reports", token, json={"assessment_id": 999999}, idempotent=True)
+    assert missing.status == 404 and missing.message()
+    run = await api.call("POST", "/assessment/run", token, idempotent=True)
+    assert run.status in (409, 503)  # models off (503) or inputs missing (409): the screen explains both
+
+
+def test_messages_from_a_detail_object():
+    reply = api.Reply(409, {"detail": {"message": "This assessment is already saved as a report.", "report_id": 7}})
+    assert reply.message() == "This assessment is already saved as a report."

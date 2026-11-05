@@ -13,13 +13,12 @@ def report_row(r: Report) -> rx.Component:
     return rx.table.row(
         rx.table.row_header_cell(r.date, white_space="nowrap"),
         rx.table.cell(rx.hstack(rx.foreach(r.summary, lambda c: rx.badge(c.label, color_scheme=c.color, variant="soft")), spacing="2", wrap="wrap"),
-                      rx.text("Care plans: ", r.plans, size="1", color="var(--pp-ink-soft)", margin_top="6px")),
-        rx.table.cell(rx.hstack(rx.button(rx.icon("eye", size=14), "Open", size="2", variant="outline", on_click=rx.toast.info("Opens the saved report.")),
-                                rx.button(rx.icon("download", size=14), "Download PDF", size="2", on_click=State.download_report(r.date)), spacing="2", justify="end"), white_space="nowrap", text_align="right"))
+                      rx.text(r.plans, size="1", color="var(--pp-ink-soft)", margin_top="6px")),
+        rx.table.cell(rx.button(rx.icon("download", size=14), "Download PDF", size="2", on_click=State.download_report(r.report_id)), white_space="nowrap", text_align="right"))
 
 
-def goal_row(g: Goal, i: int) -> rx.Component:
-    return rx.hstack(rx.checkbox(checked=g.done, on_change=lambda v: State.toggle_goal(i, v), aria_label=g.text), rx.text(g.text, flex="1"), rx.badge(g.tag, variant="soft", color_scheme="gray"),
+def goal_row(g: Goal) -> rx.Component:
+    return rx.hstack(rx.checkbox(checked=g.done, on_change=lambda v: State.toggle_goal(g.goal_id, v), aria_label=g.text), rx.text(g.text, flex="1"), rx.badge(g.tag, variant="soft", color_scheme="gray"),
                      align="center", padding="12px 8px", border_top="1px solid var(--pp-border)", width="100%", class_name="pp-row")
 
 

@@ -116,6 +116,7 @@ class Chip:
 
 @dataclass
 class Report:
+    report_id: int
     date: str
     summary: list[Chip]
     plans: str = ""
@@ -123,6 +124,7 @@ class Report:
 
 @dataclass
 class Goal:
+    goal_id: int
     text: str
     done: bool
     tag: str
@@ -177,17 +179,6 @@ def make_risk(code: str, prob: float, tier: str | None = None) -> Risk:
     return Risk(code, name, short, tier, TIER_COLOR[tier], round(prob * 100), f"{prob:.2f}", TIER_NOTE[tier])
 
 
-# (sentence, short name, SHAP value: positive raises risk, negative lowers it)  TODO (Sprint 5): from the assessment
-REASONS = {
-    "CVD": [("Normal blood pressure lowered your risk", "Blood pressure", -0.6), ("Regular physical activity lowered your risk", "Activity", -0.45),
-            ("Your age raised your risk slightly", "Age", 0.2), ("Your family history raised your risk a little", "Family history", 0.15)],
-    "T2D": [("Your family history of diabetes increased your risk the most", "Family history", 0.84), ("A larger waist circumference raised your risk", "Waist", 0.58),
-            ("Regular physical activity lowered your risk", "Activity", -0.46), ("Normal blood pressure lowered your risk", "Blood pressure", -0.32)],
-    "CRD": [("Not smoking lowered your risk", "Smoking", -0.55), ("No dust exposure at work lowered your risk", "Dust exposure", -0.35),
-            ("Childhood asthma history raised your risk slightly", "Asthma history", 0.18), ("Normal oxygen level lowered your risk", "SpO2", -0.25)],
-    "NEURO": [("Short sleep raised your risk the most", "Sleep", 0.8), ("Family history raised your risk", "Family history", 0.62),
-              ("Regular physical activity lowered your risk", "Activity", -0.4), ("Your age lowered your risk", "Age", -0.2)],
-}
 
 
 def when_label(iso: str) -> str:
@@ -297,8 +288,10 @@ class State(rx.State):
     assessment_id: int = 0
 
     # ---- results, reports, goals (Sprint 5: sample data) ----
-    selected: str = "T2D"
-    reports: list[Report] = [Report("Oct 20, 2026", [Chip("CVD Low", "green"), Chip("T2D Moderate", "amber"), Chip("CRD Low", "green"), Chip("NEURO High", "red")], "CVD-LOW, T2D-MODERATE, CRD-LOW, NEURO-HIGH (v1.0)")]
+    selected: str = "CVD"
+    api_results: list[dict[str, Any]] = []   # DiseaseResult rows of the assessment on screen (GET /assessment/{id})
+    result_disclaimer: str = ""
+    reports: list[Report] = []
     goals: list[Goal] = []
 
     # ================= computed values =================
@@ -350,9 +343,23 @@ class State(rx.State):
         found = [r for r in self.risks if r.code == self.selected]
         return found[0] if found else make_risk(self.selected, 0.0)
 
+    def _result(self) -> dict[str, Any]:
+        return next((r for r in self.api_results if r["disease"] == self.selected), {})
+
     @rx.var
     def reasons(self) -> list[dict[str, Any]]:
-        return [{"name": n, "sentence": s, "raises": max(v, 0.0), "lowers": min(v, 0.0)} for s, n, v in REASONS[self.selected]]
+        """Top factors (SHAP) of the selected disease, from the API, with plain-language sentences."""
+        return [{"name": f["feature"].replace("_", " ").capitalize(), "sentence": f["sentence"],
+                 "raises": max(f["shap_value"], 0.0), "lowers": min(f["shap_value"], 0.0)}
+                for f in self._result().get("top_factors", [])]
+
+    @rx.var
+    def consult_message(self) -> str:
+        return self._result().get("consult_message") or ""
+
+    @rx.var
+    def has_plan(self) -> bool:
+        return bool(self._result().get("care_plan"))
 
     @rx.var
     def has_vitals(self) -> bool:
@@ -383,13 +390,23 @@ class State(rx.State):
 
     @rx.var
     def plan(self) -> dict[str, Any]:
-        """TODO (Sprint 5): the API returns the care plan with each result. Until then the sample plan."""
-        yes = lambda key: any(h.key == key and h.answer == "Yes" for h in self.history)
-        facts = {"smoker": self.smoking == "Current smoker", "dust": self.dust == "Yes", "rhinitis": yes("allergic_rhinitis"),
-                 "childhood_asthma": yes("childhood_asthma"), "gestational_dm": yes("gestational_diabetes"), "acanthosis": yes("acanthosis_nigricans"),
-                 "sedentary_hours": self.sedentary, "bmi": self.bmi if self.bmi != "--" else None, "sleep_hours": self.sleep,
-                 "alcohol_current": self.alcohol == "Current", "psqi": self.psqi, "tsh": self.tsh, "b12": self.b12, "sodium_mg": self.sodium, "band": self.fam_bands}
-        return careplan.build_plan(self.selected, self.probs.get(self.selected, 0.0), facts, {g.text for g in self.goals})
+        """The care plan the API picked for this result: the template for the disease and tier,
+        plus the add-ons whose trigger is true in the patient's saved data (backend/care_plan.py)."""
+        cp = self._result().get("care_plan") or {}
+        in_goals = {g.text for g in self.goals}
+        rows = []
+        for item, addon in [(i, False) for i in cp.get("base", [])] + [(a, True) for a in cp.get("addons", [])]:
+            category = item.get("category") or ("Based on your answers" if addon else "")
+            text = item.get("action", "")
+            rows.append({"text": text, "why": item.get("why", ""), "source": item.get("source", ""), "basis": item.get("basis", ""),
+                         "basis_color": "amber" if "Plan default" in item.get("basis", "") else "gray",
+                         "category": category, "label": category or "Care plan", "addon": addon,
+                         "goal": bool(item.get("goal")), "in_goals": text[:255] in in_goals})
+        tier = cp.get("risk_level", "")
+        return {"id": f"{cp.get('disease_domain', '')}-{tier.upper()}" if cp else "", "version": cp.get("version", ""),
+                "reviewed_by": cp.get("reviewed_by") or "", "reviewed_on": str(cp.get("reviewed_on") or ""), "is_draft": bool(cp.get("is_draft")),
+                "actions": [r for r in rows if r["category"] not in careplan.ALERT_CATEGORIES],
+                "alerts": [r for r in rows if r["category"] in careplan.ALERT_CATEGORIES]}
 
     @rx.var
     def plan_title(self) -> str:
@@ -411,11 +428,11 @@ class State(rx.State):
 
     @rx.var
     def plan_pending(self) -> bool:
-        return not self.plan["reviewed_by"]
+        return self.plan["is_draft"] or not self.plan["reviewed_by"]
 
     @rx.var
     def disclaimer(self) -> str:
-        return careplan.DISCLAIMER
+        return self.result_disclaimer or careplan.DISCLAIMER
 
     @rx.var
     def is_high(self) -> bool:
@@ -1225,39 +1242,108 @@ class State(rx.State):
         self.tiers = {r["disease"]: r["risk_level"] for r in reply.data["results"]}
         yield rx.redirect("/results")
 
-    # ================= results, reports, goals (Sprint 5: sample data) =================
+    # ================= results =================
+    @rx.event
+    async def load_results_page(self):
+        if not self.is_logged_in:
+            return rx.redirect("/")
+        if not self.assessment_id:
+            listed = await self._api("GET", "/assessment", params={"limit": 1})
+            if listed.ok and listed.data:
+                self.assessment_id = listed.data[0]["assessment_id"]
+        if self.assessment_id:
+            await self._load_assessment(self.assessment_id)
+        await self._load_goals()
+
+    async def _load_assessment(self, assessment_id: int):
+        reply = await self._api("GET", f"/assessment/{assessment_id}")
+        if not reply.ok:
+            return
+        self.api_results, self.result_disclaimer = reply.data["results"], reply.data.get("disclaimer", "")
+        self.probs = {r["disease"]: float(r["probability"]) for r in self.api_results}
+        self.tiers = {r["disease"]: r["risk_level"] for r in self.api_results}
+        if self.selected not in self.probs and self.api_results:
+            self.selected = self.api_results[0]["disease"]
+
     @rx.event
     def select_disease(self, code: str):
         self.selected = code
 
     @rx.event
-    def add_goal(self, text: str, category: str):
-        if any(g.text == text for g in self.goals):
+    async def save_report(self):
+        if not self.assessment_id:
+            return rx.toast.error("Run an assessment first.")
+        reply = await self._api("POST", "/reports", json={"assessment_id": self.assessment_id}, idempotent=True)
+        if reply.status == 409:  # already saved, or the care plans are not approved yet: the API says which
+            return rx.toast.info(reply.message("This assessment could not be saved as a report."))
+        if not reply.ok:
+            return rx.toast.error(reply.message("The report could not be saved."))
+        return [rx.toast.success("Report saved. It will not change, even if your data changes later."), rx.redirect("/reports")]
+
+    # ================= reports and goals =================
+    @rx.event
+    async def load_reports_page(self):
+        if not self.is_logged_in:
+            return rx.redirect("/")
+        await self._load_reports()
+        await self._load_goals()
+
+    async def _load_reports(self):
+        reply = await self._api("GET", "/reports")
+        if not reply.ok:
+            return
+        runs = await self._api("GET", "/assessment", params={"limit": 100})
+        levels = {a["assessment_id"]: a["risk_levels"] for a in (runs.data if runs.ok else [])}
+        self.reports = [Report(r["report_id"], when_label(r["created_at"]).split(",")[0] + f", {r['created_at'][:4]}",
+                               [Chip(f"{code} {tier}", TIER_COLOR.get(tier, "gray")) for code, tier in levels.get(r["assessment_id"], {}).items()],
+                               f"Assessment #{r['assessment_id']}")
+                        for r in reply.data]
+
+    @rx.event
+    async def download_report(self, report_id: int):
+        reply = await self._api("GET", f"/reports/{report_id}/pdf")
+        if reply.status == 503:
+            return rx.toast.info("PDF export needs the GTK libraries on this computer (they are included in Docker). The saved report itself is safe.")
+        if not reply.ok:
+            return rx.toast.error(reply.message("The PDF could not be made."))
+        return rx.download(data=reply.content, filename=f"health-report-{report_id}.pdf")
+
+    async def _load_goals(self):
+        reply = await self._api("GET", "/goals", params={"limit": 200})
+        if reply.ok:
+            self.goals = [Goal(g["goal_id"], g["description"], g["is_completed"],
+                               DISEASE_LABEL.get(g["disease_domain"], "My goal") if g.get("disease_domain") else "My goal")
+                          for g in reply.data]
+
+    @rx.event
+    async def add_goal(self, text: str, category: str):
+        """'Add as goal' on a care plan item: linked to this result (saved as 'suggested')."""
+        if any(g.text == text[:255] for g in self.goals):
             return rx.toast.info("This is already in your goals.")
-        self.goals = self.goals + [Goal(text, False, category)]
+        result_id = self._result().get("result_id")
+        body = {"description": text[:255]} | ({"result_id": result_id} if result_id else {})
+        reply = await self._api("POST", "/goals", json=body, idempotent=True)
+        if not reply.ok:
+            return rx.toast.error(reply.message("The goal could not be added."))
+        await self._load_goals()
         return rx.toast.success("Added to your goals.")
 
     @rx.event
-    def save_report(self):  # TODO (Sprint 5): POST /reports
-        d = datetime.now()
-        chips = [Chip(f"{r.code} {r.tier}", r.color) for r in self.risks]
-        ids = ", ".join(careplan.template_id(r.code, r.tier) for r in self.risks)
-        self.reports = [Report(f"{d:%b} {d.day}, {d.year}", chips, f"{ids} (v{careplan.TEMPLATE_VERSION})")] + self.reports
-        return [rx.toast.success("Report saved."), rx.redirect("/reports")]
+    async def toggle_goal(self, goal_id: int, value: bool):
+        reply = await self._api("PATCH", f"/goals/{goal_id}", json={"is_completed": value})
+        if not reply.ok:
+            return rx.toast.error(reply.message())
+        await self._load_goals()
 
     @rx.event
-    def download_report(self, date: str):  # TODO (Sprint 5): GET /reports/{id}/pdf
-        return rx.toast.info(f"The PDF for {date} is built by the backend.")
-
-    @rx.event
-    def toggle_goal(self, i: int, value: bool):
-        self.goals = [replace(g, done=value) if k == i else g for k, g in enumerate(self.goals)]
-
-    @rx.event
-    def new_goal(self, form: Form):
-        text = (form.get("goal") or "").strip()
-        if text:
-            self.goals = self.goals + [Goal(text, False, "My goal")]
+    async def new_goal(self, form: Form):
+        text = _clean(form, "goal")
+        if not text:
+            return
+        reply = await self._api("POST", "/goals", json={"description": text[:255]}, idempotent=True)
+        if not reply.ok:
+            return rx.toast.error(reply.message("The goal could not be added."))
+        await self._load_goals()
 
 
 def _screen_for(enter_in: str, instrument: str | None = None) -> str:
