@@ -7,6 +7,8 @@ returned in an API response, because that would let anyone reset anyone's passwo
 
 import logging
 
+from backend.config import settings
+
 logger = logging.getLogger("cdss.mailer")
 
 RESET_LINK = "http://localhost:3000/reset-password?token={token}"
@@ -14,6 +16,8 @@ RESET_LINK = "http://localhost:3000/reset-password?token={token}"
 
 def send_password_reset(email: str, token: str) -> None:
     link = RESET_LINK.format(token=token)
-    # DEVELOPMENT ONLY: replace with a real email sender before deployment
-    print(f"[dev mailer] Password reset link for {email}: {link}", flush=True)
-    logger.info("Password reset email queued")
+    # DEVELOPMENT ONLY: replace with a real email sender before deployment.
+    # Off unless PRINT_RESET_LINKS=true, because the console ends up in the server's logs.
+    if settings.print_reset_links:
+        print(f"[dev mailer] Password reset link for {email}: {link}", flush=True)
+    logger.info("Password reset email queued")  # no email address, no token
