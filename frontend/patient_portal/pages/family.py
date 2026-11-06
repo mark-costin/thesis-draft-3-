@@ -12,8 +12,8 @@ from ..ui import card, cols, empty_state, field, hint, page_header, shell, title
 # (21_famhistory.sql, Thompson & Thompson): half-siblings, grandchildren, nephews and nieces are
 # second degree; great-grandparents are third degree.
 DEGREE_TITLE = {
-    "1st degree": "First-degree: parents, brothers and sisters, children",
-    "2nd degree": "Second-degree: grandparents, uncles and aunts, half-siblings, grandchildren, nephews and nieces",
+    "1st degree": "First-degree: parents, siblings, children",
+    "2nd degree": "Second-degree: grandparents, uncles, aunts, half-siblings, grandchildren, nephews, nieces",
     "3rd degree": "Third-degree: cousins, great-grandparents",
 }
 
@@ -24,10 +24,14 @@ def relative_select() -> rx.Component:
     for i, (degree, items) in enumerate(RELATIVE_GROUPS):
         if i:
             groups.append(rx.select.separator())
-        groups.append(rx.select.group(rx.select.label(DEGREE_TITLE[degree]),
+        groups.append(rx.select.group(rx.select.label(DEGREE_TITLE[degree], white_space="normal", line_height="1.35", height="auto", padding_y="6px"),
                                       *[rx.select.item(label, value=label) for _, label in items]))
+    # The list opens under the box and is exactly as wide as it, so it stays on a phone screen;
+    # long headings wrap instead of running off the right edge.
     return rx.select.root(rx.select.trigger(placeholder="Select relative", width="100%"),
-                          rx.select.content(*groups, position="popper", max_height="420px"),
+                          rx.select.content(*groups, position="popper", side="bottom", side_offset=4,
+                                            width="var(--radix-select-trigger-width)", max_width="calc(100vw - 32px)",
+                                            max_height="min(420px, var(--radix-select-content-available-height))"),
                           value=State.fam_relative, on_change=State.set_fam_relative)
 
 

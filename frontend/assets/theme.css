@@ -121,6 +121,9 @@ h1, h2, h3, h4 { letter-spacing: -0.01em; color: var(--pp-ink); }
 .rt-TextFieldRoot { min-height: 44px; }
 .rt-TextFieldRoot:focus-within { box-shadow: var(--pp-ring); }
 .rt-SelectTrigger { min-height: 44px; }
+/* Drop-down lists never run off a phone screen; long items and headings wrap */
+.rt-SelectContent { max-width: calc(100vw - 32px); }
+.rt-SelectItem, .rt-SelectLabel { white-space: normal; height: auto; min-height: var(--select-item-height, 32px); }
 .rt-Button:where(.rt-r-size-3) { font-weight: 600; }
 .rt-Button, .rt-IconButton { transition: background .18s var(--pp-ease), transform .12s var(--pp-ease); }
 .rt-Button:not(:disabled):active { transform: translateY(1px); }
