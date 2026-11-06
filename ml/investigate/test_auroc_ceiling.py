@@ -69,18 +69,55 @@ def test_oracle_risk_is_higher_for_people_whose_onset_falls_in_the_window(gen):
 
 
 # ---------- the same test split as train_models.ipynb ----------
-def test_test_split_has_the_sizes_train_models_reported():
-    m = pd.read_csv(ROOT / "ml/artifacts/metrics.csv")
+def train_models_namespace():
+    """train_models.ipynb Cells 0-2 (setup, load_tables, split) run from ml/ai_model/. They read only committed
+    files (features.yaml, output/*.csv), never the git-ignored training run reports."""
+    import contextlib, io, json, os
+    cells = json.load(open(ROOT / "ml/ai_model/train_models.ipynb"))["cells"]
+    ns, here = {"__name__": "train_models"}, os.getcwd()
+    try:
+        os.chdir(ROOT / "ml/ai_model")
+        with contextlib.redirect_stdout(io.StringIO()):
+            for i in (2, 4, 6):
+                exec(compile("".join(cells[i]["source"]), f"train_models cell {i}", "exec"), ns)
+    finally:
+        os.chdir(here)
+    return ns
+
+
+def test_test_split_is_the_one_train_models_makes():
+    tm = train_models_namespace()
     for d in ("CVD", "T2D", "CRD", "NEURO"):
-        ids, y = ac.test_split(ROOT / "ml/synthetic/output", d, seed=20261101)
-        row = m[(m.disease == d) & (m.data == "test")].iloc[0]
-        assert len(ids) == row.n and y.sum() == row.pos, d
+        ids, y = ac.test_split(ROOT / "ml/synthetic/output", d, seed=tm["SEED"])
+        _, y_nb, pid_nb = tm["SPLITS"][d]["test"]
+        assert list(ids) == list(pid_nb) and (y == y_nb).all(), d
+
+
+def ignored_paths_named_in(text):
+    """The "ml/..." paths written in a test file that git ignores (works on a fresh clone: the files need not exist)."""
+    import re, subprocess
+    paths = sorted(set(re.findall(r'"(ml/[^"\s]+)"', text)))
+    return [p for p in paths if subprocess.run(["git", "check-ignore", "-q", p], cwd=ROOT).returncode == 0]
+
+
+def test_no_ml_test_reads_a_git_ignored_file():
+    """Git-ignored files (training run reports, the seed-2 CSVs) differ per machine: no tracked test may need one."""
+    import subprocess
+    tests = subprocess.run(["git", "ls-files", "ml/**/test_*.py"], cwd=ROOT, capture_output=True, text=True,
+                           check=True).stdout.split()
+    assert "ml/investigate/test_auroc_ceiling.py" in tests
+    for test_file in tests:
+        assert ignored_paths_named_in((ROOT / test_file).read_text(encoding="utf-8")) == [], test_file
+    # the check itself catches the old dependency
+    old_line = 'm = pd.read_csv(ROOT / "ml/' + 'artifacts/metrics.csv")'      # split so this file does not name it
+    assert ignored_paths_named_in(old_line) == ["ml/" + "artifacts/metrics.csv"]
 
 
 # ---------- 2. feature coverage ----------
 def test_coverage_lists_every_onset_factor_and_marks_model_inputs(gen):
     cov = ac.coverage(gen, ROOT / "ml/features.yaml")
-    factors = {k for rr in gen["RR"].values() for k in rr} | {"age", "sex", "family_history", "frailty"}
+    factors = ({k for rr in gen["RR"].values() for k in rr} | {k for tv in gen["TV_RR"].values() for k in tv}
+               | {"age", "sex", "family_history", "frailty"})
     assert factors <= set(cov["factor"])
     look = cov.set_index(["domain", "factor"])["model_input"]
     import yaml
@@ -92,6 +129,26 @@ def test_coverage_lists_every_onset_factor_and_marks_model_inputs(gen):
     smoking = look[("T2D", "smoker_current")]
     assert smoking == ("yes" if "smoking_status" in feats["T2D"] else "no")
     assert look[("CVD", "frailty")] == "no (unobservable)"
+    # NEURO (Phase 0c): insomnia is the baseline sleep band; obesity and diabetes change year by year
+    assert look[("NEURO", "insomnia")].startswith("yes") and "sleep_hours_day" in feats["NEURO"]
+    assert look[("NEURO", "obesity")] == ("yes" if "bmi" in feats["NEURO"] else "no")
+    assert look[("NEURO", "t2d")] == "no"                                  # a diagnosis is never a model input
+    used = cov.set_index(["domain", "factor"])["used for"]
+    assert "year by year" in used[("NEURO", "t2d")] and "year by year" in used[("NEURO", "obesity")]
+
+
+def test_oracle_counts_diabetes_only_if_it_began_before_the_index_year(gen):
+    p = ac.regenerate(gen, seed=gen["CFG"]["seed"], n=40)[37]
+    index = date(2021, 3, 1)
+    risk = {}
+    for label, year in (("none", None), ("before", 2015), ("after", 2023)):
+        q = dict(p, dx={**p["dx"], "T2D": year})
+        risk[label] = ac.oracle_risk(gen, q, "NEURO", index, "full")
+    assert risk["before"] > risk["none"]                                   # x1.15 on depression
+    assert risk["after"] == pytest.approx(risk["none"])                    # a later onset is not known at the index
+    q = dict(p, dx={**p["dx"], "T2D": 2015})
+    assert ac.oracle_risk(gen, q, "NEURO", index, "age_sex") == pytest.approx(
+        ac.oracle_risk(gen, p, "NEURO", index, "age_sex"))                 # age+sex variants have no risk factors
 
 
 # ---------- 3. information before a later index date ----------

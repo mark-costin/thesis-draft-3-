@@ -85,7 +85,15 @@ def oracle_risk(gen, p, domain, index_date, variant="full"):
         else:
             m = 1.0
         fam = 1.0 if variant == "age_sex" else gen["family_multiplier_now"](p, d, index_date.year)
-        hazards[d] = [gen["yearly_hazard"](d, y - p["birth_year"], p["sex"]) * m * fam for y in window_years(index_date)]
+        tv = 1.0
+        if variant in ("full", "no_frailty") and d in gen.get("TV_RR", {}):
+            # factors that change over time (Phase 0c: diabetes, BMI >= 30), as known at the index date:
+            # diabetes only if it began before the index year, BMI from the person's path in the index year
+            t2d = p["dx"].get("T2D")
+            tv = gen["onset_tv_mult"](p, d, index_date.year,
+                                      t2d_year=t2d if t2d is not None and t2d < index_date.year else None)
+        hazards[d] = [gen["yearly_hazard"](d, y - p["birth_year"], p["sex"]) * m * fam * tv
+                      for y in window_years(index_date)]
     return onset_probability(hazards)
 
 
@@ -119,6 +127,10 @@ FACTOR_FEATURES = {
     "low_activity": [("physical_activity_min_week", "yes")], "sedentary": [("sedentary_hours_day", "yes")],
     "gestational_diabetes": [("gestational_diabetes", "yes")], "allergic_rhinitis": [("allergic_rhinitis", "yes")],
     "occupational_dust": [("occupational_dust", "yes")], "tbi_history": [("tbi_history", "yes")],
+    # Phase 0c (NEURO): insomnia = the baseline sleep band; obesity and diabetes change year by year
+    "insomnia": [("sleep_hours_day", "yes (baseline sleep band)"), ("psqi", "yes (baseline PSQI band)")],
+    "obesity": [("bmi", "yes")],
+    "t2d": [],                                                    # a diagnosis is never a model input
 }
 REPORTABLE = {
     "age": "yes (profile)", "sex": "yes (profile)", "family_history": "yes (family history)",
@@ -133,6 +145,7 @@ REPORTABLE = {
     "gestational_diabetes": "yes (health history)", "allergic_rhinitis": "yes (health history)",
     "occupational_dust": "yes (lifestyle)", "tbi_history": "yes (health history)",
     "frailty": "no (random term, unobservable by design)",
+    "insomnia": "yes (sleep hours, PSQI)", "obesity": "yes (BMI)", "t2d": "yes (diagnosis in the app)",
 }
 
 
@@ -146,6 +159,8 @@ def coverage(gen, features_yaml):
         for d in diseases:
             for k, r in gen["RR"][d].items():
                 factors.setdefault(k, []).append(f"{d} x{r}")
+            for k, r in gen.get("TV_RR", {}).get(d, {}).items():
+                factors.setdefault(k, []).append(f"{d} x{r} year by year")
         for k in ("age", "sex", "family_history"):
             factors.setdefault(k, ["GBD rate" if k != "family_history" else f"x{gen['CFG']['family_multiplier']}"])
         for k, used in factors.items():
