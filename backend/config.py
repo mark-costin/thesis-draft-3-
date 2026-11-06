@@ -62,6 +62,15 @@ class Settings(BaseSettings):
     # Only for demos and tests before approval; must stay false for real patients.
     show_draft_care_plans: bool = False
 
+    # DEVELOPMENT ONLY. No mail server yet, so a password reset link (with the email address)
+    # can be printed to the API console. Must stay false on a server: there the console is the
+    # container log, and the link lets anyone who reads the log reset that password.
+    print_reset_links: bool = False
+    # Unhandled errors. false: the log gets only the error type and the route, and the client a
+    # plain 500. true: the full traceback is logged too (useful when debugging), but database
+    # errors can quote the values that failed, which may be health data. Keep false on a server.
+    log_error_details: bool = False
+
     @field_validator("document_encryption_key")
     @classmethod
     def check_fernet_key(cls, value: str) -> str:

@@ -1,4 +1,4 @@
-"""HTTP middleware: security headers, CORS, rate limiting (SlowAPI) and idempotency keys.
+"""HTTP middleware: security headers, safe error logging, CORS, rate limiting (SlowAPI) and idempotency keys.
 
 Redis is optional during development. With REDIS_ENABLED=false (the default) the rate limit
 counters and saved idempotent responses live in this process's memory, which is enough for one
@@ -9,6 +9,7 @@ deployment) so several API processes share the same counters and keys.
 import base64
 import hashlib
 import json
+import logging
 import re
 import time
 
@@ -263,11 +264,49 @@ class SecurityHeadersMiddleware:
 
 
 # ---------------------------------------------------------------------------
+# Unhandled errors
+# ---------------------------------------------------------------------------
+error_log = logging.getLogger("cdss.errors")
+
+
+class SafeErrorMiddleware:
+    """Catches any error a route did not handle. The log gets only the error type and the route,
+    and the client a plain 500. Without this, the server logs the full error message, and a
+    database error quotes the row that failed (e.g. 'Key (email)=(...)', a lab value, a name).
+    LOG_ERROR_DETAILS=true lets the error through unchanged, for debugging on your own PC."""
+
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        started = False
+
+        async def track(message: Message) -> None:
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, track)
+        except Exception as exc:
+            if settings.log_error_details:
+                raise
+            # The path holds record IDs at most; the query string and body are never logged
+            error_log.error("Unhandled %s on %s %s", type(exc).__name__, scope["method"], scope["path"])
+            if not started:  # if part of the response already went out, nothing more can be sent
+                await JSONResponse({"detail": "Something went wrong. Please try again."},
+                                   status_code=500)(scope, receive, send)
+
+
+# ---------------------------------------------------------------------------
 # Wiring
 # ---------------------------------------------------------------------------
 def install(app: FastAPI) -> None:
     """Adds the middleware. Starlette runs the last one added first, so a request passes
-    security headers -> CORS -> rate limit -> idempotency -> route."""
+    security headers -> safe errors -> CORS -> rate limit -> idempotency -> route."""
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -281,4 +320,6 @@ def install(app: FastAPI) -> None:
         allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
         expose_headers=[REPLAY_HEADER, "Retry-After"],
     )
-    app.add_middleware(SecurityHeadersMiddleware)  # outermost, so CORS and 429 answers get them too
+    app.add_middleware(SafeErrorMiddleware)  # catches errors in CORS, rate limit, idempotency and routes
+    # Outermost: every answer gets the security headers, the plain 500 from SafeErrorMiddleware too
+    app.add_middleware(SecurityHeadersMiddleware)
