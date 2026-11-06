@@ -168,8 +168,8 @@ def test_a_failure_part_way_saves_nothing(make_patient, models_on, monkeypatch):
         raise RuntimeError("model crashed")
 
     monkeypatch.setattr(models_on["CRD"], "contributions", broken)
-    with pytest.raises(RuntimeError):
-        client.post("/assessment/run", headers=headers)
+    # SafeErrorMiddleware turns the crash into a plain 500 (it used to reach the test client)
+    assert client.post("/assessment/run", headers=headers).status_code == 500
     assert saved_rows(email) == ([], [], [])
 
 

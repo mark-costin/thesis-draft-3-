@@ -169,5 +169,8 @@ def test_create_and_delete_are_audited_without_values(make_patient, monkeypatch)
     created, deleted = recorded[-2], recorded[-1]
     assert created[0] == "DATA_CREATED" and created[1]["table"] == "vitals_records"
     assert created[1]["fields"] == ["dbp", "sbp"] and created[1]["record_id"] == vitals_id
-    assert "135" not in str(created)
+    # Only IDs and field names, never the values. (Checking for the text "135" failed by chance
+    # once the test database reached user_id 1352.)
+    assert set(created[1]) == {"user_id", "patient_id", "table", "record_id", "fields"}
+    assert 135 not in created[1].values() and 85 not in created[1].values()
     assert deleted[0] == "DATA_DELETED" and deleted[1]["record_id"] == vitals_id

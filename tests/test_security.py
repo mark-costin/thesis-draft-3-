@@ -360,3 +360,23 @@ def test_login_token_is_not_cached_or_kept_for_replay(make_patient):
     again = client.post("/auth/login", json=body, headers=key)
     assert again.headers.get(REPLAY_HEADER) == "true"
     assert "access_token" not in again.text  # the saved copy has no token in it
+
+
+def test_security_headers_are_on_an_unhandled_error_500(monkeypatch):
+    """The plain 500 from SafeErrorMiddleware (Sprint 6) must carry the security headers too, so
+    SecurityHeadersMiddleware has to be the outermost middleware in install()."""
+    from fastapi import FastAPI
+    from backend import middleware
+
+    monkeypatch.setattr(settings, "log_error_details", False)
+    tiny = FastAPI()
+
+    @tiny.get("/boom")
+    def boom():
+        raise ValueError("Failing row contains (secret)")
+
+    middleware.install(tiny)
+    response = TestClient(tiny).get("/boom")
+    assert response.status_code == 500 and "secret" not in response.text
+    for name, value in SECURITY_HEADERS.items():
+        assert response.headers.get(name) == value, name
