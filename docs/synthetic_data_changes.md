@@ -362,6 +362,70 @@ stops the notebook.
 
 ---
 
+## Change 4: NEURO risk factors (Phase 0c, Nov 6, 2026)
+
+Before, depression had one risk factor (traumatic brain injury, 1.59) and GAD none, so NEURO onset
+was almost only age, sex, family history and frailty. Added (decisions Nov 6); every value below
+is **author-defined (new, not yet physician-reviewed)**:
+
+| Disease | Factor (flag in the generator) | RR | Source |
+|---|---|---|---|
+| Depression | insomnia: baseline sleep hours in the Moderate band or worse, drawn before any disease (`insomnia`, share = `baseline_mod_share`, 20%) | 2.83 | Hertenstein E, Feige B, Gmeiner T, Kienzler C, Spiegelhalder K, Johann A, Jansson-Fröjmark M, Palagini L, Rücker G, Riemann D, Baglioni C. Insomnia as a predictor of mental disorders: a systematic review and meta-analysis. *Sleep Med Rev* 2019;43:96-105. doi:10.1016/j.smrv.2018.10.006. Pooled OR, depression, 10 studies (95% CI 1.55-5.17). Checked against the paper's abstract (PubMed 30537570); the full text is subscription-only, so the table number is to be added |
+| GAD | insomnia (same flag) | 3.23 | Same paper. Pooled OR, anxiety, 6 studies (95% CI 1.52-6.85) |
+| Depression | activity below 150 min/week (`low_activity`, existing flag) | 1.20 | Schuch FB, et al. Physical activity and incident depression: a meta-analysis of prospective cohort studies. *Am J Psychiatry* 2018;175(7):631-48. High vs low activity AOR 0.83 (0.79-0.88), so 1/0.83 |
+| GAD | activity below 150 min/week | 1.35 | Schuch FB, et al. Physical activity protects from incident anxiety: a meta-analysis of prospective cohort studies. *Depress Anxiety* 2019;36(9):846-58. AOR 0.74 (0.62-0.88), so 1/0.74 |
+| Depression | current smoker | 1.62 | Luger TM, Suls J, Vander Weg MW. How robust is the association between smoking and depression in adults? A meta-analysis using linear mixed-effects models. *Addict Behav* 2014;39(10):1418-29. Prospective studies, smokers vs never smokers, OR 1.62 (1.10-2.40) |
+| Depression | obesity, BMI >= 30 on 1 July of the year (Luppino's definition), from the person's own BMI path | 1.55 | Luppino FS, et al. Overweight, obesity, and depression: a systematic review and meta-analysis of longitudinal studies. *Arch Gen Psychiatry* 2010;67(3):220-9. Unadjusted OR 1.55 (1.22-1.98) |
+| Depression | type 2 diabetes, from the year after its onset year | 1.15 | Mezuk B, Eaton WW, Albrecht S, Golden SH. Depression and type 2 diabetes over the lifespan: a meta-analysis. *Diabetes Care* 2008;31(12):2383-90. RR 1.15 (1.02-1.30) |
+
+Left out: childhood maltreatment (not collected by the app; sensitive), smoking and obesity for
+GAD (no pooled prospective estimate found), diabetes for GAD.
+
+**Odds ratios used as relative risks.** Hertenstein, Schuch, Luger and Luppino report odds ratios.
+An odds ratio is close to the relative risk when the outcome is rare in the study's follow-up
+(Zhang J, Yu KF. What's the relative risk? *JAMA* 1998;280(19):1690-1). Here the yearly onset
+chance of depression and GAD is well under 1% at every age and the 5-year label rate is 1.2-1.3%,
+so with OR 1.2-3.2 the corresponding RR is within a few percent of the OR (Zhang-Yu:
+RR = OR / (1 - p0 + p0 x OR), with p0 = the outcome risk in the unexposed). The same reasoning
+covers the odds ratios already used in Change 1.
+
+**How they enter.** Insomnia, low activity and smoking are fixed flags drawn before any disease and
+join the personal multiplier M (its average stays 1; tested). Diabetes and obesity change over time,
+so they multiply the depression hazard year by year (`onset_tv_mult`): diabetes only from the year
+after its onset year (the same order as the family rule), obesity from the BMI path on 1 July
+(which drifts with type 2 diabetes risk, never with a diagnosis). The obesity factor is divided by
+its population average (`OBESITY_SHARE` 0.10, ENNS 2021 adults 20-59 with BMI >= 30) so the
+calibrated depression rates keep their meaning; diabetes is not (its effect on the average is
+about 1-2%). The value drift (`risk_z`) uses the same factors, only from the past.
+
+**Cause before consequence (sleep rule, approved Nov 6).** Insomnia is a cause, and sleep
+disturbance is also a symptom of depression and GAD. So: (1) insomnia = the baseline sleep band
+(Moderate or worse), drawn before any disease, and PSQI's baseline band is tied to it; (2) before
+diagnosis sleep hours and PSQI stay at that baseline (no drift with NEURO risk); (3) after
+depression or GAD starts they go High, and the 2-year episode rule is unchanged. A NEURO diagnosis
+does not change any value marked as a cause (activity, BMI, smoking; tested).
+
+**Results, 5,000 patients (first 5,000 of the Change 3 data before, same seed after):** PSQI High
+in people without any disease 33% -> 0%, sleep hours High 32% -> 0% (Moderate about 20%, the
+insomnia share). PHQ-9 >= 10 at the last visit 3.7% -> 3.5% (target 3.3-9.9%, PASS). NEURO label
+56 -> 62 (1.2% -> 1.3%). All hard rules and 18/18 population checks pass. The band-only leak check
+for NEURO rose 0.58 -> 0.67: insomnia is now a real cause drawn before any disease and shows in the
+baseline sleep band; the no-leak test (two copies differing only in the diagnosis year) still passes.
+
+**Results, final run (20,000 patients; seed 20261101 / seed 20261102):** hard rules 0 failures;
+18/18 population checks PASS (PHQ-9 >= 10: 3.8% / 3.7%); family multiplier measured back 1.97 / 1.99
+(depression 1.94 / 1.95, GAD 2.28 / 2.79); NEURO label 243 / 247 (1.3%); PSQI and sleep hours High
+in people without disease 0% (Moderate 18-19%). GAD ever diagnosed by the last visit (Notebook 2,
+Cell 3d, informational): all adults 0.9% / 0.7%, adults 70+ 1.7% / 1.0% (lifetime target 1.6%).
+
+Leak check, NEURO, bands only: 0.666 / 0.677 with all bands; 0.645 / 0.655 without the sleep-hours
+and PSQI bands (before Change 4: 0.616 / 0.628). So the rise is not only insomnia: the generator's
+own NEURO risk is now better explained (oracle 0.678 -> 0.716, without frailty 0.628 -> 0.676), and
+PHQ-9 and GAD-7 drift with that risk (GAD-7 Moderate in future cases 54% vs non-cases 41%; before
+49% vs 47%). Not a leak: values before diagnosis do not depend on the diagnosis year (tested).
+
+---
+
 ## Questions for the physician
 
 1. **FEV1/FVC band.** The Data Dictionary's Moderate band for FEV1/FVC (60-69.9%) lies wholly
@@ -371,7 +435,8 @@ stops the notebook.
    Should the Moderate band be 70-71.9%, or should the CRD rule use a different cut-off?
 2. **PSQI and sleep hours in people without disease.** In the Nov 6 5,000-patient run, 32% of the
    2,742 people who never get any disease had PSQI and sleep hours in the High band at their first
-   visit (they drift with depression and anxiety risk). Is that plausible for healthy adults?
+   visit (they drifted with depression and anxiety risk). Since Change 4 they keep their baseline
+   until a NEURO diagnosis: 0% High, about 20% Moderate (the insomnia share). Is that plausible?
 3. **CRD values in people without disease.** In the same people, most CRD values (FEV1, FVC,
    FEV1 % predicted, PEF, SpO2, eosinophils, FeNO, IgE, mMRC) were High in about 17-22%. Is that
    plausible?
@@ -379,3 +444,8 @@ stops the notebook.
    longer pushed to High by a diagnosis (they are causes). Triglycerides, uric acid, heart rate,
    hs-CRP and kidney values are still pushed to High (treated as consequences). Is that split
    right?
+5. **GAD lifetime target.** Is the GAD lifetime target of 1.6% appropriate? (Approved on Nov 5;
+   GBD's "anxiety disorders" covers more than GAD.)
+6. **Sleep in people without disease (since Change 4).** With the sleep rule, 0% of people without
+   any disease have High PSQI or sleep hours (about 19% Moderate, the insomnia share). Is that
+   realistic?
