@@ -5,7 +5,10 @@ from sqlalchemy.orm import Session, SessionTransaction, sessionmaker
 
 from backend.config import settings
 
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+# hide_parameters: SQLAlchemy log lines and error messages show "[SQL parameters hidden]"
+# instead of the values, which are often health data (lab values, names, answers).
+ENGINE_OPTIONS = {"pool_pre_ping": True, "hide_parameters": True}
+engine = create_engine(settings.database_url, **ENGINE_OPTIONS)
 SessionLocal = sessionmaker(bind=engine, autoflush=False)
 
 _IDENTITY_KEY = "rls_identity"
