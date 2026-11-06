@@ -118,9 +118,10 @@ def test_only_family_history_left(make_patient):
     _, headers = make_patient()
     enter_everything(headers)
     body = client.get("/assessment/readiness", headers=headers).json()
-    assert required_names(body) == {"fhrs_cvd", "fhrs_t2d", "fhrs_neuro"}
+    # fhrs_crd: a CRD input since Nov 2026 (AUROC-ceiling investigation), so CRD waits for family history too
+    assert required_names(body) == {"fhrs_cvd", "fhrs_t2d", "fhrs_crd", "fhrs_neuro"}
     assert {item["enter_in"] for item in body["missing_required"]} == {"Family history"}
-    assert body["models"]["CRD"]["ready"] is True
+    assert body["models"]["CRD"]["ready"] is False
 
 
 def test_never_smoker_needs_no_pack_years(make_patient):
