@@ -433,7 +433,8 @@ Cell 3d, informational): all adults 0.9% / 0.7%, adults 70+ 1.7% / 1.0% (lifetim
 
 Leak check, NEURO, bands only: 0.666 / 0.677 with all bands; 0.645 / 0.655 without the sleep-hours
 and PSQI bands (before Change 4: 0.616 / 0.628). So the rise is not only insomnia: the generator's
-own NEURO risk is now better explained (oracle 0.678 -> 0.716, without frailty 0.628 -> 0.676), and
+own NEURO risk is now better explained (oracle 0.678 -> 0.715, without frailty 0.628 -> 0.674, seed 1;
+including the year-by-year diabetes and obesity factors, `ml/investigate/auroc_ceiling.py`), and
 PHQ-9 and GAD-7 drift with that risk (GAD-7 Moderate in future cases 54% vs non-cases 41%; before
 49% vs 47%). Not a leak: values before diagnosis do not depend on the diagnosis year (tested).
 
