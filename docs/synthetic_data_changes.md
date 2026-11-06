@@ -353,6 +353,19 @@ is a group decision).
 
 Test counts in the saved notebook outputs: Notebook 1 109 passed, Notebook 2 31 passed (both seeds).
 
+### Regenerating the second seed
+
+`ml/synthetic/output_seed2/*.csv` are not committed (git-ignored): Notebook 1 rebuilds them exactly,
+because every patient gets its own random stream from (seed, patient id). From `ml/synthetic/`:
+
+    uv run --group ml jupyter nbconvert --to notebook --execute --inplace 01_syntgen.ipynb
+    SYNTH_DIR=output_seed2 uv run --group ml jupyter nbconvert --to notebook --execute 02_synthval.ipynb \
+        --output-dir output_seed2 --output 02_synthval_seed2.ipynb
+
+The first writes 20,000 patients with seed 20261101 to `output/` and with seed 20261102 to
+`output_seed2/` (about 8 minutes); the second checks the second seed. The executed check,
+`output_seed2/02_synthval_seed2.ipynb`, is committed as the record of that run.
+
 ### ipytest
 
 The `%%ipytest` cells collected no tests when run from `ml/synthetic/` (the folder was a Python
