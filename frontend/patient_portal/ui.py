@@ -5,6 +5,7 @@ One brand colour (clinic teal-blue); green / amber / red appear only to show sta
 Public helpers keep their original signatures, so every page keeps working.
 """
 import reflex as rx
+from reflex.style import set_color_mode
 
 from .insights import Insights
 from .state import State
@@ -73,7 +74,7 @@ def stepper(current: int) -> rx.Component:
     for i, name in enumerate(STEPS, 1):
         done, on = i < current, i == current
         dot = rx.center(rx.icon("check", size=15, stroke_width=3) if done else rx.text(str(i), size="2", weight="bold"), width="30px", height="30px", border_radius="50%", flex_shrink="0",
-                        class_name="pp-step-dot", background="var(--pp-brand)" if (done or on) else "var(--pp-surface-muted)", color="white" if (done or on) else "var(--pp-ink-soft)",
+                        class_name="pp-step-dot", background="var(--pp-brand)" if (done or on) else "var(--pp-surface-muted)", color="var(--accent-contrast)" if (done or on) else "var(--pp-ink-soft)",
                         border="2px solid var(--pp-brand)" if (done or on) else "2px solid var(--pp-border-strong)")
         label = rx.text(name, size="2", weight="bold" if on else "medium", color="var(--pp-ink)" if on else "var(--pp-ink-soft)", display=rx.breakpoints(initial="block" if on else "none", sm="block"))
         items.append(rx.hstack(dot, label, spacing="2", align="center", **({"aria_current": "step"} if on else {})))
@@ -99,24 +100,16 @@ def nav_link(label: str, href: str, active: str) -> rx.Component:
     return rx.link(rx.icon(NAV_ICONS.get(label, "circle"), size=17), label, href=href, underline="none", class_name="pp-nav-link", **extra)
 
 
-def _first_working(*makers):
-    """Returns the first thing that builds without an error. Reflex has moved its colour-mode helpers between versions, so try each known place."""
-    for make in makers:
-        try:
-            return make()
-        except (AttributeError, TypeError):
-            continue
-    return None
-
-
 def set_mode(mode: str):
-    """Event that switches the theme to "light", "dark" or "system"."""
-    return _first_working(lambda: rx.color_mode.set_color_mode(mode), lambda: rx.set_color_mode(mode), lambda: rx.color_mode.set(mode))
+    """Event that switches the theme to "light", "dark" or "system" (saved in this browser).
+    rx.color_mode is a value, not a place for helpers: rx.color_mode.set_color_mode(...) builds
+    without an error but does nothing, which is why the Theme menu did not work."""
+    return set_color_mode(mode)
 
 
 def toggle_mode():
     """Event that flips between light and dark."""
-    return _first_working(lambda: rx.toggle_color_mode, lambda: rx.color_mode.toggle_color_mode)
+    return rx.toggle_color_mode
 
 
 def theme_toggle() -> rx.Component:
@@ -167,16 +160,22 @@ def user_menu() -> rx.Component:
 
 
 def topbar(active: str | None) -> rx.Component:
-    if active is None:
-        mid, right = rx.fragment(), rx.hstack(theme_toggle(), rx.fragment(), spacing="3", align="center")
-    else:
-        mid = rx.fragment(
-            rx.el.nav(rx.hstack(*[nav_link(l, h, active) for l, h in NAV], spacing="1"), aria_label="Main navigation", display=rx.breakpoints(initial="none", lg="block")),
-            rx.menu.root(rx.menu.trigger(rx.icon_button(rx.icon("menu"), variant="soft", size="3", aria_label="Open navigation menu", display=rx.breakpoints(initial="flex", lg="none"))),
-                         rx.menu.content(*[rx.menu.item(rx.link(rx.hstack(rx.icon(NAV_ICONS.get(l, "circle"), size=16), l, spacing="2", align="center"), href=h, underline="none")) for l, h in NAV])))
-        right = rx.hstack(bell(), user_menu(), spacing="2", align="center")
-    return rx.hstack(brand(), mid, right, justify="between", align="center", spacing="5", width="100%", class_name="pp-topbar",
-                     padding=rx.breakpoints(initial="10px 16px", md="12px 32px", lg="12px 40px", xl="12px 64px"))
+    """Laptop: logo, nav links, bell and account menu. Phone and tablet (below lg): the
+    hamburger menu takes the logo's place on the left, then the bell and account menu."""
+    pad = rx.breakpoints(initial="10px 16px", md="12px 32px", lg="12px 40px", xl="12px 64px")
+    if active is None:  # sign-in screens: logo and theme switch only
+        return rx.hstack(brand(), rx.hstack(theme_toggle(), spacing="3", align="center"),
+                         justify="between", align="center", spacing="5", width="100%", class_name="pp-topbar", padding=pad)
+    hamburger = rx.menu.root(
+        rx.menu.trigger(rx.icon_button(rx.icon("menu"), variant="soft", size="3", aria_label="Open navigation menu",
+                                       display=rx.breakpoints(initial="flex", lg="none"))),
+        rx.menu.content(*[rx.menu.item(rx.link(rx.hstack(rx.icon(NAV_ICONS.get(l, "circle"), size=16), l, spacing="2", align="center"), href=h, underline="none"))
+                          for l, h in NAV], align="start"))
+    left = rx.hstack(hamburger, rx.box(brand(), display=rx.breakpoints(initial="none", lg="block")), spacing="3", align="center")
+    nav = rx.el.nav(rx.hstack(*[nav_link(l, h, active) for l, h in NAV], spacing="1"), aria_label="Main navigation",
+                    display=rx.breakpoints(initial="none", lg="block"))
+    right = rx.hstack(bell(), user_menu(), spacing="2", align="center")
+    return rx.hstack(left, nav, right, justify="between", align="center", spacing="5", width="100%", class_name="pp-topbar", padding=pad)
 
 
 def footer() -> rx.Component:

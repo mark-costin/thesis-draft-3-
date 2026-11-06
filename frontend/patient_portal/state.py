@@ -142,6 +142,9 @@ TIER_NOTE = {"Low": "Low Risk - Routine yearly prevention", "Moderate": "Moderat
 DISEASES = [("CVD", "Cardiovascular (CVD)", "Cardiovascular"), ("T2D", "Type 2 Diabetes (T2D)", "Type 2 Diabetes"),
             ("CRD", "Chronic Respiratory (CRD)", "Chronic Respiratory"), ("NEURO", "Mental Health & Neuro", "Mental Health & Neuro")]
 DISEASE_LABEL = {"CVD": "Cardiovascular", "T2D": "Type 2 diabetes", "CRD": "Chronic respiratory", "NEURO": "Mental health & neuro"}
+# Family history diagnosis choices, one per condition group. Picking one sets its group, so a
+# diagnosis can never sit in the wrong group (the FHRS scores by group).
+FAMILY_DIAGNOSES = {"Heart attack": "CVD", "Type 2 diabetes": "T2D", "Asthma": "CRD", "Depression": "NEURO"}
 
 # Family history: the API's relative codes (backend/fhrs.py) and the words shown on screen
 RELATIVE_GROUPS = [
@@ -263,6 +266,7 @@ class State(rx.State):
     bands: dict[str, str] = {}       # disease -> Baseline | Mild | Moderate | Pronounced | Critical
     fam_relative: str = ""
     fam_disease: str = ""
+    fam_diagnosis: str = ""
 
     # ---- questionnaires (Screen 5) ----
     q_instrument: str = "PHQ9"
@@ -389,6 +393,10 @@ class State(rx.State):
         return list(DISEASE_LABEL.values())
 
     @rx.var
+    def diagnosis_options(self) -> list[str]:
+        return list(FAMILY_DIAGNOSES)
+
+    @rx.var
     def plan(self) -> dict[str, Any]:
         """The care plan the API picked for this result: the template for the disease and tier,
         plus the add-ons whose trigger is true in the patient's saved data (backend/care_plan.py)."""
@@ -449,7 +457,7 @@ class State(rx.State):
     @rx.var
     def missing_for_run(self) -> list[str]:
         """What still blocks the assessment, from the API's readiness check."""
-        return [c.label.lower() for c in self.checklist if not c.done]
+        return [c.label for c in self.checklist if not c.done]
 
     @rx.var
     def run_hint(self) -> str:
@@ -948,6 +956,14 @@ class State(rx.State):
     @rx.event
     def set_fam_disease(self, value: str):
         self.fam_disease = value
+        if self.fam_diagnosis and DISEASE_LABEL.get(FAMILY_DIAGNOSES[self.fam_diagnosis]) != value:
+            self.fam_diagnosis = ""  # it belonged to another group
+
+    @rx.event
+    def set_fam_diagnosis(self, value: str):
+        self.fam_diagnosis = value
+        if value in FAMILY_DIAGNOSES:
+            self.fam_disease = DISEASE_LABEL[FAMILY_DIAGNOSES[value]]
 
     @rx.event
     async def add_family_entry(self, form: Form):
@@ -955,9 +971,9 @@ class State(rx.State):
         disease = next((code for code, label in DISEASE_LABEL.items() if label == self.fam_disease), None)
         if not relative or not disease:
             return rx.toast.error("Choose the relative and the condition group.")
-        diagnosis = _clean(form, "diagnosis")
-        if not diagnosis:
-            return rx.toast.error("Type the diagnosis, for example Hypertension or Asthma.")
+        diagnosis = self.fam_diagnosis
+        if FAMILY_DIAGNOSES.get(diagnosis) != disease:
+            return rx.toast.error("Choose the diagnosis.")
         try:
             age = _number(form.get("age"), int)
         except ValueError:
@@ -971,7 +987,8 @@ class State(rx.State):
         if not reply.ok:
             return rx.toast.error(reply.message("This relative could not be saved."))
         await self._load_family()
-        return [rx.toast.success("Saved. Your family history score was updated."), rx.set_value("fam_diagnosis", ""), rx.set_value("fam_age", "")]
+        self.fam_diagnosis = ""
+        return [rx.toast.success("Saved. Your family history score was updated."), rx.set_value("fam_age", "")]
 
     @rx.event
     async def delete_family_entry(self, record_id: int):

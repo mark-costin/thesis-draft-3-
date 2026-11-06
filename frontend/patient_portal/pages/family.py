@@ -4,17 +4,41 @@ whether a doctor confirmed it, and whether they lived in the same household. The
 the Family History Risk Score (FHRS) band for each disease after every change."""
 import reflex as rx
 
-from ..state import FamilyEntry, State
+from ..state import RELATIVE_GROUPS, FamilyEntry, State
 from ..ui import card, cols, empty_state, field, hint, page_header, shell, title
+
+
+# Group headings in the Relative list. The groups follow the degree the database stores
+# (21_famhistory.sql, Thompson & Thompson): half-siblings, grandchildren, nephews and nieces are
+# second degree; great-grandparents are third degree.
+DEGREE_TITLE = {
+    "1st degree": "First-degree: parents, brothers and sisters, children",
+    "2nd degree": "Second-degree: grandparents, uncles and aunts, half-siblings, grandchildren, nephews and nieces",
+    "3rd degree": "Third-degree: cousins, great-grandparents",
+}
+
+
+def relative_select() -> rx.Component:
+    """The relatives grouped by degree, each group under its own heading."""
+    groups = []
+    for i, (degree, items) in enumerate(RELATIVE_GROUPS):
+        if i:
+            groups.append(rx.select.separator())
+        groups.append(rx.select.group(rx.select.label(DEGREE_TITLE[degree]),
+                                      *[rx.select.item(label, value=label) for _, label in items]))
+    return rx.select.root(rx.select.trigger(placeholder="Select relative", width="100%"),
+                          rx.select.content(*groups, position="popper", max_height="420px"),
+                          value=State.fam_relative, on_change=State.set_fam_relative)
 
 
 def add_form() -> rx.Component:
     return rx.form(
         rx.grid(
-            field("Relative", rx.select(State.relative_options, value=State.fam_relative, on_change=State.set_fam_relative, placeholder="Select relative", width="100%"),
+            field("Relative", relative_select(),
                   tip="Blood relatives only. Pick the exact relative: the side of the family and the relative's sex change the score."),
             field("Condition group", rx.select(State.disease_options, value=State.fam_disease, on_change=State.set_fam_disease, placeholder="Select", width="100%")),
-            field("Diagnosis", rx.input(name="diagnosis", id="fam_diagnosis", placeholder="e.g. Heart attack, Type 2 diabetes, Asthma, Depression", max_length=150)),
+            field("Diagnosis", rx.select(State.diagnosis_options, value=State.fam_diagnosis, on_change=State.set_fam_diagnosis, placeholder="Select diagnosis", width="100%"),
+                  tip="Picking a diagnosis also picks its condition group."),
             field("Age when diagnosed", rx.input(name="age", id="fam_age", type="number", min=0, max=120, placeholder="Leave blank if unknown"),
                   tip="An earlier age counts for more. Leave it blank if you do not know."),
             field("Confirmed by a doctor?", rx.select(["Yes", "No", "Not sure"], name="confirmed", default_value="Not sure", width="100%")),
