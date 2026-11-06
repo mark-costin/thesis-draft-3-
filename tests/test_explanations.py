@@ -24,6 +24,8 @@ def sample_value(name):
         return 1
     if isinstance(entry, explanations.Sex):
         return "Male"
+    if isinstance(entry, explanations.Category):
+        return entry.levels[-1][0]
     return 12.5
 
 
@@ -111,3 +113,26 @@ def test_ranked_factors_explain_capped_values():
 def test_zero_pack_years_reads_as_not_smoking():
     assert explanations.sentence("pack_years", 0, -0.2, "CRD") == "Not smoking lowered your risk of chronic lung disease."
     assert explanations.sentence("pack_years", 12.5, 0.2, "CRD").startswith("Your smoking history of 12.5 pack-years")
+
+
+# ---------------------------------------------------------------------------
+# Inputs added in Nov 2026 (AUROC-ceiling investigation): smoking status and the CRD family history
+# ---------------------------------------------------------------------------
+def test_smoking_status_has_one_phrase_per_level():
+    assert explanations.sentence("smoking_status", "current", 0.2, "T2D") == "Smoking now raised your risk of type 2 diabetes."
+    assert explanations.sentence("smoking_status", "former", 0.2, "CRD") == \
+        "Having smoked in the past raised your risk of chronic lung disease."
+    assert explanations.sentence("smoking_status", "never", -0.1, "CVD") == \
+        "Never having smoked lowered your risk of heart disease and stroke."
+    assert explanations.sentence("smoking_status", None, 0.0, "CVD") == \
+        "Your smoking status was not entered yet. Adding it can make this result more accurate."
+
+
+def test_smoking_status_given_as_its_encoded_number_reads_the_same():
+    assert explanations.sentence("smoking_status", 2, 0.2, "T2D") == explanations.sentence("smoking_status", "current", 0.2, "T2D")
+    assert explanations.sentence("smoking_status", 0.0, -0.1, "T2D") == explanations.sentence("smoking_status", "never", -0.1, "T2D")
+
+
+def test_crd_family_history_reads_as_a_score():
+    assert explanations.sentence("fhrs_crd", 1.5, 0.3, "CRD") == \
+        "Your family history of lung disease (asthma or COPD) (score 1.5) raised your risk of chronic lung disease."
