@@ -15,6 +15,7 @@ ml/artifacts/*.joblib
 ml/artifacts/*.ubj
 # Reports the training notebook writes on each run (results of that run, not source)
 ml/artifacts/metrics.csv
+ml/artifacts/metrics_xgb_all.csv
 ml/artifacts/model_card.md
 ml/artifacts/register_models.sql
 # OCR check images and results (ml/OCR/make_reports.py, run_check.py)
