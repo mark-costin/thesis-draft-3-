@@ -45,6 +45,30 @@ def train_calibrated(path, n_features=len(NEURO)):
     return path
 
 
+def train_baseline(path, n=300, seed=2):
+    """The notebook's logistic regression baseline: SimpleImputer(add_indicator) -> StandardScaler
+    -> LogisticRegression, trained on a DataFrame with the NEURO inputs, calibrated with
+    CalibratedClassifierCV(FrozenEstimator(...)) as train_models.ipynb does."""
+    import joblib
+    import pandas as pd
+    from sklearn.calibration import CalibratedClassifierCV
+    from sklearn.frozen import FrozenEstimator
+    from sklearn.impute import SimpleImputer
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+    rng = np.random.default_rng(seed)
+    x = pd.DataFrame(rng.normal(size=(n, len(NEURO))), columns=NEURO)
+    x["sex"] = rng.integers(0, 2, n)
+    x.loc[rng.random(n) < 0.3, "tsh"] = np.nan  # some labs missing, so the imputer adds a column
+    y = (x["phq9"] + rng.normal(size=n) > 0).astype(int)
+    pipe = make_pipeline(SimpleImputer(strategy="median", add_indicator=True), StandardScaler(),
+                         LogisticRegression(max_iter=2000)).fit(x, y)
+    model = CalibratedClassifierCV(FrozenEstimator(pipe), method="sigmoid").fit(x, y)
+    joblib.dump(model, path)
+    return path, pipe
+
+
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -178,6 +202,25 @@ def test_startup_stops_when_models_are_missing(monkeypatch):
         model_registry.load_at_startup()
 
 
+def test_startup_needs_approved_care_plans(monkeypatch):
+    """med_db_test holds the 12 templates as drafts: real patients need approved ones."""
+    monkeypatch.setattr(settings, "risk_models_enabled", True)
+    monkeypatch.setattr(settings, "show_draft_care_plans", False)
+    monkeypatch.setattr(model_registry, "load_active", lambda db, required=True: {})
+    with pytest.raises(model_registry.ModelError, match="Care plan templates are not ready"):
+        model_registry.load_at_startup()
+
+
+def test_a_demo_with_draft_care_plans_can_start(monkeypatch):
+    """SHOW_DRAFT_CARE_PLANS=true (demos only): drafts count, as they do when a plan is picked."""
+    monkeypatch.setattr(settings, "risk_models_enabled", True)
+    monkeypatch.setattr(settings, "show_draft_care_plans", True)
+    monkeypatch.setattr(model_registry, "load_active", lambda db, required=True: {})
+    monkeypatch.setattr(model_registry, "ACTIVE", {"old": None})
+    model_registry.load_at_startup()
+    assert model_registry.ACTIVE == {}
+
+
 def test_a_changed_model_file_stops_the_app_from_starting(model_dir, monkeypatch):
     path = train_xgboost(model_dir / "neuro_v1.json")
     row = registered(path)
@@ -271,3 +314,43 @@ def test_without_versions_only_a_warning_while_risk_models_are_off(model_dir, mo
     with caplog.at_level("WARNING", logger="backend.model_registry"):
         assert model_registry.load_model(row).disease == "NEURO"
     assert 'no "versions"' in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# SHAP values: XGBoost (TreeSHAP) and the logistic regression baseline (linear SHAP)
+# ---------------------------------------------------------------------------
+def test_xgboost_shap_values_add_up_to_its_score(model_dir):
+    from xgboost import DMatrix
+    model = model_registry.load_model(registered(train_xgboost(model_dir / "neuro_v1.json")))
+    values, base = model.contributions(INPUTS)
+    assert set(values) == set(NEURO)
+    margin = model._boosters()[0].predict(DMatrix(model.to_row(INPUTS), missing=np.nan), output_margin=True)[0]
+    assert sum(values.values()) + base == pytest.approx(float(margin), abs=1e-5)
+
+
+def test_the_baseline_gets_shap_values_that_add_up_to_its_score(model_dir):
+    """Linear SHAP: inputs' values plus the base value = the baseline's log-odds before calibration."""
+    import pandas as pd
+    path, pipe = train_baseline(model_dir / "neuro_v1.joblib")
+    model = model_registry.load_model(registered(path))
+    for inputs in (INPUTS | {"tsh": 2.0, "vitamin_b12": 400}, INPUTS):  # with and without the labs
+        values, base = model.contributions(inputs)
+        assert set(values) == set(NEURO) and all(np.isfinite(v) for v in values.values())
+        score = pipe.decision_function(pd.DataFrame(model.to_row(inputs), columns=NEURO))[0]
+        assert sum(values.values()) + base == pytest.approx(float(score), abs=1e-6)
+        assert 0.0 <= model.probability(inputs) <= 1.0
+
+
+def test_the_baseline_shap_value_follows_the_input(model_dir):
+    """phq9 raises the label in the training data, so a high phq9 raises the risk and a low one lowers it."""
+    path, _ = train_baseline(model_dir / "neuro_v1.joblib")
+    model = model_registry.load_model(registered(path))
+    assert model.contributions(INPUTS | {"phq9": 3.0})[0]["phq9"] > 0
+    assert model.contributions(INPUTS | {"phq9": -3.0})[0]["phq9"] < 0
+
+
+def test_a_model_that_cannot_be_explained_is_refused(model_dir):
+    """A logistic regression without the scaler has no mean to compare with: refused, not guessed."""
+    model = model_registry.load_model(registered(train_calibrated(model_dir / "neuro_v1.joblib")))
+    with pytest.raises(model_registry.ModelError, match="StandardScaler"):
+        model.contributions(INPUTS | {"tsh": 2.0, "vitamin_b12": 400})
