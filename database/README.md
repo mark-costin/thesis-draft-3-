@@ -46,7 +46,7 @@ folder in alphabetical order the first time the database volume is created.
 
 1. In DBeaver, connected as `postgres`, create an empty database named `med_db`.
 2. Open `database/windows_setup.sql`, set the active database to `med_db` (toolbar shows
-   `public@med_db`), and run the whole script (Alt+X). It creates `med_app`, runs 01 to 21,
+   `public@med_db`), and run the whole script (Alt+X). It creates `med_app`, runs 01 to 22,
    then 99, then the draft care plan templates. It stops at once if the database is not `med_db`
    or already has tables, so it can never overwrite your data (click **Stop** if DBeaver asks).
 3. Refresh `med_db`: Schemas -> public -> Tables should list 19 tables.

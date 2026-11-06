@@ -183,6 +183,15 @@ models:
       required: true
       column: lifestyle_records.physical_activity_min_week
       source: manual
+    - name: smoking_status
+      label: Smoking Status
+      type: ordinal
+      unit: null
+      encoding: {never: 0, former: 1, current: 2}
+      required: true
+      column: lifestyle_records.smoking_status
+      source: manual
+      note: added Nov 2026 (AUROC-ceiling investigation); pack_years alone mixes former and current smokers
     not_stored:
     - name: lvef
       label: Left Ventricular Ejection Fraction (LVEF)
@@ -338,6 +347,33 @@ models:
       required: true
       column: lifestyle_records.sedentary_hours_day
       source: manual
+    - name: age
+      label: Age
+      type: continuous
+      unit: Years
+      range: [18, 100]
+      required: true
+      column: patients.date_of_birth
+      source: registration
+      derive: age in whole years on the assessment date
+    - name: sex
+      label: Biological Sex
+      type: binary
+      unit: null
+      encoding: {Male: 1, Female: 0}
+      required: true
+      column: patients.biological_sex
+      source: registration
+      derive: stored as text ('Male' / 'Female'); the model gets the number from encoding
+    - name: smoking_status
+      label: Smoking Status
+      type: ordinal
+      unit: null
+      encoding: {never: 0, former: 1, current: 2}
+      required: true
+      column: lifestyle_records.smoking_status
+      source: manual
+      note: added Nov 2026 (AUROC-ceiling investigation); pack_years alone mixes former and current smokers
     not_stored:
     - name: fasting_insulin
       label: Fasting Serum Insulin
@@ -450,6 +486,44 @@ models:
       column: vitals_records.bmi
       source: computed
       derive: computed by the database from weight_kg and height_cm
+    - name: age
+      label: Age
+      type: continuous
+      unit: Years
+      range: [18, 100]
+      required: true
+      column: patients.date_of_birth
+      source: registration
+      derive: age in whole years on the assessment date
+    - name: sex
+      label: Biological Sex
+      type: binary
+      unit: null
+      encoding: {Male: 1, Female: 0}
+      required: true
+      column: patients.biological_sex
+      source: registration
+      derive: stored as text ('Male' / 'Female'); the model gets the number from encoding
+    - name: fhrs_crd
+      label: Family History of Chronic Respiratory Disease
+      type: continuous
+      unit: Score
+      range: [0.0, null]
+      note: added Nov 2026 (AUROC-ceiling investigation); FHRS as for the other models
+      required: true
+      column: patient_fhrs_stratification.calculated_fhrs
+      where:
+        disease_domain: CRD
+      source: family_history
+    - name: smoking_status
+      label: Smoking Status
+      type: ordinal
+      unit: null
+      encoding: {never: 0, former: 1, current: 2}
+      required: true
+      column: lifestyle_records.smoking_status
+      source: manual
+      note: added Nov 2026 (AUROC-ceiling investigation); pack_years alone mixes former and current smokers
     not_stored:
     - name: fev1
       label: Forced Expiratory Volume in 1 Second (FEV1)

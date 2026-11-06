@@ -41,7 +41,15 @@ class Sex:
     subject: str = "your biological sex"
 
 
-FEATURES: dict[str, Measure | YesNo | Sex] = {
+@dataclass(frozen=True)
+class Category:
+    """A text input with a few levels, in the order of its features.yaml encoding (0, 1, 2, ...):
+    one phrase per level, so the encoded number reads the same as the text."""
+    levels: tuple[tuple[str, str], ...]   # (stored text, phrase), e.g. ("current", "smoking now")
+    subject: str
+
+
+FEATURES: dict[str, Measure | YesNo | Sex | Category] = {
     # Profile
     "age": Measure("your age", "years"),
     "sex": Sex(),
@@ -59,6 +67,8 @@ FEATURES: dict[str, Measure | YesNo | Sex] = {
     "carbs_g_day": Measure("your daily carbohydrate intake", "g a day"),
     "sedentary_hours_day": Measure("the time you spend sitting", "hours a day"),
     "sleep_hours_day": Measure("your sleep", "hours a day"),
+    "smoking_status": Category((("never", "never having smoked"), ("former", "having smoked in the past"),
+                                ("current", "smoking now")), "your smoking status"),
     "occupational_dust": YesNo("being exposed to dust or fumes at work",
                                "not being exposed to dust or fumes at work",
                                "dust or fume exposure at work"),
@@ -79,6 +89,7 @@ FEATURES: dict[str, Measure | YesNo | Sex] = {
     # Family history (FHRS)
     "fhrs_cvd": Measure("your family history of heart disease", score=True),
     "fhrs_t2d": Measure("your family history of diabetes", score=True),
+    "fhrs_crd": Measure("your family history of lung disease (asthma or COPD)", score=True),
     "fhrs_neuro": Measure("your family history of depression and anxiety", score=True),
     # Questionnaires
     "phq9": Measure("your PHQ-9 mood questionnaire", score=True),
@@ -152,6 +163,12 @@ def sentence(feature: str, value, shap_value: float, disease: str, entered=None)
         return f"{_cap(entry.yes if float(value) >= 1 else entry.no)} {_effect(shap_value, disease)}."
     if feature == "pack_years" and float(value) == 0:  # never-smokers get 0 (features.yaml derive)
         return f"Not smoking {_effect(shap_value, disease)}."
+    if isinstance(entry, Category):
+        label = str(value).strip().lower()
+        phrases = dict(entry.levels)
+        if label not in phrases:  # the encoded number (0, 1, 2 ...)
+            label = entry.levels[int(float(label))][0]
+        return f"{_cap(phrases[label])} {_effect(shap_value, disease)}."
     if isinstance(entry, Sex):
         label = str(value).strip().lower()
         if label in {"1", "1.0"}:  # in case the models encode sex as a number

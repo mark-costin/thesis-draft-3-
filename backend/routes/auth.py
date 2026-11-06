@@ -24,6 +24,9 @@ from backend.schemas import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+# The login token and the patient's name must not stay in a browser or proxy cache. On login this
+# also keeps the token out of the idempotency store (middleware.py saves no body for no-store).
+NO_STORE = {"Cache-Control": "no-store"}
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=RegisterResponse)
@@ -39,7 +42,9 @@ def register(request: Request, body: RegisterRequest, db: Session = Depends(get_
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("10/minute")  # per IP; the per-account lockout is in services.login
-def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
+def login(request: Request, response: Response, body: LoginRequest,
+          db: Session = Depends(get_db)) -> TokenResponse:
+    response.headers.update(NO_STORE)
     try:
         token = services.login(db, body.email, body.password)
     except services.InvalidCredentials:
@@ -54,9 +59,12 @@ def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)) -
 
 
 @router.get("/me", response_model=MeResponse)
-def me(current: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)) -> MeResponse:
+def me(response: Response, current: CurrentUser = Depends(get_current_user),
+       db: Session = Depends(get_db)) -> MeResponse:
+    response.headers.update(NO_STORE)
     user = db.get(User, current.user_id)
-    patient = db.scalars(select(Patient)).one()  # RLS returns only this patient's row
+    # Filtered on the token's patient_id; RLS is the second layer
+    patient = db.scalars(select(Patient).where(Patient.patient_id == current.patient_id)).one()
     return MeResponse(email=user.email, first_name=patient.first_name,
                       last_name=patient.last_name, consent_version=patient.consent_version)
 
