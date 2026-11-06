@@ -20,6 +20,16 @@ x-app: &app
     DATABASE_URL: postgresql+psycopg://med_app:${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}@db:5432/med_db
     REDIS_ENABLED: "true"
     REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}@redis:6379/0
+    # env_file passes the whole .env; these override it. The API never gets the postgres superuser
+    # password (it connects as med_app only), and in a container the console is the log, so no reset
+    # links and no full error details there (Sprint 6), whatever the local .env says.
+    POSTGRES_PASSWORD: ""
+    PRINT_RESET_LINKS: "false"
+    LOG_ERROR_DETAILS: "false"
+    # The image has no PaddleOCR, so a local OCR_ENGINE=paddleocr_vl would stop the API at startup
+    # (engines.check_engine). In Docker: pdf_text (PDFs with a text layer; photos and scans are
+    # marked "please type the values in"), or set DOCKER_OCR_ENGINE=none in .env to switch OCR off.
+    OCR_ENGINE: ${DOCKER_OCR_ENGINE:-pdf_text}
   volumes:
     - uploads:/app/backend/uploads      # encrypted lab documents
     - ./ml/artifacts:/app/ml/artifacts:ro  # model files; read-only, checked by SHA-256

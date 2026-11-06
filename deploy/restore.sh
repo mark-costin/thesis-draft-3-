@@ -15,7 +15,8 @@ echo "Checking the backup files..."
 read -r -p "This REPLACES the database and uploads with $src. Type RESTORE to continue: " answer
 [ "$answer" = "RESTORE" ] || { echo "Cancelled."; exit 1; }
 
-# Stop the app so nothing writes during the restore
+# Stop the app so nothing writes during the restore. It starts again only when both the
+# database and the uploaded files are back.
 docker compose stop api worker
 
 # Database: drop and recreate every object from the dump, all or nothing
@@ -24,13 +25,13 @@ docker compose exec -T db pg_restore -U postgres -d med_db --clean --if-exists \
     --single-transaction --exit-on-error /tmp/restore.dump
 docker compose exec -T db rm -f /tmp/restore.dump
 
-docker compose start api worker
+# Uploaded files: a one-off container (same image and uploads volume) empties the folder and
+# unpacks the backup, mounted read-only, while the API is still stopped
+tarball="$(cd "$src" && pwd)/uploads.tar.gz"
+docker compose run --rm --no-deps -T -v "$tarball:/restore/uploads.tar.gz:ro" api sh -c \
+    'find /app/backend/uploads -mindepth 1 -delete && tar xzf /restore/uploads.tar.gz -C /app/backend/uploads'
 
-# Uploaded files: empty the folder, then unpack the backup
-docker compose cp "$src/uploads.tar.gz" api:/tmp/restore.tar.gz
-docker compose exec -T api sh -c \
-    'find /app/backend/uploads -mindepth 1 -delete && tar xzf /tmp/restore.tar.gz -C /app/backend/uploads'
-docker compose exec -T -u root api rm -f /tmp/restore.tar.gz  # docker cp made it root's file
+docker compose start api worker
 
 echo "Checking the restored database..."
 docker compose exec -T db psql -U postgres -d med_db -Atc \

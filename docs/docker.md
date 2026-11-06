@@ -74,6 +74,9 @@ restore it there, and check that the counts match and an uploaded file still dow
 
 - **Secrets:** every password comes from `.env`. The compose files contain none, and `.dockerignore` keeps `.env` out of the images.
 - **Least privilege:** the API connects as `med_app`, created by `00_roles.sh` with `APP_DB_PASSWORD`. It never connects as `postgres`.
+- **No superuser password in the app containers:** `env_file: .env` passes the whole `.env`, so `docker-compose.yml` overrides `POSTGRES_PASSWORD` with an empty value for the API and the worker. Someone who gets code running in the API container cannot read it and connect as `postgres`.
+- **OCR in Docker:** the image has no PaddleOCR, so the containers use `OCR_ENGINE=pdf_text` (lab PDFs that already contain text), whatever the local `.env` says; photos and scanned PDFs are marked "please type the values in". Set `DOCKER_OCR_ENGINE=none` in `.env` to switch OCR off in Docker.
+- **No health data in the container logs:** in a container the console is the log, so `docker-compose.yml` sets `PRINT_RESET_LINKS=false` and `LOG_ERROR_DETAILS=false` for the API and the worker, whatever the local `.env` says (Sprint 6, PR #38).
 - **Init scripts:** only the numbered scripts (`00_roles.sh`, `01`–`21`, `99`) are copied into the database image (`docker/Dockerfile.db`). Mounting the whole `database/` folder would also run `windows_setup.sql` and the draft templates.
 - **Networks:** Postgres and Redis are only on the `data` network, which is `internal` (no way in or out). The API is on `data` and `web`. The frontend will join only `web`, so it can never reach the database directly.
 - **Ports:** in `docker-compose.yml` only the API is published, and only on `127.0.0.1:8000`, so other computers cannot connect. Postgres and Redis are not published at all.
