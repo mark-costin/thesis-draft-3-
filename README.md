@@ -17,7 +17,7 @@ This is a web-based clinical decision support system that estimates a patient's 
 4. The AI risk model analyzes the data.
 5. View the risk results.
 6. Receive a care plan from templates matched to the risk assessment and reviewed by a physician
-   (the 12 templates are drafts until the physician approves them).
+   (the 12 templates stay drafts until `database/approve_care_plan_templates_v1_0.sql` is filled in and run).
 7. Save the report to the database and export it.
 
 > This project is developed as an undergraduate thesis.
@@ -176,7 +176,8 @@ thesis-d3/
 │   ├── 21_famhistory.sql          # Changes to the family history tables (FHRS guide)
 │   ├── 22_ocr_engine_default.sql  # documents.ocr_engine default 'none'
 │   ├── 99_security.sql            # Row-level security and permissions (runs last)
-│   ├── seed_care_plan_templates.sql   # The 12 draft care plan templates (run by hand)
+│   ├── seed_care_plan_templates.sql   # The 12 care plan templates, loaded as drafts (run by hand)
+│   ├── approve_care_plan_templates_v1_0.sql   # Records the physician's approval (do not run until filled in; med_db only)
 │   ├── setup_windows.ps1          # One-step database setup on Windows
 │   ├── windows_setup.sql          # All scripts in one file, for pgAdmin on Windows
 │   └── README.md                  # Database setup guide
