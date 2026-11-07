@@ -1102,11 +1102,9 @@ GRANT EXECUTE ON FUNCTION public.log_audit(text, integer, integer, jsonb) TO med
 -- Run as postgres AFTER 19_care_plan_templates.sql. Not numbered on purpose, so Docker
 -- does not load unreviewed advice automatically.
 -- Drafts load with reviewed_by/reviewed_on NULL and is_active = false, so the app shows none
--- of them yet. After the physician signs a template (Section 7 of the care plan):
---     UPDATE public.care_plan_templates
---        SET reviewed_by = 'Dr. <name>, <specialty>', reviewed_on = DATE '<yyyy-mm-dd>', is_active = true
---      WHERE disease_domain = 'CVD' AND risk_level = 'Low' AND version = '1.0';
--- From then on that row is read-only; any change is a new version (e.g. '1.1').
+-- of them yet. To record the physician's approval of version 1.0 on med_db, fill in and run
+-- approve_care_plan_templates_v1_0.sql by hand after this script (the test database keeps drafts).
+-- From then on those rows are read-only; any change is a new version (e.g. '1.1') and a new sign-off.
 
 BEGIN;
 
