@@ -1,0 +1,122 @@
+# The whole system in containers: PostgreSQL 18, Redis, the FastAPI API, the OCR worker and the
+# Reflex patient portal (web). On the server, docker-compose.prod.yml adds Nginx (HTTPS) in front
+# of the portal: see docs/deploy.md.
+#
+#   docker compose up -d --build      start (first run creates the 19 tables)
+#   docker compose ps                 all services should be "healthy" or "running"
+#   docker compose logs -f api        API log
+#   docker compose down               stop (data stays in the volumes)
+#
+# Secrets come from .env (see .env.example): POSTGRES_PASSWORD, APP_DB_PASSWORD, REDIS_PASSWORD,
+# JWT_SECRET_KEY, DOCUMENT_ENCRYPTION_KEY. Nothing secret is written in this file.
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: docker/Dockerfile.api
+  image: thesis-d3-api
+  env_file: .env
+  environment:
+    # Inside Docker the database and Redis are reached by service name, not localhost
+    DATABASE_URL: postgresql+psycopg://med_app:${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}@db:5432/med_db
+    REDIS_ENABLED: "true"
+    REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}@redis:6379/0
+    # env_file passes the whole .env; these override it. The API never gets the postgres superuser
+    # password (it connects as med_app only), and in a container the console is the log, so no reset
+    # links and no full error details there (Sprint 6), whatever the local .env says.
+    POSTGRES_PASSWORD: ""
+    PRINT_RESET_LINKS: "false"
+    LOG_ERROR_DETAILS: "false"
+    # The image has no PaddleOCR, so a local OCR_ENGINE=paddleocr_vl would stop the API at startup
+    # (engines.check_engine). In Docker: pdf_text (PDFs with a text layer; photos and scans are
+    # marked "please type the values in"), or set DOCKER_OCR_ENGINE=none in .env to switch OCR off.
+    OCR_ENGINE: ${DOCKER_OCR_ENGINE:-pdf_text}
+  volumes:
+    - uploads:/app/backend/uploads      # encrypted lab documents
+    - ./ml/artifacts:/app/ml/artifacts:ro  # model files; read-only, checked by SHA-256
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  db:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.db
+    image: thesis-d3-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: med_db
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}  # used by 00_roles.sh
+    volumes:
+      - pgdata:/var/lib/postgresql   # postgres:18 keeps its data under this folder
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d med_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [data]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    networks: [data]
+    restart: unless-stopped
+
+  api:
+    <<: *app
+    ports:
+      - "127.0.0.1:8000:8000"   # this computer only; Nginx will be in front on the server (Sprint 8)
+    networks: [data, web]
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+      args:
+        # The address the browser uses for Reflex's backend: the public https address on the server
+        PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8001}
+    image: thesis-d3-web
+    environment:
+      CDSS_API_URL: http://api:8000      # Reflex calls the API from Python, inside Docker
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    ports:
+      - "127.0.0.1:3000:3000"   # this computer only; on the server Nginx is in front
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [web]             # never on "data": the portal cannot reach the database or Redis
+    restart: unless-stopped
+
+  worker:
+    <<: *app
+    # SimpleWorker runs every job in this process, so the OCR model loads once, not once per
+    # document (backend/ocr/job.py)
+    command: ["sh", "-c", "exec rq worker --worker-class rq.SimpleWorker ocr --url \"$$REDIS_URL\""]
+    healthcheck:
+      disable: true   # no web server in the worker
+    networks: [data]
+
+networks:
+  # Postgres and Redis live only here. "internal" = no route in or out of this network,
+  # so the frontend (on "web") can never reach the database directly.
+  data:
+    internal: true
+  web: {}
+
+volumes:
+  pgdata:
+  uploads:

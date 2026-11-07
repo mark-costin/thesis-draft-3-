@@ -1,0 +1,27 @@
+# Keep secrets, local data and big folders out of the images
+.env
+.env.*
+!.env.example
+.git
+.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.web
+*.dump
+backend/uploads/*
+tests
+ml/synthetic
+ml/ai_model
+ml/mlruns
+ml/artifacts
+# The frontend is built by docker/Dockerfile.web; leave out what Reflex makes when run locally
+frontend/.web
+frontend/.states
+frontend/reflex.lock
+frontend/requirements.txt
+frontend/uploaded_files
+frontend/patient_app
+docs
+backups
+deploy
