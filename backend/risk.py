@@ -21,7 +21,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend import audit, care_plan, explanations, feature_builder, model_registry
+from backend import audit, care_plan, explanations, feature_builder, model_registry, questionnaires
 from backend.config import settings
 from backend.models import ModelVersion, RiskAssessment, RiskResult, ShapExplanation
 from backend.readiness import MODELS
@@ -29,6 +29,76 @@ from backend.readiness import MODELS
 TOP_FACTORS = 3
 CONSULT_MESSAGE = ("Your result is in the high range. Please consult a doctor for a check-up. "
                    "This result is a screening estimate, not a diagnosis.")
+# Safety messages, shown whatever the tier: a value the patient entered is already in a range
+# where a doctor should see them, even if the model says Low. The model may never have seen such
+# values in training (the synthetic generator caps FPG and HbA1c before diagnosis, for example).
+# Cut-offs (the physician decides the final values):
+#   T2D:   ADA Standards of Care: FPG 126 mg/dL, 2-hour OGTT 200 mg/dL, HbA1c 6.5%
+#   CVD:   ACC/AHA blood pressure categories: 140/90 mmHg (stage 2), 180/120 mmHg (severe)
+#   NEURO: PHQ-9 total 10 or more (Kroenke, Spitzer & Williams, 2001: moderate depression or worse)
+ENDING = "This is a screening estimate, not a diagnosis."
+DIABETES_RANGE = {  # model input -> (cut-off, words on screen, unit)
+    "fpg": (126, "fasting blood sugar", "mg/dL"),
+    "ogtt_2h": (200, "2-hour glucose test", "mg/dL"),
+    "hba1c": (6.5, "HbA1c", "%"),
+}
+SAFETY_MESSAGE = ("{values} in the diabetes range. Please see a doctor for a check-up, whatever your risk "
+                  "level here. " + ENDING)
+BP_HIGH = (140, 90)      # systolic, diastolic: either one at or above
+BP_SEVERE = (180, 120)
+BP_HIGH_MESSAGE = ("Your blood pressure of {bp} is in the high blood pressure range. Please see a doctor "
+                   "for a check-up, whatever your risk level here. " + ENDING)
+BP_SEVERE_MESSAGE = ("Your blood pressure of {bp} is very high. Please see a doctor today. If you also have "
+                     "chest pain, shortness of breath, weakness on one side of the body or trouble speaking, "
+                     "go to the nearest emergency room now. " + ENDING)
+PHQ9_CARE = 10
+_HOTLINE = questionnaires.CRISIS_RESOURCES["hotlines"][0]
+PHQ9_MESSAGE = ("Your PHQ-9 score of {score} shows symptoms of depression that need care. Please talk to a "
+                "doctor or a mental health professional, whatever your risk level here. If you have thoughts "
+                f"of hurting yourself, call the {_HOTLINE['name']} at {_HOTLINE['number']}. " + ENDING)
+
+
+def _entered(name: str, inputs: dict, capped: dict):
+    """The value the patient entered, also when the model got a capped value; None if not entered."""
+    value = capped.get(name, {}).get("entered", inputs.get(name))
+    return None if value is None else float(value)
+
+
+def _blood_pressure(sbp: float | None, dbp: float | None) -> str:
+    if sbp is not None and dbp is not None:
+        return f"{sbp:g}/{dbp:g} mmHg"
+    if sbp is not None:
+        return f"{sbp:g} mmHg (upper number)"
+    return f"{dbp:g} mmHg (lower number)"
+
+
+def safety_message(disease: str, inputs: dict, capped: dict) -> str | None:
+    """A message to see a doctor when an entered value is already in a range that needs care,
+    whatever the tier; None when there is none. inputs and capped are this disease's part of the
+    assessment's input_snapshot."""
+    if disease == "T2D":
+        found = []
+        for name, (cut, words, unit) in DIABETES_RANGE.items():
+            value = _entered(name, inputs, capped)
+            if value is not None and value >= cut:
+                found.append(f"{words} of {value:g}{unit if unit == '%' else ' ' + unit}")
+        if found:
+            values = "Your " + " and your ".join(found) + (" is" if len(found) == 1 else " are")
+            return SAFETY_MESSAGE.format(values=values)
+    if disease == "CVD":
+        sbp, dbp = _entered("sbp", inputs, capped), _entered("dbp", inputs, capped)
+        over = lambda cuts: (sbp is not None and sbp >= cuts[0]) or (dbp is not None and dbp >= cuts[1])
+        if over(BP_SEVERE):
+            return BP_SEVERE_MESSAGE.format(bp=_blood_pressure(sbp, dbp))
+        if over(BP_HIGH):
+            return BP_HIGH_MESSAGE.format(bp=_blood_pressure(sbp, dbp))
+    if disease == "NEURO":
+        score = _entered("phq9", inputs, capped)
+        if score is not None and score >= PHQ9_CARE:
+            return PHQ9_MESSAGE.format(score=f"{score:g}")
+    return None
+
+
 DISCLAIMER = ("This is an educational screening estimate based on the information you entered. "
               "It is not a medical diagnosis. Please consult a healthcare provider for medical advice.")
 
@@ -140,6 +210,7 @@ def view(db: Session, patient_id: int, assessment_id: int) -> dict:
         inputs = assessment.input_snapshot.get(disease, {})
         caps = capped.get(disease, {})
         factors = [{"rank": row.rank, "feature": row.feature_name, "shap_value": float(row.shap_value),
+                    "missing": inputs.get(row.feature_name) is None,  # not entered: the screen shows no bar
                     "sentence": explanations.sentence(row.feature_name, inputs.get(row.feature_name),
                                                       float(row.shap_value), disease,
                                                       entered=caps.get(row.feature_name, {}).get("entered"))}
@@ -153,6 +224,7 @@ def view(db: Session, patient_id: int, assessment_id: int) -> dict:
             "model_version": versions.get(result.model_version_id),
             "consult_recommended": result.risk_level == "High",
             "consult_message": CONSULT_MESSAGE if result.risk_level == "High" else None,
+            "safety_message": safety_message(disease, inputs, caps),
             "top_factors": factors,
             "care_plan": plans.get(disease),
         })
