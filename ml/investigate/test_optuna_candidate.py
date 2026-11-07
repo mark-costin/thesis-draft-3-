@@ -122,3 +122,24 @@ def test_the_notebook_tunes_with_this_code():
     assert nb["oc"] is oc
     assert "GRID" not in nb                                  # the grid now lives only in evaluation_protocol
     assert (nb["MAX_TREES"], nb["EARLY"]) == (ep.MAX_TREES, ep.EARLY)
+
+
+def test_baseline_rows_score_repeat_3_and_validation_only(monkeypatch):
+    t, folds = toy()
+    seen, real = [], t.fit_logistic
+    monkeypatch.setattr(t, "fit_logistic", lambda rows: seen.append(set(rows[2])) or real(rows))
+    base = oc.baseline_rows({"CVD": t}, folds)
+    repeat_3 = [set(f[2]) | set(s[2]) for _, _, f, s, _ in ep.shared_folds(t, folds, (ep.SCORE_REPEAT,))]
+    assert seen[:ep.FOLDS] == repeat_3 and seen[ep.FOLDS:] == [set(t.train[2])]
+    assert list(base.columns) == ["disease", "repeat3_auprc", "val_auprc"]
+    assert 0 < base.repeat3_auprc.iloc[0] <= 1 and 0 < base.val_auprc.iloc[0] <= 1
+
+
+def test_summary_table_has_one_row_per_disease():
+    result = {"table": pd.DataFrame([{"disease": "CVD", "a_auprc": .17, "b_auprc": .18, "lo": -.01, "hi": .03,
+                                      "diff": .01, "b_better": False}]), "reason": "b better in 0 of 4"}
+    confirm = {"table": pd.DataFrame([{"disease": "CVD", "a_auprc": .16, "b_auprc": .17}]), "confirmed": False}
+    base = pd.DataFrame([{"disease": "CVD", "repeat3_auprc": .15, "val_auprc": .14}])
+    text = oc.summary(result, confirm, base, "a (grid)")
+    assert "| CVD | 0.170 | 0.180 | +0.010 (-0.010 to +0.030) | no | 0.150 | 0.160 | 0.170 | 0.140 |" in text
+    assert "Decision by the rule: a (grid)." in text

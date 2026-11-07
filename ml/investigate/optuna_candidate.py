@@ -105,8 +105,37 @@ def keeps_constraints(tasks, params, scores):
                for d, t in tasks.items())
 
 
+def baseline_rows(tasks, folds):
+    """The logistic baseline (c) on the same steps: repeat 3 of the shared folds (fit + stopping rows; it needs
+    no early stopping) and validation (fit on all of train). A reference row only: it chooses nothing."""
+    rows = []
+    for d, t in tasks.items():
+        joined = lambda a, b: (pd.concat([a[0], b[0]]), np.r_[a[1], b[1]], np.r_[a[2], b[2]])  # noqa: E731
+        cv = ep.cv_predict(t, folds, lambda a, b, t=t: t.fit_logistic(joined(a, b)), repeats=(ep.SCORE_REPEAT,))
+        X, y, _ = t.val
+        rows.append({"disease": d, "repeat3_auprc": ep.mean_of_folds(cv, ep.ap),
+                     "val_auprc": ep.ap(y, t.fit_logistic(t.train).predict_proba(X)[:, 1])})
+    return pd.DataFrame(rows)
+
+
+def summary(result, confirm, base, decision):
+    """The table for the PR description (Markdown)."""
+    t = result["table"].merge(confirm["table"], on="disease", suffixes=("", "_val")).merge(base, on="disease")
+    lines = ["| Disease | Grid (a), repeat 3 | Optuna (b), repeat 3 | b - a, 95% CI | b better? | Baseline, repeat 3 "
+             "| Grid, validation | Optuna, validation | Baseline, validation |",
+             "|---|---|---|---|---|---|---|---|---|"]
+    for r in t.itertuples():
+        lines.append(f"| {r.disease} | {r.a_auprc:.3f} | {r.b_auprc:.3f} | {r.diff:+.3f} ({r.lo:+.3f} to {r.hi:+.3f}) "
+                     f"| {'yes' if r.b_better else 'no'} | {r.repeat3_auprc:.3f} | {r.a_auprc_val:.3f} | {r.b_auprc_val:.3f} "
+                     f"| {r.val_auprc:.3f} |")
+    lines += ["", f"AUPRC. Rule 4: {result['reason']}. Validation: Optuna above grid in at least 3 of 4: "
+              f"{'yes' if confirm['confirmed'] else 'no'}. Decision by the rule: {decision}."]
+    return "\n".join(lines) + "\n"
+
+
 def run(out, n_trials=N_TRIALS):
-    """(a) grid against (b) Optuna on repeat 3, then the validation check. Writes CSVs into out."""
+    """(a) grid against (b) Optuna on repeat 3, then the validation check, with the baseline as a reference.
+    Writes CSVs, decision.txt and summary.md (the table for the PR) into out."""
     out.mkdir(parents=True, exist_ok=True)
     say = lambda *a: print(pd.Timestamp.now().strftime("%H:%M:%S"), *a, flush=True)  # noqa: E731
     tasks, folds = ep.load_tasks(), ep.load_folds()
@@ -132,6 +161,10 @@ def run(out, n_trials=N_TRIALS):
                                        ep.validation_scores(b_params, b_scores, tasks))
     confirm["table"].to_csv(out / "compare_validation.csv", index=False)
     decision = "b (Optuna)" if result["choice"] == "b" and confirm["confirmed"] else "a (grid)"
+    say("baseline (reference)")
+    base = baseline_rows(tasks, folds)
+    base.to_csv(out / "baseline.csv", index=False)
+    (out / "summary.md").write_text(summary(result, confirm, base, decision), encoding="utf-8")
     (out / "decision.txt").write_text(
         f"Rule 4 (repeat 3): {result['reason']}; choice {result['choice']}\n"
         f"Validation: b above a in at least 3 of 4: {confirm['confirmed']}\n"
