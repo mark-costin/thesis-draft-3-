@@ -17,7 +17,7 @@ This is a web-based clinical decision support system that estimates a patient's 
 4. The AI risk model analyzes the data.
 5. View the risk results.
 6. Receive a care plan from templates matched to the risk assessment and reviewed by a physician
-   (the 12 templates are drafts until the physician approves them).
+   (the 12 templates stay drafts until `database/approve_care_plan_templates_v1_0.sql` is filled in and run).
 7. Save the report to the database and export it.
 
 > This project is developed as an undergraduate thesis.
@@ -33,7 +33,7 @@ This is a web-based clinical decision support system that estimates a patient's 
 | Packages        | uv |
 | Background jobs | RQ + Redis (optional: without Redis, OCR runs in the API process) |
 | OCR             | PaddleOCR-VL on a GPU (Chandra optional); PDF text layer (pypdfium2) |
-| AI Model        | XGBoost with calibration (scikit-learn) and SHAP explanations; logistic regression baseline. Trained in `ml/ai_model/train_models.ipynb`; not registered yet |
+| AI Model        | XGBoost with monotone constraints and calibration (scikit-learn), TreeSHAP explanations; logistic regression baseline for comparison only (linear SHAP kept as a fallback if the choice ever changes). Trained in `ml/ai_model/train_models.ipynb`; not registered yet |
 | PDF reports     | WeasyPrint |
 
 ## Getting Started
@@ -178,7 +178,8 @@ thesis-d3/
 │   ├── 22_ocr_engine_default.sql  # documents.ocr_engine default 'none'
 │   ├── 23_contact_and_google.sql  # Contact number, address, sign in with Google
 │   ├── 99_security.sql            # Row-level security and permissions (runs last)
-│   ├── seed_care_plan_templates.sql   # The 12 draft care plan templates (run by hand)
+│   ├── seed_care_plan_templates.sql   # The 12 care plan templates, loaded as drafts (run by hand)
+│   ├── approve_care_plan_templates_v1_0.sql   # Records the physician's approval (do not run until filled in; med_db only)
 │   ├── setup_windows.ps1          # One-step database setup on Windows
 │   ├── windows_setup.sql          # All scripts in one file, for pgAdmin on Windows
 │   └── README.md                  # Database setup guide

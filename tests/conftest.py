@@ -16,6 +16,11 @@ from backend.database import ENGINE_OPTIONS, SessionLocal, set_request_identity
 from backend.middleware import limiter
 from backend.models import Patient, User
 
+# Tests start with the risk models off, whatever .env says: with RISK_MODELS_ENABLED=true (a local
+# demo) importing backend.main would load the models from med_db_test, which has none. Tests that
+# need models load them themselves (tests/risk_helpers.py).
+settings.risk_models_enabled = False
+
 # ---------------------------------------------------------------------------
 # Safety checks: refuse to run against the real database or as postgres
 # ---------------------------------------------------------------------------

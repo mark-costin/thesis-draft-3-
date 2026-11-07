@@ -88,25 +88,56 @@ class LoadedModel:
         X = self._matrix(self.to_row(inputs), self.features if names is not None else None)
         return float(self.estimator.predict_proba(X)[0, 1])
 
+    def _fitted_models(self) -> list:
+        """The model(s) under the calibration: one per fold for CalibratedClassifierCV, with the
+        FrozenEstimator wrapper (sklearn >= 1.6) taken off, or the file's model itself."""
+        folds = getattr(self.estimator, "calibrated_classifiers_", None)
+        inner = [fold.estimator for fold in folds] if folds else [self.estimator]
+        return [getattr(m, "estimator", m) if type(m).__name__ == "FrozenEstimator" else m for m in inner]
+
     def _boosters(self) -> list:
-        """The XGBoost booster(s) inside the model: one for a plain XGBClassifier, one per fold for
-        CalibratedClassifierCV (each fold has its own fitted copy)."""
-        if hasattr(self.estimator, "get_booster"):
-            return [self.estimator.get_booster()]
-        folds = getattr(self.estimator, "calibrated_classifiers_", None) or []
-        boosters = [fold.estimator.get_booster() for fold in folds if hasattr(fold.estimator, "get_booster")]
-        if not boosters:
-            raise ModelError(f"{self.disease}: SHAP values need an XGBoost model inside the file")
-        return boosters
+        """The XGBoost booster(s) inside the model, or [] when the model is not XGBoost."""
+        return [m.get_booster() for m in self._fitted_models() if hasattr(m, "get_booster")]
+
+    def _linear_contributions(self, row: np.ndarray) -> tuple[np.ndarray, float]:
+        """Linear SHAP for the logistic regression baseline (Lundberg & Lee, 2017): with the inputs
+        standardised, input j adds coef_j * z_j to the log-odds and the base value is the
+        intercept (each z has mean 0 on the training data). The notebook's baseline is
+        SimpleImputer(add_indicator=True) -> StandardScaler -> LogisticRegression; a missing input
+        counts its median and its "was missing" column together. Averaged over the folds."""
+        totals, models = np.zeros(len(self.features)), self._fitted_models()
+        base = 0.0
+        for model in models:
+            steps = getattr(model, "steps", None)
+            final = steps[-1][1] if steps else model
+            scaler = steps[-2][1] if steps and len(steps) > 1 else None
+            if not hasattr(final, "coef_") or type(scaler).__name__ != "StandardScaler" or not scaler.with_mean:
+                raise ModelError(f"{self.disease}: SHAP values need XGBoost, or a logistic regression "
+                                 "with StandardScaler just before it")
+            prep = model[:-1]
+            names = getattr(model, "feature_names_in_", None)
+            z = prep.transform(self._matrix(row, self.features if names is not None else None))[0]
+            out_names = prep.get_feature_names_out(None if names is not None else self.features)
+            for name, value in zip(out_names, final.coef_[0] * z):
+                source = name.removeprefix("missingindicator_")
+                if source not in self.features:
+                    raise ModelError(f"{self.disease}: cannot tell which input the column {name!r} comes from")
+                totals[self.features.index(source)] += value
+            base += float(final.intercept_[0])
+        return totals / len(models), base / len(models)
 
     def contributions(self, inputs: dict) -> tuple[dict[str, float], float]:
-        """SHAP values per input and the base value, in log-odds, from XGBoost's own TreeSHAP
-        (pred_contribs). For a calibrated model they explain the XGBoost score before calibration,
-        averaged over the folds; the sign (raised / lowered risk) is what the patient sees."""
-        from xgboost import DMatrix
+        """SHAP values per input and the base value, in log-odds. XGBoost: its own TreeSHAP
+        (pred_contribs). Logistic regression baseline: linear SHAP (_linear_contributions). For a
+        calibrated model they explain the score before calibration, averaged over the folds; the
+        sign (raised / lowered risk) is what the patient sees."""
         row = self.to_row(inputs)
-        totals = np.zeros(len(self.features) + 1)
         boosters = self._boosters()
+        if not boosters:
+            values, base = self._linear_contributions(row)
+            return dict(zip(self.features, (float(v) for v in values))), base
+        from xgboost import DMatrix
+        totals = np.zeros(len(self.features) + 1)
         for booster in boosters:
             names = booster.feature_names
             matrix = DMatrix(row, missing=np.nan, feature_names=self.features if names else None)
@@ -220,7 +251,9 @@ def load_active(db: Session, required: bool = True) -> dict[str, LoadedModel]:
 
 def load_at_startup() -> None:
     """Called by main.py. Does nothing until RISK_MODELS_ENABLED=true; then any missing or
-    changed model, or a missing care plan template, stops the app from starting."""
+    changed model, or a missing care plan template, stops the app from starting.
+    Templates count as present only when approved, unless SHOW_DRAFT_CARE_PLANS=true (demos):
+    then drafts count too, the same rule risk.py uses when it picks a care plan."""
     if not settings.risk_models_enabled:
         return
     from backend import care_plan
@@ -228,7 +261,7 @@ def load_at_startup() -> None:
 
     with SessionLocal() as db:
         models = load_active(db, required=True)
-        problems = care_plan.check_templates(db)
+        problems = care_plan.check_templates(db, include_drafts=settings.show_draft_care_plans)
     if problems:
         raise ModelError("Care plan templates are not ready: " + "; ".join(problems))
     ACTIVE.clear()
