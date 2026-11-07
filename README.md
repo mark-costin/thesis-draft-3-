@@ -76,6 +76,11 @@ seed" in `docs/synthetic_data_changes.md`); its Notebook 2 check,
 `output_seed2/02_synthval_seed2.ipynb`, is committed. `output/doctor_review.csv` holds the 20
 patients the physician rated and is never overwritten; the new sample is `doctor_review_v2.csv`.
 
+**Demo patients.** `ml/synthetic/seed_demo_patients.py` loads four made-up patients (low, moderate,
+high, and high mental-health inputs) into `med_db` through the running API, ready to assess:
+`uv run python ml/synthetic/seed_demo_patients.py --password "<demo password>"` (add `--run` to
+assess them and save a report; needs the models switched on). Emails end in `@cdss.test`.
+
 **What changed in the generator and why:** `docs/synthetic_data_changes.md` records every change
 after the Synthetic Data System Design (Nov 3, 2026): the label-leak fix, the physician-approved
 label rules, BMI and flag calibration, the NEURO risk factors, the source of every new setting
