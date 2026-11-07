@@ -1,20 +1,23 @@
 """Family history and FHRS: each save recalculates the FHRS per disease."""
 
 import uuid
+from functools import partial
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, func
+from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 
-from backend import audit, fhrs
+from backend import audit, fhrs, services
 from backend.config import settings
-from backend.database import SessionLocal
+from backend.database import SessionLocal, set_request_identity
 from backend.main import app
-from backend.models import User
+from backend.models import PatientFamilyHistory, PatientFhrsStratification, User
+from backend.recalculate_fhrs import recalculate_all
 
 client = TestClient(app)
 PASSWORD = "correct horse battery"
-E = fhrs.FamilyEntry
+E = partial(fhrs.FamilyEntry, diagnosis="Heart attack")
 
 
 # --- The formula (no database) ---------------------------------------------------------------
@@ -31,8 +34,7 @@ def test_guide_worked_example_john():
     result = fhrs.calculate("CVD", entries)
     assert result.clustering_score == 1.0
     assert result.environmental_modifier == 1.15
-    assert result.calculated_fhrs == 4.169  # 3.625 x 1.15
-    assert round(result.calculated_fhrs, 2) == 4.17  # the guide's figure
+    assert result.calculated_fhrs == 4.17  # 3.625 x 1.15, the guide's figure
     assert result.risk_band == "Pronounced"
     assert result.affected_relatives == 3
 
@@ -66,7 +68,7 @@ def test_shared_household_modifier_per_disease(domain, modifier):
     none until the group sets one."""
     result = fhrs.calculate(domain, [E("father", domain, "typical", "yes", True)])
     assert result.environmental_modifier == modifier
-    assert result.calculated_fhrs == round(0.5 * modifier, 3)
+    assert result.calculated_fhrs == round(0.5 * modifier, 2)
 
 
 @pytest.mark.parametrize("score, band", [(0, "Baseline"), (0.047, "Mild"), (1.75, "Mild"), (1.76, "Moderate"),
@@ -83,12 +85,19 @@ def test_same_relative_counts_once_per_disease():
     assert result.calculated_fhrs == 1.0  # 0.5 x 2.0 x 1.0, the higher term; no cluster bonus
 
 
+def test_higher_term_wins_whichever_diagnosis_comes_first():
+    entries = [E("mother", "CRD", "typical", "yes", False, diagnosis="Asthma"),
+               E("mother", "CRD", "early", "yes", False, diagnosis="COPD")]
+    assert fhrs.calculate("CRD", entries).calculated_fhrs == 1.0
+    assert fhrs.calculate("CRD", entries[::-1]).calculated_fhrs == 1.0
+
+
 def test_only_confirmed_relatives_form_a_cluster():
     unconfirmed = [E("father", "T2D", "typical", "no", False), E("mother", "T2D", "typical", "not_sure", False)]
     assert fhrs.calculate("T2D", unconfirmed).clustering_score == 0
     confirmed = [E("father", "T2D", "typical", "yes", False), E("mother", "T2D", "typical", "yes", False),
                  E("paternal_aunt", "T2D", "typical", "yes", False), E("maternal_uncle", "T2D", "typical", "yes", False)]
-    assert fhrs.calculate("T2D", confirmed).clustering_score == 1.5  # 1.0 x (2-1) + 0.5 x (2-1)
+    assert fhrs.calculate("T2D", confirmed).clustering_score == 1.0  # flat; the aunt and uncle add nothing
 
 
 def test_other_diseases_are_not_counted():
@@ -135,7 +144,7 @@ def test_john_through_the_api(make_patient):
     add(headers, relative="paternal_uncle", specific_diagnosis="Heart disease", age_at_diagnosis=60)
     scores = fhrs_by_domain(headers)
     assert set(scores) == {"CVD", "T2D", "CRD", "NEURO"}
-    assert scores["CVD"]["calculated_fhrs"] == 4.169 and scores["CVD"]["risk_band"] == "Pronounced"
+    assert scores["CVD"]["calculated_fhrs"] == 4.17 and scores["CVD"]["risk_band"] == "Pronounced"
     assert scores["T2D"]["risk_band"] == "Baseline"
 
 
@@ -197,6 +206,63 @@ def test_duplicate_entry_is_refused(make_patient):
     assert add(headers).status_code == 201
     assert add(headers).status_code == 409
     assert add(headers, specific_diagnosis="Stroke").status_code == 201
+
+
+def test_two_brothers_with_the_same_diagnosis(make_patient):
+    headers = make_patient()
+    brother = {"relative": "brother", "disease_domain": "T2D", "specific_diagnosis": "Type 2 diabetes",
+               "age_at_diagnosis": 55, "diagnosis_confirmed": "yes"}
+    first = add(headers, **brother)
+    assert first.status_code == 201 and first.json()["relative_no"] == 1  # default
+    assert add(headers, **brother).status_code == 409  # same person, same diagnosis
+    second = add(headers, **brother, relative_no=2)
+    assert second.status_code == 201 and second.json()["relative_no"] == 2
+    score = fhrs_by_domain(headers)["T2D"]
+    assert (score["calculated_fhrs"], score["clustering_score"], score["affected_relatives"]) == (2.0, 1.0, 2)
+
+
+@pytest.mark.parametrize("relative", sorted(fhrs.SINGLE_RELATIVES))
+def test_single_roles_cannot_repeat(make_patient, relative):
+    headers = make_patient()
+    assert add(headers, relative=relative, relative_no=2).status_code == 422
+    assert client.get("/family-history", headers=headers).json() == []
+
+
+def test_database_agrees_on_which_roles_repeat(db, two_patients):
+    """Past the API, the CHECK must refuse the same roles, and only those."""
+    user_id, patient_id = two_patients["A"]
+    set_request_identity(db, user_id=user_id, patient_id=patient_id)
+    for relative in sorted(fhrs.RELATIVES):
+        db.add(PatientFamilyHistory(patient_id=patient_id, disease_domain="T2D", specific_diagnosis="x",
+                                    relative=relative, relative_no=2))
+        if relative in fhrs.SINGLE_RELATIVES:
+            with pytest.raises(IntegrityError):
+                db.flush()
+        else:
+            db.flush()
+        db.rollback()
+
+
+def test_recalculate_all_replaces_stale_scores_only_for_patients_who_have_one(db, two_patients):
+    user_a, patient_a = two_patients["A"]
+    user_b, patient_b = two_patients["B"]
+    set_request_identity(db, user_id=user_a, patient_id=patient_a)
+    for number in (1, 2):
+        db.add(PatientFamilyHistory(patient_id=patient_a, disease_domain="T2D", specific_diagnosis="Type 2 diabetes",
+                                    relative="brother", relative_no=number, onset_classification="typical",
+                                    diagnosis_confirmed="yes"))
+    db.add(PatientFhrsStratification(patient_id=patient_a, disease_domain="T2D", affected_relatives=1,
+                                     clustering_score=0, environmental_modifier=1, calculated_fhrs=0.5,
+                                     risk_band="Mild"))  # what the old code saved
+    db.commit()
+
+    assert recalculate_all() >= 1
+
+    latest = {row.disease_domain: row for row in services.latest_fhrs(db, patient_a)}
+    assert float(latest["T2D"].calculated_fhrs) == 2.0 and latest["T2D"].risk_band == "Moderate"
+    assert db.scalar(select(func.count()).select_from(PatientFhrsStratification)) == 5  # old row kept, 4 new
+    set_request_identity(db, user_id=user_b, patient_id=patient_b)
+    assert services.latest_fhrs(db, patient_b) == []  # never answered: stays unanswered
 
 
 def test_family_history_is_per_patient(make_patient):

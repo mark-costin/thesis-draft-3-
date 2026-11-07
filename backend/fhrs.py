@@ -1,19 +1,31 @@
-"""Family History Risk Score (FHRS), from the CDSS Data Dictionary's FHRS Guide.
+"""Family History Risk Score (FHRS), from the CDSS Data Dictionary, FHRS Guide (Oct 31, 2026).
 
-    BioFHRS_d      = sum over relatives of (R_i x O_i x S_i)  +  C_d
+    BioFHRS_d      = sum over each relative of (R_i x O_i x S_i)  +  C_d
     AdjustedFHRS_d = BioFHRS_d x E_d
 
     R_i  relationship weight: 1st degree 0.50, 2nd degree 0.25, 3rd degree 0.125
     O_i  age-of-onset multiplier: severe early 3.0, early 2.0, typical 1.0, late 0.75
          ('unknown' is scored as typical, 21_famhistory.sql)
     S_i  verification: diagnosis confirmed by a doctor 1.0, otherwise 0.5
-    C_d  clustering: sum over degrees k of W_k x max(0, confirmed relatives of degree k - 1),
-         W = 1.0 / 0.5 / 0.25 (cdss_spec.json; the guide's example: two confirmed
-         first-degree relatives add +1.0)
+    C_d  clustering: +1.0, once, when 2 or more first-degree relatives have the same
+         doctor-confirmed disease (see disease_of), otherwise 0
     E_d  environment: 1.0 + shared household exposure, per disease (see SHARED_ENVIRONMENT_WEIGHT)
 
 Bands: 0 Baseline (0), Mild (below 1.76), Moderate (1.76 to below 3.51),
 Pronounced (3.51 to 6.00), Critical (above 6.00).
+
+Scores are rounded to 2 decimals, as in the generator and the bands. ml/fhrs_cases.yaml holds
+the cases that this file and the generator (ml/synthetic/01_syntgen.ipynb) must both pass.
+
+Known differences from the generator's fhrs():
+  E: the generator adds 0.15 for each of the patient's own exposures: CVD secondhand smoke, high
+     salt diet (E up to 1.30); T2D processed diet, low home activity (up to 1.30); CRD secondhand
+     smoke, indoor mold, coal heating (up to 1.45); NEURO none. The app has no exposure fields:
+     it adds 0.15 for CVD and CRD only, once, when an affected relative shared the household
+     (E up to 1.15; T2D and NEURO stay 1.0). Group decision pending, separate PR.
+  Two diagnoses in one domain: the generator's loop stops at the relative's first diagnosis, for
+     both the term and C. The app follows the Guide: the higher term, and C sees every confirmed
+     diagnosis.
 
 Pure functions only (no database), so every rule can be tested directly.
 """
@@ -27,16 +39,15 @@ RELATIONSHIP_WEIGHT = {1: 0.50, 2: 0.25, 3: 0.125}            # R_i
 ONSET_MULTIPLIER = {"severe_early": 3.0, "early": 2.0, "typical": 1.0, "late": 0.75,
                     "unknown": 1.0}                            # O_i
 VERIFICATION = {"yes": 1.0, "no": 0.5, "not_sure": 0.5}        # S_i
-CLUSTER_WEIGHT = {1: 1.0, 2: 0.5, 3: 0.25}                     # W_k
+CLUSTER_BONUS = 1.0                                            # C_d
 
 # E_d = 1.0 + this weight when at least one affected relative shared the patient's household
-# (the table records one yes/no per relative). FHRS Guide (Data Dictionary, Oct 31):
+# (the table records one yes/no per relative). CDSS Data Dictionary, FHRS Guide (Oct 31, 2026):
 # household secondhand smoke = +0.15 for CVD and CRD; NEURO has no environmental modifier.
 SHARED_ENVIRONMENT_WEIGHT = {
     "CVD": 0.15,
     "CRD": 0.15,
-    # T2D: to be set by the group. No smoke penalty yet, so E = 1.0. (cdss_spec.json lists
-    # processed diet 0.15 and physical inactivity 0.20, which are not household exposures.)
+    # T2D: to be set by the group. No smoke penalty yet, so E = 1.0.
     "T2D": 0.0,
     "NEURO": 0.0,  # always 1.0
 }
@@ -50,6 +61,9 @@ SECOND_DEGREE = {"paternal_grandfather", "paternal_grandmother", "maternal_grand
 THIRD_DEGREE = {"paternal_male_cousin", "paternal_female_cousin", "maternal_male_cousin",
                 "maternal_female_cousin", "great_grandfather", "great_grandmother"}
 RELATIVES = FIRST_DEGREE | SECOND_DEGREE | THIRD_DEGREE
+# These roles exist only once, so relative_no stays 1 (family_single_relative_check, 24_family_relative_no.sql)
+SINGLE_RELATIVES = {"father", "mother", "paternal_grandfather", "paternal_grandmother", "maternal_grandfather",
+                    "maternal_grandmother", "great_grandfather", "great_grandmother"}
 MALE_RELATIVES = {"father", "brother", "son", "paternal_grandfather", "maternal_grandfather",
                   "paternal_uncle", "maternal_uncle", "half_brother", "grandson", "nephew",
                   "paternal_male_cousin", "maternal_male_cousin", "great_grandfather"}
@@ -84,6 +98,16 @@ def fixed_onset(domain: str, diagnosis: str) -> str | None:
     return None
 
 
+def disease_of(domain: str, diagnosis: str) -> str:
+    """The disease for the clustering rule, as the generator labels it: CVD, T2D, asthma, COPD,
+    depression or GAD. Every CVD diagnosis is one disease, so a heart attack and a stent match."""
+    if domain == "CRD":
+        return "asthma" if "asthma" in diagnosis.lower() else "COPD"
+    if domain == "NEURO":
+        return "GAD" if _ANXIETY.search(diagnosis) else "depression"
+    return domain
+
+
 def onset_from_age(domain: str, diagnosis: str, relative_sex: str, age: int) -> str:
     """Onset level from the age at diagnosis (FHRS Guide, "When is a disease considered early?")."""
     fixed = fixed_onset(domain, diagnosis)
@@ -112,6 +136,8 @@ class FamilyEntry:
     onset: str           # severe_early | early | typical | late | unknown
     confirmed: str       # yes | no | not_sure
     shared_environment: bool
+    diagnosis: str       # specific_diagnosis, read by disease_of
+    relative_no: int = 1  # with relative, identifies the person: brother 1, brother 2
 
 
 @dataclass(frozen=True)
@@ -137,27 +163,24 @@ def risk_band(score: float) -> str:
 
 
 def calculate(domain: str, entries: list[FamilyEntry]) -> FhrsResult:
-    """One relative counts once per disease: if the same relative has two diagnoses in the
-    same domain (e.g. hypertension and stroke), the higher term is used, so nobody is
+    """Each person counts once per disease: if the same (relative, relative_no) has two diagnoses
+    in the same domain (e.g. hypertension and stroke), the higher term is used, so nobody is
     double-counted."""
-    best_term: dict[str, float] = {}
-    confirmed_relatives: set[str] = set()
+    best_term: dict[tuple[str, int], float] = {}
+    confirmed_first_degree: dict[str, set[tuple[str, int]]] = {}
     shared = False
     for e in (e for e in entries if e.domain == domain):
+        person = (e.relative, e.relative_no)
         term = RELATIONSHIP_WEIGHT[degree_of(e.relative)] * ONSET_MULTIPLIER[e.onset] * VERIFICATION[e.confirmed]
-        best_term[e.relative] = max(term, best_term.get(e.relative, 0.0))
-        if e.confirmed == "yes":
-            confirmed_relatives.add(e.relative)
+        best_term[person] = max(term, best_term.get(person, 0.0))
+        if e.confirmed == "yes" and e.relative in FIRST_DEGREE:
+            confirmed_first_degree.setdefault(disease_of(domain, e.diagnosis), set()).add(person)
         shared = shared or e.shared_environment
 
-    confirmed_per_degree = {k: 0 for k in CLUSTER_WEIGHT}
-    for relative in confirmed_relatives:
-        confirmed_per_degree[degree_of(relative)] += 1
-    clustering = sum(CLUSTER_WEIGHT[k] * max(0, n - 1) for k, n in confirmed_per_degree.items())
-
+    clustering = CLUSTER_BONUS if any(len(people) >= 2 for people in confirmed_first_degree.values()) else 0.0
     bio = sum(best_term.values()) + clustering
     environment = 1.0 + (SHARED_ENVIRONMENT_WEIGHT[domain] if shared and best_term else 0.0)
-    adjusted = round(bio * environment, 3)
+    adjusted = round(bio * environment, 2)
     return FhrsResult(domain=domain, affected_relatives=len(best_term),
-                      clustering_score=round(clustering, 3), environmental_modifier=round(environment, 3),
+                      clustering_score=clustering, environmental_modifier=round(environment, 3),
                       calculated_fhrs=adjusted, risk_band=risk_band(adjusted))
