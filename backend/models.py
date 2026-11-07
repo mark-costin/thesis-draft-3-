@@ -228,7 +228,7 @@ class QuestionnaireResponse(Base):
 
 
 class PatientFamilyHistory(Base):
-    """patient_family_history (12_family_history.sql + 21_famhistory.sql)."""
+    """patient_family_history (12_family_history.sql + 21_famhistory.sql + 24_family_relative_no.sql)."""
 
     __tablename__ = "patient_family_history"
 
@@ -237,6 +237,7 @@ class PatientFamilyHistory(Base):
     disease_domain: Mapped[str] = mapped_column(String(5), nullable=False)
     specific_diagnosis: Mapped[str] = mapped_column(String(150), nullable=False)
     relative: Mapped[str] = mapped_column(String(25), nullable=False)
+    relative_no: Mapped[int] = mapped_column(SmallInteger, server_default=text("1"), nullable=False)
     age_at_diagnosis: Mapped[int | None] = mapped_column(SmallInteger)
     onset_classification: Mapped[str] = mapped_column(String(12), server_default=text("'unknown'::character varying"), nullable=False)
     shared_environment: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)

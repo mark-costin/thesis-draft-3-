@@ -31,6 +31,7 @@ folder in alphabetical order the first time the database volume is created.
 | `21_famhistory.sql` | changes to `patient_family_history`, `patient_fhrs_stratification` | Relatives, onset levels, 5 risk bands |
 | `22_ocr_engine_default.sql` | change to `documents` | `ocr_engine` default `'none'` (was `'Chandra OCR'`) |
 | `23_contact_and_google.sql` | changes to `patients`, `users` | Contact number and home address; sign in with Google (`google_sub`, optional password) |
+| `24_family_relative_no.sql` | change to `patient_family_history` | `relative_no`: each relative is a person (brother 1, brother 2) |
 | `99_security.sql` | RLS policies, grants | Zero Trust enforcement (runs last) |
 | `seed_care_plan_templates.sql` | 12 draft templates | Not numbered, so Docker never loads unreviewed advice; run by hand as `postgres` |
 | `approve_care_plan_templates_v1_0.sql` | Approves the 12 v1.0 templates | Do not run until its placeholders are filled in from the signed form. Then by hand as `postgres` on `med_db`, after the seed. Cannot be undone; `med_db_test` keeps the drafts |

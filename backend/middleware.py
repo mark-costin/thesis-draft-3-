@@ -116,9 +116,10 @@ def _error(status: int, detail: str) -> Response:
 class IdempotencyMiddleware:
     """Same Idempotency-Key twice = one action.
 
-    The first POST with a key runs normally and its response is saved. A repeat with
-    the same key and the same body gets the saved response back (header Idempotent-Replayed: true)
-    without running again, so a double click or a retried request never creates two records.
+    The first POST with a key runs normally and, if it succeeds, its response is saved. A repeat
+    with the same key and the same body gets the saved response back (header Idempotent-Replayed:
+    true) without running again, so a double click or a retried request never creates two records.
+    A request that failed (status 400 or above) keeps nothing, so its retry runs again.
     When the response holds health data (Cache-Control: no-store), the body is not saved: the
     repeat gets the same status and Location header and reads the record with a GET.
     The same key with a different body is refused (422). Keys are scoped to the caller's token
@@ -212,8 +213,10 @@ class IdempotencyMiddleware:
             await self.store.release(store_key)
             raise
 
-        if response["status"] >= 500:
-            await self.store.release(store_key)  # a server error may be retried with the same key
+        if response["status"] >= 400:
+            # An error created no record, so it may be retried with the same key. A 4xx body can
+            # repeat the rejected input (a 422 echoes it), so it must never reach the store.
+            await self.store.release(store_key)
         else:
             # Routes that return health data send "Cache-Control: no-store"; for those only the
             # status and Location are kept, never the body (Sprint 1 review note)

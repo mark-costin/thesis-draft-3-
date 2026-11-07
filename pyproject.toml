@@ -48,4 +48,4 @@ ml = [
 ]
    [tool.pytest.ini_options]
    pythonpath = ["."]
-   testpaths = ["tests"]
+   testpaths = ["tests", "ml/test_fhrs_cases.py"]
