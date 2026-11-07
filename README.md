@@ -114,7 +114,14 @@ per seed). Training does not register any model: `ml/artifacts/register_models.s
 `ml/test_fhrs_cases.py`. The other ML tests run separately:
 
 ```
-uv run --group ml python -m pytest ml/ai_model/test_model_inputs.py ml/investigate/test_auroc_ceiling.py
+uv run --group ml python -m pytest ml/ai_model/test_model_inputs.py ml/investigate/test_auroc_ceiling.py \
+    ml/investigate/test_evaluation_protocol.py ml/investigate/test_optuna_candidate.py
+```
+
+Grid (a) against Optuna (b) on the shared folds, repeat 3, then validation (about 2 hours; writes CSVs and `decision.txt`):
+
+```
+uv run --group ml python ml/investigate/optuna_candidate.py <output folder> [trials]
 ```
 
 ## Project Folder
