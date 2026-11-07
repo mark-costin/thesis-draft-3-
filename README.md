@@ -110,7 +110,8 @@ uv run --group ml jupyter nbconvert --to notebook --execute --inplace train_mode
 For a quick test run of Notebook 1, put `SYNTH_N=5000` in front of its command (5,000 patients
 per seed). Training does not register any model: `ml/artifacts/register_models.sql` is run by hand.
 
-`uv run pytest` runs the app tests in `tests/`. The ML tests run separately:
+`uv run pytest` runs the app tests in `tests/` and the generator's FHRS cases in
+`ml/test_fhrs_cases.py`. The other ML tests run separately:
 
 ```
 uv run --group ml python -m pytest ml/ai_model/test_model_inputs.py ml/investigate/test_auroc_ceiling.py
@@ -175,6 +176,7 @@ thesis-d3/
 │   ├── 02_users.sql … 20_health_reports.sql   # One script per table (see below)
 │   ├── 21_famhistory.sql          # Changes to the family history tables (FHRS guide)
 │   ├── 22_ocr_engine_default.sql  # documents.ocr_engine default 'none'
+│   ├── 24_family_relative_no.sql  # relative_no: each relative is a person
 │   ├── 99_security.sql            # Row-level security and permissions (runs last)
 │   ├── seed_care_plan_templates.sql   # The 12 care plan templates, loaded as drafts (run by hand)
 │   ├── approve_care_plan_templates_v1_0.sql   # Records the physician's approval (do not run until filled in; med_db only)
@@ -264,6 +266,7 @@ thesis-d3/
 | `20_health_reports.sql` | `health_reports` |
 | `21_famhistory.sql` | changes to `patient_family_history`, `patient_fhrs_stratification` |
 | `22_ocr_engine_default.sql` | change to `documents` (`ocr_engine` default `'none'`) |
+| `24_family_relative_no.sql` | change to `patient_family_history` (`relative_no`) |
 | `99_security.sql` | RLS policies and grants (runs last) |
 
 Generated folders (`.venv/`, `.pytest_cache/`, `__pycache__/`, `ml/mlruns/`, `ml/OCR/output/`), the seed-2 CSVs (`ml/synthetic/output_seed2/*.csv`), uploaded files and `.env` are left out because Git ignores them.

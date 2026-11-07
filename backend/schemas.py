@@ -462,7 +462,7 @@ class ReadinessResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Family history (12_family_history.sql + 21_famhistory.sql) and FHRS (13_fhrs_stratification.sql)
+# Family history (12, 21 and 24 in database/) and FHRS (13_fhrs_stratification.sql)
 # ---------------------------------------------------------------------------
 Relative = Literal[tuple(sorted(fhrs.RELATIVES))]
 Domain = Literal["CVD", "T2D", "CRD", "NEURO"]
@@ -478,6 +478,7 @@ class FamilyEntryCreate(BaseModel):
     disease_domain: Domain
     specific_diagnosis: str = Field(min_length=1, max_length=150)   # e.g. "Hypertension", "Asthma"
     relative: Relative
+    relative_no: int = Field(default=1, ge=1, le=20)   # brother 1, brother 2: which person of this role
     age_at_diagnosis: int | None = Field(default=None, ge=0, le=120)
     onset_classification: Onset = "unknown"
     shared_environment: bool = False      # lived in the same household
@@ -487,6 +488,14 @@ class FamilyEntryCreate(BaseModel):
     @classmethod
     def clean(cls, value):
         return clean_text(value)
+
+    @model_validator(mode="after")
+    def single_role_is_number_1(self):
+        if self.relative in fhrs.SINGLE_RELATIVES and self.relative_no != 1:
+            raise ValueError(f"{self.relative} exists only once, so relative_no must be 1")
+        if self.relative in fhrs.GREAT_GRANDPARENTS and self.relative_no > 4:
+            raise ValueError(f"there are four of {self.relative}, so relative_no must be 1 to 4")
+        return self
 
 
 class FamilyEntryUpdate(BaseModel):
@@ -522,6 +531,7 @@ class FamilyEntryResponse(BaseModel):
     disease_domain: str
     specific_diagnosis: str
     relative: str
+    relative_no: int
     relationship_degree: int        # computed by the database
     relative_sex: str               # computed by the database
     age_at_diagnosis: int | None

@@ -552,7 +552,8 @@ def _set_onset(row: PatientFamilyHistory, chosen: str | None = None) -> None:
 
 def recalculate_fhrs(db: Session, patient_id: int) -> list[PatientFhrsStratification]:
     entries = [fhrs.FamilyEntry(relative=r.relative, domain=r.disease_domain, onset=r.onset_classification,
-                                confirmed=r.diagnosis_confirmed, shared_environment=r.shared_environment)
+                                confirmed=r.diagnosis_confirmed, shared_environment=r.shared_environment,
+                                diagnosis=r.specific_diagnosis, relative_no=r.relative_no)
                for r in db.scalars(select(PatientFamilyHistory)
                                    .where(PatientFamilyHistory.patient_id == patient_id))]
     rows = []
