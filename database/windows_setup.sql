@@ -1,6 +1,6 @@
 -- windows_setup.sql
 -- Purpose: Sets up med_db on Windows without Docker (DBeaver or psql).
--- Replaces 00_roles.sh (bash, Docker only), then runs 01-22, 99_security and the draft
+-- Replaces 00_roles.sh (bash, Docker only), then runs 01-23, 99_security and the draft
 -- care plan templates (seed_care_plan_templates.sql), in the same order as tests/create_test_db.ps1.
 -- Run ONCE on a NEW, EMPTY database named med_db, connected as postgres.
 -- Keep in sync: when a script in database/ is added or changed, update this file in the same PR.
@@ -295,7 +295,8 @@ $$;
 -- ============ 06_documents.sql ============
 -- 06_documents.sql
 -- Table: documents
--- Purpose: Uploaded lab documents and their Chandra OCR job status.
+-- Purpose: Uploaded lab documents and their OCR job status (the configured engine:
+-- PaddleOCR-VL; Chandra optional).
 -- The file itself is Fernet-encrypted on the Docker volume; only its storage key is stored here.
 
 CREATE TABLE IF NOT EXISTS public.documents (
@@ -307,7 +308,7 @@ CREATE TABLE IF NOT EXISTS public.documents (
     mime_type       character varying(30) NOT NULL,
     file_size_bytes integer NOT NULL,
     file_sha256     character(64) NOT NULL,                          -- integrity check of the original file
-    ocr_engine      character varying(50) NOT NULL DEFAULT 'Chandra OCR',
+    ocr_engine      character varying(50) NOT NULL DEFAULT 'none',          -- engine that read it (22_ocr_engine_default.sql)
     ocr_text        text,                                            -- cleared after verification (data minimization)
     ocr_confidence  numeric(5,2),
     status          character varying(20) NOT NULL DEFAULT 'pending',
@@ -984,12 +985,29 @@ ALTER TABLE public.patient_fhrs_stratification
 
 COMMENT ON COLUMN public.patient_fhrs_stratification.risk_band IS
     'Band 0 Baseline (0.0), 1 Mild (0.10-1.75), 2 Moderate (1.76-3.50), 3 Pronounced (3.51-6.00), 4 Critical (>6.00)';
--- ============ 22_contact_and_google.sql ============
--- 22_contact_and_google.sql
+-- ============ 22_ocr_engine_default.sql ============
+-- 22_ocr_engine_default.sql
+-- Purpose: documents.ocr_engine names the engine that actually read the document (set by the
+-- OCR worker: 'PaddleOCR-VL', 'PDF text layer'). The old default 'Chandra OCR' named an engine
+-- that never ran in this app, so a document no engine had read yet (pending, failed, or OCR
+-- switched off) looked as if Chandra had read it. The default is now 'none'.
+-- Run on an existing med_db as postgres. Safe to run more than once.
+
+ALTER TABLE public.documents ALTER COLUMN ocr_engine SET DEFAULT 'none';
+
+-- No Chandra engine was ever configured, so every 'Chandra OCR' value is the old default
+UPDATE public.documents SET ocr_engine = 'none' WHERE ocr_engine = 'Chandra OCR';
+
+COMMENT ON COLUMN public.documents.ocr_engine IS
+    'Engine that read the document (set by the OCR worker); ''none'' until an engine has read it';
+
+-- ============ 23_contact_and_google.sql ============
+-- 23_contact_and_google.sql
 -- Purpose: (1) contact number and home address on the patient's profile, as collected on the
 -- Create account and Account settings screens; (2) sign in with Google.
 -- Run on an existing med_db as postgres, then run 99_security.sql again (it grants the app
 -- UPDATE on the new profile columns). New databases run it in order like the other scripts.
+-- Safe to run twice.
 --
 -- RA 10173 (data minimization): the address is kept at barangay level plus an optional street
 -- line, the contact number is one mobile number, and none of it is a model input, an audit
@@ -1006,6 +1024,8 @@ ALTER TABLE public.patients
     ADD COLUMN IF NOT EXISTS street            character varying(150);  -- optional house no. / street
 
 ALTER TABLE public.patients
+    DROP CONSTRAINT IF EXISTS patients_contact_number_check,
+    DROP CONSTRAINT IF EXISTS patients_address_order_check,
     ADD CONSTRAINT patients_contact_number_check
         CHECK (contact_number IS NULL OR contact_number ~ '^(09[0-9]{9}|\+639[0-9]{9})$'),
     -- A barangay needs its city, and a city needs its province (the screens pick them in that order)
@@ -1023,17 +1043,34 @@ ALTER TABLE public.users
     ADD COLUMN IF NOT EXISTS google_sub character varying(255);
 
 ALTER TABLE public.users
+    DROP CONSTRAINT IF EXISTS users_has_a_sign_in_check,
     ADD CONSTRAINT users_has_a_sign_in_check CHECK (password_hash IS NOT NULL OR google_sub IS NOT NULL);
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_users_google_sub ON public.users (google_sub)
     WHERE google_sub IS NOT NULL;
+
+-- ---------------------------------------------------------------------------
+-- 3. Accepting a new privacy notice
+-- ---------------------------------------------------------------------------
+-- med_app has no UPDATE right on the consent columns (99_security.sql). This is the only way it can
+-- change them, and only on the patient of the current request. The old version stays in the audit log.
+CREATE OR REPLACE FUNCTION public.accept_privacy_notice(p_version character varying)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+    UPDATE public.patients
+       SET consent_version = p_version, consent_at = now()
+     WHERE patient_id = public.current_patient_id();
+$$;
 
 -- ============ 99_security.sql ============
 -- 99_security.sql
 -- Purpose: Zero Trust enforcement inside the database. Runs last.
 --   1. Row-Level Security: each request sees only its own patient's rows (deny by default)
 --   2. Least privilege: narrows med_app's default table rights per table
---   3. Function access: med_app may call only log_audit()
+--   3. Function access: med_app may call only log_audit() and accept_privacy_notice()
 --
 -- How the app uses this - at the start of every request transaction:
 --     SET LOCAL app.user_id    = '<user_id from JWT>';
@@ -1122,6 +1159,8 @@ GRANT EXECUTE ON FUNCTION public.prevent_modification() TO med_app;
 
 -- The only way to write audit entries
 GRANT EXECUTE ON FUNCTION public.log_audit(text, integer, integer, jsonb) TO med_app;
+-- The only way to change consent: the current patient's own row (23_contact_and_google.sql)
+GRANT EXECUTE ON FUNCTION public.accept_privacy_notice(character varying) TO med_app;
 
 -- verify_audit_chain() and audit_seal_input() stay owner-only (admin checks).
 -- protect_reviewed_template() (19_care_plan_templates.sql) stays owner-only: it only fires
@@ -1135,11 +1174,9 @@ GRANT EXECUTE ON FUNCTION public.log_audit(text, integer, integer, jsonb) TO med
 -- Run as postgres AFTER 19_care_plan_templates.sql. Not numbered on purpose, so Docker
 -- does not load unreviewed advice automatically.
 -- Drafts load with reviewed_by/reviewed_on NULL and is_active = false, so the app shows none
--- of them yet. After the physician signs a template (Section 7 of the care plan):
---     UPDATE public.care_plan_templates
---        SET reviewed_by = 'Dr. <name>, <specialty>', reviewed_on = DATE '<yyyy-mm-dd>', is_active = true
---      WHERE disease_domain = 'CVD' AND risk_level = 'Low' AND version = '1.0';
--- From then on that row is read-only; any change is a new version (e.g. '1.1').
+-- of them yet. To record the physician's approval of version 1.0 on med_db, fill in and run
+-- approve_care_plan_templates_v1_0.sql by hand after this script (the test database keeps drafts).
+-- From then on those rows are read-only; any change is a new version (e.g. '1.1') and a new sign-off.
 
 BEGIN;
 

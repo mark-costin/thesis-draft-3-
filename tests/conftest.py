@@ -12,9 +12,14 @@ from sqlalchemy import create_engine, delete
 from sqlalchemy.engine import make_url
 
 from backend.config import settings
-from backend.database import SessionLocal, set_request_identity
+from backend.database import ENGINE_OPTIONS, SessionLocal, set_request_identity
 from backend.middleware import limiter
 from backend.models import Patient, User
+
+# Tests start with the risk models off, whatever .env says: with RISK_MODELS_ENABLED=true (a local
+# demo) importing backend.main would load the models from med_db_test, which has none. Tests that
+# need models load them themselves (tests/risk_helpers.py).
+settings.risk_models_enabled = False
 
 # ---------------------------------------------------------------------------
 # Safety checks: refuse to run against the real database or as postgres
@@ -28,11 +33,15 @@ if _test_url.database == make_url(settings.database_url).database:
 if _test_url.username != "med_app":
     raise RuntimeError("Tests must connect as med_app, never postgres")
 
-test_engine = create_engine(settings.test_database_url, pool_pre_ping=True)
+test_engine = create_engine(settings.test_database_url, **ENGINE_OPTIONS)  # same options as the app
 
 # The auth tests log in many times from the same test client, which would hit the per-IP
 # rate limits. They are switched off here and switched on only in tests/test_middleware.py.
 limiter.enabled = False
+
+# OCR is off in tests, whatever the developer's .env says (OCR_ENGINE=paddleocr_vl on the GPU
+# laptop): an upload stays 'pending' unless a test switches an engine on itself.
+settings.ocr_engine = "none"
 
 # Point the app's session factory at the test database. The RLS identity hook in
 # database.py is attached to SessionLocal, so it keeps working.

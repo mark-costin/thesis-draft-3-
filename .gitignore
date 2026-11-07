@@ -8,3 +8,21 @@ all_tables.sql
 backend/uploads/*
 !backend/uploads/.gitkeep
 .pytest_cache/
+ml/mlruns/
+
+# Trained model files: never committed (pickled code; registered by SHA-256 on each machine)
+ml/artifacts/*.joblib
+ml/artifacts/*.ubj
+ml/artifacts/*.json
+# Reports the training notebook writes on each run (results of that run, not source)
+ml/artifacts/metrics.csv
+ml/artifacts/metrics_xgb_all.csv
+ml/artifacts/model_card.md
+ml/artifacts/register_models.sql
+# OCR check images and results (ml/OCR/make_reports.py, run_check.py)
+ml/OCR/output/
+# Second-seed synthetic data: rebuilt exactly by Notebook 1 (seed 20261102); see docs/synthetic_data_changes.md
+ml/synthetic/output_seed2/*.csv
+
+# Database dumps and uploads from the backup script: real data
+backups/

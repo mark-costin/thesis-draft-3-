@@ -29,9 +29,11 @@ folder in alphabetical order the first time the database volume is created.
 | `19_care_plan_templates.sql` | `care_plan_templates` | 12 physician-reviewed care plan templates (read-only for `med_app`) |
 | `20_health_reports.sql` | `health_reports` | Saved report snapshots (patient-owned, RLS, never edited) |
 | `21_famhistory.sql` | changes to `patient_family_history`, `patient_fhrs_stratification` | Relatives, onset levels, 5 risk bands |
-| `22_contact_and_google.sql` | changes to `patients`, `users` | Contact number and home address; sign in with Google (`google_sub`, optional password) |
+| `22_ocr_engine_default.sql` | change to `documents` | `ocr_engine` default `'none'` (was `'Chandra OCR'`) |
+| `23_contact_and_google.sql` | changes to `patients`, `users` | Contact number and home address; sign in with Google (`google_sub`, optional password) |
 | `99_security.sql` | RLS policies, grants | Zero Trust enforcement (runs last) |
 | `seed_care_plan_templates.sql` | 12 draft templates | Not numbered, so Docker never loads unreviewed advice; run by hand as `postgres` |
+| `approve_care_plan_templates_v1_0.sql` | Approves the 12 v1.0 templates | Do not run until its placeholders are filled in from the signed form. Then by hand as `postgres` on `med_db`, after the seed. Cannot be undone; `med_db_test` keeps the drafts |
 
 ## Windows setup (no Docker)
 
@@ -46,13 +48,14 @@ folder in alphabetical order the first time the database volume is created.
 
 1. In DBeaver, connected as `postgres`, create an empty database named `med_db`.
 2. Open `database/windows_setup.sql`, set the active database to `med_db` (toolbar shows
-   `public@med_db`), and run the whole script (Alt+X). It creates `med_app`, runs 01 to 21,
+   `public@med_db`), and run the whole script (Alt+X). It creates `med_app`, runs 01 to 22,
    then 99, then the draft care plan templates. It stops at once if the database is not `med_db`
    or already has tables, so it can never overwrite your data (click **Stop** if DBeaver asks).
 3. Refresh `med_db`: Schemas -> public -> Tables should list 19 tables.
-4. Copy `.env.example` to `.env` and fill in any secrets it lists, such as `JWT_SECRET_KEY` (the dev password `CHANGE_ME`
+4. Once its placeholders are filled in from the signed form, run `database/approve_care_plan_templates_v1_0.sql` the same way. Until then the templates stay drafts.
+5. Copy `.env.example` to `.env` and fill in any secrets it lists, such as `JWT_SECRET_KEY` (the dev password `CHANGE_ME`
    already matches the script).
-5. Check the connection:
+6. Check the connection:
 
    ```
    uv run python backend/check_db.py

@@ -49,7 +49,7 @@ class User(Base):
 
     user_id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
     email: Mapped[str] = mapped_column(String(254), nullable=False)
-    password_hash: Mapped[str | None] = mapped_column(Text)  # NULL for a Google-only account (22_contact_and_google.sql)
+    password_hash: Mapped[str | None] = mapped_column(Text)  # NULL for a Google-only account (23_contact_and_google.sql)
     failed_attempts: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"), nullable=False)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     token_version: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
@@ -76,7 +76,7 @@ class Patient(Base):
     consent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("now()"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("now()"), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("now()"), nullable=False)
-    # 22_contact_and_google.sql: optional, never a model input
+    # 23_contact_and_google.sql: optional, never a model input
     contact_number: Mapped[str | None] = mapped_column(String(13))
     province: Mapped[str | None] = mapped_column(String(100))
     city_municipality: Mapped[str | None] = mapped_column(String(100))
@@ -126,7 +126,7 @@ class Document(Base):
     mime_type: Mapped[str] = mapped_column(String(30), nullable=False)
     file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     file_sha256: Mapped[str] = mapped_column(CHAR(64), nullable=False)
-    ocr_engine: Mapped[str] = mapped_column(String(50), server_default=text("'Chandra OCR'::character varying"), nullable=False)
+    ocr_engine: Mapped[str] = mapped_column(String(50), server_default=text("'none'::character varying"), nullable=False)
     ocr_text: Mapped[str | None] = mapped_column(Text)
     ocr_confidence: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     status: Mapped[str] = mapped_column(String(20), server_default=text("'pending'::character varying"), nullable=False)

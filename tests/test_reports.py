@@ -191,6 +191,51 @@ def test_pdf_download(make_patient, models_on):
     assert f'health-report-{report_id}.pdf' in response.headers["Content-Disposition"]
 
 
+def pdf_text(data: bytes) -> str:
+    """All the text in a PDF, with line breaks and repeated spaces made single spaces."""
+    import pypdfium2 as pdfium
+
+    pdf = pdfium.PdfDocument(data)
+    try:
+        pages = []
+        for page in pdf:
+            textpage = page.get_textpage()
+            pages.append(textpage.get_text_bounded())
+            textpage.close()
+            page.close()
+    finally:
+        pdf.close()
+    return " ".join(" ".join(pages).split())
+
+
+def test_every_disease_in_the_pdf_has_its_care_plan_disclaimer(make_patient, models_on):
+    """The care-plan disclaimer must be printed inside each disease's own section of the PDF, not
+    only once somewhere in the file (reports.render_html adds it after each care plan)."""
+    try:
+        from weasyprint import HTML  # noqa: F401  (needs the Pango/GTK libraries)
+    except (ImportError, OSError):
+        pytest.skip("WeasyPrint or its Pango/GTK libraries are not installed on this computer")
+    _, headers, assessment = assessed(make_patient)
+    report = save(headers, assessment["assessment_id"]).json()
+    response = client.get(f"/reports/{report['report_id']}/pdf", headers=headers)
+    assert response.status_code == 200
+    text = pdf_text(response.content)
+
+    results = report["report_snapshot"]["results"]
+    assert sorted(result["disease"] for result in results) == sorted(MODELS)  # all four diseases
+    # Each disease's section: from its heading to the next disease's heading (or the end)
+    starts, position = [], 0
+    for result in results:
+        position = text.index(result["disease_name"].capitalize(), position)
+        starts.append(position)
+    for index, result in enumerate(results):
+        section = text[starts[index]:starts[index + 1] if index + 1 < len(results) else len(text)]
+        disclaimer = " ".join(result["care_plan"]["disclaimer"].split())
+        assert disclaimer.startswith("This care plan is for educational screening only"), result["disease"]
+        assert "not a medical diagnosis" in disclaimer
+        assert disclaimer in section, f"{result['disease']}: care-plan disclaimer missing from its PDF section"
+
+
 def test_without_the_pdf_library_the_download_says_so(make_patient, models_on, monkeypatch):
     def unavailable(report):
         raise reports.PdfUnavailable

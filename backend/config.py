@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     # Version of the privacy notice (RA 10173) shown on the registration screen.
     # Raise it whenever the notice text changes; registration only accepts the current one.
-    privacy_notice_version: str = "1.0"
+    privacy_notice_version: str = "1.1"
 
     # Signs the login tokens (JWT). Required, at least 32 characters, never the placeholder.
     # Generate one with:  uv run python -c "import secrets; print(secrets.token_urlsafe(48))"
@@ -50,9 +50,12 @@ class Settings(BaseSettings):
     # Folder for the encrypted files (a Docker volume on deployment)
     upload_dir: Path = ROOT_DIR / "backend" / "uploads"
 
-    # OCR engine for uploaded lab documents (backend/ocr.py). "none": uploads stay 'pending' and
-    # the patient types the values in. Engines are added there (e.g. "tesseract", "chandra").
+    # OCR engine for uploaded lab documents (backend/ocr/engines.py, docs/ocr.md). "none": uploads stay
+    # 'pending' and the patient types the values in. "pdf_text": reads PDFs that contain text (no
+    # GPU). "paddleocr_vl": PaddleOCR-VL for photos and scans (GPU install step in docs/ocr.md).
     ocr_engine: str = "none"
+    # Where PaddleOCR-VL runs: "gpu:0" or "cpu" (very slow)
+    ocr_device: str = "gpu:0"
 
     # Risk models (Sprint 5). false until the four models are trained and registered in
     # model_versions and the care plan templates are approved; true makes the app refuse to
@@ -63,6 +66,15 @@ class Settings(BaseSettings):
     # Show care plan templates that are still drafts (not yet approved by the physician).
     # Only for demos and tests before approval; must stay false for real patients.
     show_draft_care_plans: bool = False
+
+    # DEVELOPMENT ONLY. No mail server yet, so a password reset link (with the email address)
+    # can be printed to the API console. Must stay false on a server: there the console is the
+    # container log, and the link lets anyone who reads the log reset that password.
+    print_reset_links: bool = False
+    # Unhandled errors. false: the log gets only the error type and the route, and the client a
+    # plain 500. true: the full traceback is logged too (useful when debugging), but database
+    # errors can quote the values that failed, which may be health data. Keep false on a server.
+    log_error_details: bool = False
 
     @field_validator("document_encryption_key")
     @classmethod

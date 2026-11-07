@@ -197,3 +197,43 @@ def test_profile_edits_are_not_stored_for_idempotent_replay(make_patient):
     again = client.patch("/profile", headers=with_key, json={"last_name": "First"})
     assert REPLAY_HEADER not in again.headers
     assert patient_row(email).last_name == "First"
+
+
+# ---------------------------------------------------------------------------
+# A new privacy notice: a patient who accepted the old one is asked again
+# ---------------------------------------------------------------------------
+def test_a_patient_on_the_old_notice_is_asked_to_accept_the_new_one(make_patient, monkeypatch):
+    recorded = []
+    real = audit.log_event
+    monkeypatch.setattr(audit, "log_event", lambda db, event, **kw: (recorded.append((event, kw)), real(db, event, **kw))[1])
+    email, headers = make_patient()
+    other_email, _ = make_patient()
+    old = settings.privacy_notice_version
+    assert client.get("/auth/me", headers=headers).json()["consent_required"] is False
+
+    monkeypatch.setattr(settings, "privacy_notice_version", "9.9")
+    assert client.get("/auth/me", headers=headers).json()["consent_required"] is True
+    for bad in ({"privacy_consent": True, "consent_version": old}, {"privacy_consent": False, "consent_version": "9.9"}):
+        assert client.post("/auth/accept-privacy-notice", headers=headers, json=bad).status_code == 422
+    accepted_before = patient_row(email).consent_at
+    accepted = client.post("/auth/accept-privacy-notice", headers=headers,
+                           json={"privacy_consent": True, "consent_version": "9.9"})
+    assert accepted.status_code == 204
+
+    me = client.get("/auth/me", headers=headers).json()
+    assert (me["consent_version"], me["consent_required"]) == ("9.9", False)
+    assert patient_row(email).consent_at > accepted_before
+    assert patient_row(other_email).consent_version == old  # only this patient's row changed
+    event, details = recorded[-1]
+    assert event == "DATA_UPDATED" and details["consent_version"] == "9.9" and details["table"] == "patients"
+
+
+def test_accepting_the_notice_needs_a_login():
+    assert client.post("/auth/accept-privacy-notice", json={"privacy_consent": True, "consent_version": "1.1"}).status_code == 401
+
+
+def test_the_consent_function_changes_nothing_without_a_patient(db, two_patients):
+    user_id, patient_id = two_patients["A"]
+    db.execute(text("SELECT public.accept_privacy_notice('9.9')"))  # no identity set
+    set_request_identity(db, user_id=user_id, patient_id=patient_id)
+    assert db.scalar(select(Patient.consent_version)) != "9.9"
