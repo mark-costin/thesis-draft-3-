@@ -15,8 +15,8 @@ def login_form() -> rx.Component:
             password_input("login", placeholder="Password", aria_label="Password", required=True, size="3", custom_attrs={"autoComplete": "current-password"}),
             rx.button("Log in", type="submit", size="3", width="100%", loading=State.submitting),
             rx.link("Forgot password?", href="/forgot-password", size="2", underline="hover", text_align="center"),
-            or_divider(),
-            google_button("signin_with"),
+            # Google sign-in shows only when GOOGLE_CLIENT_ID is set (off for now: group decision, Nov 8)
+            *([or_divider(), google_button("signin_with")] if GOOGLE_CLIENT_ID else []),
             rx.divider(),
             rx.button("Create new account", type="button", variant="outline", size="3", on_click=rx.redirect("/register")),
             spacing="4", align="stretch", width="100%"),

@@ -33,10 +33,12 @@ def create_form() -> rx.Component:
             rx.box(rx.checkbox(f"I accept the Privacy Notice (version {NOTICE_VERSION}) under RA 10173. The notice version and time of acceptance are recorded.", checked=State.consent, on_change=State.set_consent),
                    padding="16px 18px", background="var(--accent-2)", border="1px solid var(--accent-4)", border_radius="12px", width="100%"),
             rx.button("Create my account", type="submit", size="3", width="100%", loading=State.submitting, disabled=~State.consent),
-            or_divider(),
-            rx.cond(State.consent, google_button("signup_with"),
-                    rx.button(rx.icon("log-in", size=16), "Sign up with Google", type="button", variant="outline", size="3", width="100%", disabled=True)),
-            hint("For Google sign-up, fill in your date of birth and biological sex and accept the Privacy Notice first. Google does not share them."),
+            # Google sign-up shows only when GOOGLE_CLIENT_ID is set (off for now: group decision, Nov 8)
+            *([or_divider(),
+               rx.cond(State.consent, google_button("signup_with"),
+                       rx.button(rx.icon("log-in", size=16), "Sign up with Google", type="button", variant="outline", size="3", width="100%", disabled=True)),
+               hint("For Google sign-up, fill in your date of birth and biological sex and accept the Privacy Notice first. Google does not share them.")]
+              if GOOGLE_CLIENT_ID else []),
             spacing="4", width="100%"),
         on_submit=State.register, reset_on_submit=False, width="100%")
 
