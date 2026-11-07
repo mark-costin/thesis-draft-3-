@@ -33,7 +33,7 @@ This is a web-based clinical decision support system that estimates a patient's 
 | Packages        | uv |
 | Background jobs | RQ + Redis (optional: without Redis, OCR runs in the API process) |
 | OCR             | PaddleOCR-VL on a GPU (Chandra optional); PDF text layer (pypdfium2) |
-| AI Model        | XGBoost with calibration (scikit-learn) and SHAP explanations; logistic regression baseline. Trained in `ml/ai_model/train_models.ipynb`; not registered yet |
+| AI Model        | XGBoost with monotone constraints and calibration (scikit-learn), TreeSHAP explanations; logistic regression baseline for comparison only (linear SHAP kept as a fallback if the choice ever changes). Trained in `ml/ai_model/train_models.ipynb`; not registered yet |
 | PDF reports     | WeasyPrint |
 
 ## Getting Started
