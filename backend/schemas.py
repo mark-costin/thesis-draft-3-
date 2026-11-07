@@ -789,6 +789,7 @@ class RiskFactor(BaseModel):
     feature: str
     shap_value: float      # positive = raised the risk, negative = lowered it
     sentence: str          # plain language, from backend/explanations.py
+    missing: bool = False  # the input was not entered: its SHAP value is not a reason (no direction)
 
 
 class DiseaseResult(BaseModel):
@@ -800,6 +801,7 @@ class DiseaseResult(BaseModel):
     model_version: str | None
     consult_recommended: bool
     consult_message: str | None
+    safety_message: str | None = None  # T2D: a glucose value in the diabetes range, whatever the tier
     top_factors: list[RiskFactor]
     care_plan: dict | None   # template items for this tier (None: no approved template yet)
 
