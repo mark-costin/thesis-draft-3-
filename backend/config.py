@@ -31,12 +31,17 @@ class Settings(BaseSettings):
 
     # Version of the privacy notice (RA 10173) shown on the registration screen.
     # Raise it whenever the notice text changes; registration only accepts the current one.
-    privacy_notice_version: str = "1.0"
+    privacy_notice_version: str = "1.1"
 
     # Signs the login tokens (JWT). Required, at least 32 characters, never the placeholder.
     # Generate one with:  uv run python -c "import secrets; print(secrets.token_urlsafe(48))"
     jwt_secret_key: str = Field(min_length=32)
     access_token_expire_minutes: int = Field(default=30, ge=5, le=1440)
+
+    # Sign in with Google: the OAuth client id (Google Cloud Console, type "Web application").
+    # Empty = Google sign-in is off (POST /auth/google answers 503). Not a secret: the browser
+    # sees it too. The ID token's audience must equal it, so tokens made for other apps fail.
+    google_client_id: str = ""
 
     # Encrypts uploaded lab documents on disk (Fernet). Required; losing it makes every stored
     # file unreadable, so keep a copy somewhere safe. Generate one with:

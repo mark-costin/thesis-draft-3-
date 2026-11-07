@@ -221,6 +221,7 @@ def test_sql_in_the_url_is_refused(make_patient, url):
 PUBLIC_ROUTES = {
     ("POST", "/auth/register"),
     ("POST", "/auth/login"),
+    ("POST", "/auth/google"),  # Google sign-in: the Google ID token is the login (#39)
     ("POST", "/auth/password-reset/request"),
     ("POST", "/auth/password-reset/confirm"),
     ("GET", "/health"),

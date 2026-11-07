@@ -58,7 +58,7 @@ def test_login_returns_token_that_opens_me(account):
     me = client.get("/auth/me", headers=bearer(data["access_token"]))
     assert me.status_code == 200
     assert me.json() == {"email": account, "first_name": "Maria", "last_name": "Santos",
-                         "consent_version": settings.privacy_notice_version}
+                         "consent_version": settings.privacy_notice_version, "consent_required": False}
 
     user = get_user(account)
     assert user.last_login_at is not None and user.failed_attempts == 0

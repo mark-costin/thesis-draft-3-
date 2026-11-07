@@ -33,12 +33,13 @@ def export_my_data(current: CurrentUser = Depends(get_current_user), db: Session
 def delete_my_account(request: Request, body: AccountDeleteRequest,
                       current: CurrentUser = Depends(get_current_user),
                       db: Session = Depends(get_db)) -> Response:
-    """Right to erasure: permanent, cannot be undone. Needs the password and the phrase
-    DELETE MY ACCOUNT. The audit log keeps an ACCOUNT_DELETED entry with IDs only."""
+    """Right to erasure: permanent, cannot be undone. Needs the password (or, for a Google-only
+    account, a fresh Google sign-in) and the phrase DELETE MY ACCOUNT. The audit log keeps an ACCOUNT_DELETED entry with IDs only."""
     try:
-        storage_keys = services.delete_account(db, current.user_id, current.patient_id, body.password)
+        storage_keys = services.delete_account(db, current.user_id, current.patient_id, body.password,
+                                               body.google_credential)
     except services.WrongPassword:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Incorrect password. Nothing was deleted.")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Incorrect password or Google sign-in. Nothing was deleted.")
     except services.AccountLocked as locked:  # same lockout as login
         minutes = max(1, ceil((locked.locked_until - datetime.now(timezone.utc)).total_seconds() / 60))
         raise HTTPException(

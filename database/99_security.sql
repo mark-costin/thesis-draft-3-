@@ -2,7 +2,7 @@
 -- Purpose: Zero Trust enforcement inside the database. Runs last.
 --   1. Row-Level Security: each request sees only its own patient's rows (deny by default)
 --   2. Least privilege: narrows med_app's default table rights per table
---   3. Function access: med_app may call only log_audit()
+--   3. Function access: med_app may call only log_audit() and accept_privacy_notice()
 --
 -- How the app uses this - at the start of every request transaction:
 --     SET LOCAL app.user_id    = '<user_id from JWT>';
@@ -49,7 +49,8 @@ CREATE POLICY patient_self ON public.patients
 -- patients: the app may edit only the profile fields. Consent (privacy_consent,
 -- consent_version) and the IDs are not editable at the DB level, whatever the API does.
 REVOKE UPDATE ON public.patients FROM med_app;
-GRANT UPDATE (first_name, last_name, date_of_birth, biological_sex) ON public.patients TO med_app;
+GRANT UPDATE (first_name, last_name, date_of_birth, biological_sex,
+              contact_number, province, city_municipality, barangay, street) ON public.patients TO med_app;
 
 -- users has no RLS: login must look up an account by email before anyone is authenticated.
 -- It holds credentials only (no health data); password hashes are Argon2id.
@@ -90,6 +91,8 @@ GRANT EXECUTE ON FUNCTION public.prevent_modification() TO med_app;
 
 -- The only way to write audit entries
 GRANT EXECUTE ON FUNCTION public.log_audit(text, integer, integer, jsonb) TO med_app;
+-- The only way to change consent: the current patient's own row (23_contact_and_google.sql)
+GRANT EXECUTE ON FUNCTION public.accept_privacy_notice(character varying) TO med_app;
 
 -- verify_audit_chain() and audit_seal_input() stay owner-only (admin checks).
 -- protect_reviewed_template() (19_care_plan_templates.sql) stays owner-only: it only fires
