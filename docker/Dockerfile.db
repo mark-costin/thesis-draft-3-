@@ -1,0 +1,12 @@
+# PostgreSQL 18 with the schema scripts. Docker runs every .sh and .sql file in
+# /docker-entrypoint-initdb.d once, when the data volume is new, in alphabetical order.
+# Only the numbered scripts are copied: mounting the whole database/ folder would also run
+# windows_setup.sql (fails: tables exist) and seed_care_plan_templates.sql (unreviewed drafts).
+FROM postgres:18
+
+COPY database/00_roles.sh database/[0-9][0-9]_*.sql /docker-entrypoint-initdb.d/
+
+# A Windows checkout can give the scripts CRLF line endings, and bash then fails on
+# 00_roles.sh ("set: pipefail\r: invalid option"). Strip the CR so the image works from any PC.
+RUN sed -i 's/\r$//' /docker-entrypoint-initdb.d/* \
+ && chmod 755 /docker-entrypoint-initdb.d/00_roles.sh

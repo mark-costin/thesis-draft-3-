@@ -1,21 +1,39 @@
-version: '3.8'
+# Database and Redis only, for running the API with uv on your own computer:
+#   docker compose -f docker-compose.dev.yml up -d
+#   uv run uvicorn backend.main:app --reload
+# Your .env then needs DATABASE_URL=...@localhost:5432/med_db with the APP_DB_PASSWORD below,
+# and REDIS_ENABLED=true with REDIS_URL=redis://:<REDIS_PASSWORD>@localhost:6379/0.
+# For the full stack in containers use docker-compose.yml instead.
+# The passwords come from .env; nothing secret is written in this file.
 
 services:
   db:
-    image: postgres:18
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.db
+    image: thesis-d3-db
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"   # this computer only
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: kram # Local development only
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: med_db
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}  # used by 00_roles.sh
     volumes:
-      # Mounts your SQL scripts to initialize the 19 tables and RLS on first run
-      - ./database:/docker-entrypoint-initdb.d
+      - pgdata-dev:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d med_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     restart: unless-stopped
 
   redis:
-    image: redis:alpine
+    image: redis:7.4-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     restart: unless-stopped
+
+volumes:
+  pgdata-dev:
