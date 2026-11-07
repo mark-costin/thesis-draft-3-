@@ -229,3 +229,20 @@ async def test_a_server_error_lets_the_retry_run_again(monkeypatch):
     assert (await api.call("POST", "/vitals", "t", json={"sbp": 2}, idempotent=True)).status == 500
     assert (await api.call("POST", "/vitals", "t", json={"sbp": 2}, idempotent=True)).status == 201
     assert calls[0] != calls[1]
+
+
+def test_chart_names_come_from_features_yaml():
+    from frontend.patient_portal.labinfo import feature_label
+    assert feature_label("hdl") == "HDL"
+    assert feature_label("sodium_mg_day") == "Daily Sodium Intake"
+    assert feature_label("resting_hr") == "Heart Rate (Resting)"  # "(Resting)" is not an abbreviation
+    assert feature_label("phq9") == "PHQ-9" and feature_label("age") == "Age"
+    assert feature_label("not_in_the_file") == "Not in the file"
+
+
+def test_risk_is_shown_as_a_percent_never_0_or_100():
+    from frontend.patient_portal.state import risk_percent
+    assert risk_percent(0.024) == "2.4%" and risk_percent(0.31) == "31%"
+    assert risk_percent(0.004) == "below 1%" and risk_percent(0.0) == "below 1%"
+    assert risk_percent(0.999) == "above 95%" and risk_percent(1.0) == "above 95%"
+    assert risk_percent(0.95) == "95%"

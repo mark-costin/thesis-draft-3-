@@ -14,7 +14,9 @@ def report_row(r: Report) -> rx.Component:
         rx.table.row_header_cell(r.date, white_space="nowrap"),
         rx.table.cell(rx.hstack(rx.foreach(r.summary, lambda c: rx.badge(c.label, color_scheme=c.color, variant="soft")), spacing="2", wrap="wrap"),
                       rx.text(r.plans, size="1", color="var(--pp-ink-soft)", margin_top="6px")),
-        rx.table.cell(rx.button(rx.icon("download", size=14), "Download PDF", size="2", on_click=State.download_report(r.report_id)), white_space="nowrap", text_align="right"))
+        rx.table.cell(rx.hstack(rx.button(rx.icon("eye", size=14), "View results", size="2", variant="outline", on_click=State.open_results(r.assessment_id)),
+                                rx.button(rx.icon("download", size=14), "Download PDF", size="2", on_click=State.download_report(r.report_id)),
+                                spacing="2", justify="end", wrap="wrap"), white_space="nowrap", text_align="right"))
 
 
 def goal_row(g: Goal) -> rx.Component:

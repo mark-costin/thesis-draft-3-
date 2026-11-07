@@ -68,7 +68,7 @@ def results_view() -> rx.Component:
         rx.grid(rx.foreach(State.risks, tier_card), columns=cols(4), spacing="4", width="100%", margin_bottom="22px"),
         rx.grid(card(title(State.current.short, " risk tier", icon="gauge"), rx.badge(State.current.tier, color_scheme=State.current.color, size="3", variant="soft"),
                      rx.progress(value=State.current.score, color_scheme=State.current.color, margin_y="24px"),
-                     rx.text("Probability ", State.current.prob, size="2", class_name="pp-num"),
+                     rx.text("Estimated risk: ", State.current.prob, size="2", class_name="pp-num"),
                      hint("Saved with the exact inputs and model version used.")),
                 card(title("Main reasons behind this result", icon="list-checks"), shap_chart(),
                      rx.vstack(rx.foreach(State.reasons, lambda r: rx.text(r["sentence"], size="2")), spacing="1", margin_top="8px", align="start"),

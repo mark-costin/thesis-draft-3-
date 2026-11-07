@@ -103,5 +103,8 @@ def page() -> rx.Component:
                              rx.hstack(rx.icon("circle-check", size=18, color="var(--green-10)"), rx.text("Nothing else is missing.", size="2"), spacing="2", align="center"))),
                 card(rx.callout.root(rx.callout.icon(rx.icon("info")), rx.callout.text("The assessment uses only confirmed values. It is a screening, not a diagnosis.")),
                      rx.button(rx.icon("activity", size=18), "Run my assessment", size="3", width="100%", margin_top="18px", disabled=~State.can_run, loading=State.running, on_click=State.run_assessment),
-                     rx.text(State.run_hint, size="2", color="var(--pp-ink-soft)", margin_top="10px", aria_live="polite")),
+                     rx.text(State.run_hint, size="2", color="var(--pp-ink-soft)", margin_top="10px", aria_live="polite"),
+                     rx.cond(State.has_assessment,
+                             rx.button(rx.icon("eye", size=16), "View my latest results", variant="outline", size="2", width="100%",
+                                       margin_top="12px", on_click=State.open_results(0)))),
                 grid_template_columns=rx.breakpoints(initial="1fr", lg="1fr 1fr"), gap="22px", margin_top="22px", width="100%"))

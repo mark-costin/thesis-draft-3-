@@ -5,6 +5,7 @@ One brand colour (clinic teal-blue); green / amber / red appear only to show sta
 Public helpers keep their original signatures, so every page keeps working.
 """
 import reflex as rx
+from reflex_components_core.core.banner import has_connection_errors
 from reflex.style import set_color_mode
 
 from .insights import Insights
@@ -192,5 +193,12 @@ def shell(active: str | None, *children) -> rx.Component:
     if active is None:  # sign-in screen is public
         return page_body
     # Signed-in pages show nothing private until the login check passes (no flash of someone's data before the redirect).
-    return rx.cond(State.is_logged_in, page_body,
-                   rx.center(rx.vstack(rx.spinner(size="3"), rx.text("Taking you to sign in...", size="2", color="var(--pp-ink-soft)"), align="center", spacing="3"), min_height="100vh"))
+    # Lost connection to the app server (it restarted, or the network dropped): say so, not "sign in".
+    waiting = rx.cond(has_connection_errors,
+                      rx.vstack(rx.icon("wifi-off", size=28, color="var(--pp-ink-soft)"),
+                                rx.text("Reconnecting to the server...", size="3", weight="medium"),
+                                rx.text("Your saved data is safe. If this does not clear, reload the page and sign in again.",
+                                        size="2", color="var(--pp-ink-soft)", text_align="center", max_width="360px"),
+                                align="center", spacing="3"),
+                      rx.vstack(rx.spinner(size="3"), rx.text("Taking you to sign in...", size="2", color="var(--pp-ink-soft)"), align="center", spacing="3"))
+    return rx.cond(State.is_logged_in, page_body, rx.center(waiting, min_height="100vh", padding="16px"))

@@ -18,7 +18,7 @@ import reflex as rx
 
 from . import api, careplan
 from . import questionnaires as qn
-from .labinfo import DOC_STATUS, LAB_LABEL, LAB_UNIT
+from .labinfo import DOC_STATUS, LAB_LABEL, LAB_UNIT, feature_label
 from .api import GOOGLE_CLIENT_ID
 from .locations import LISTS_COMPLETE, PROVINCES, barangays_for, cities_for
 
@@ -120,6 +120,7 @@ class Report:
     date: str
     summary: list[Chip]
     plans: str = ""
+    assessment_id: int = 0
 
 
 @dataclass
@@ -179,7 +180,17 @@ def make_risk(code: str, prob: float, tier: str | None = None) -> Risk:
     """The API sends the tier with each result; the sample data derives it from the probability."""
     _, name, short = next(d for d in DISEASES if d[0] == code)
     tier = tier or careplan.tier_for(prob)
-    return Risk(code, name, short, tier, TIER_COLOR[tier], round(prob * 100), f"{prob:.2f}", TIER_NOTE[tier])
+    return Risk(code, name, short, tier, TIER_COLOR[tier], round(prob * 100), risk_percent(prob), TIER_NOTE[tier])
+
+
+def risk_percent(prob: float) -> str:
+    """The estimated risk for people, not a raw probability: 0.024 -> "2.4%", 0.31 -> "31%".
+    A screening estimate never shows 0% or 100%: below 1% and above 95% are shown as such."""
+    if prob < 0.01:
+        return "below 1%"
+    if prob > 0.95:
+        return "above 95%"
+    return f"{prob * 100:.1f}%" if prob < 0.10 else f"{prob * 100:.0f}%"
 
 
 
@@ -290,6 +301,7 @@ class State(rx.State):
     uploading: bool = False
     running: bool = False
     assessment_id: int = 0
+    has_assessment: bool = False  # Scan & assess shows "View my latest results"
 
     # ---- results, reports, goals (Sprint 5: sample data) ----
     selected: str = "CVD"
@@ -353,7 +365,7 @@ class State(rx.State):
     @rx.var
     def reasons(self) -> list[dict[str, Any]]:
         """Top factors (SHAP) of the selected disease, from the API, with plain-language sentences."""
-        return [{"name": f["feature"].replace("_", " ").capitalize(), "sentence": f["sentence"],
+        return [{"name": feature_label(f["feature"]), "sentence": f["sentence"],
                  "raises": max(f["shap_value"], 0.0), "lowers": min(f["shap_value"], 0.0)}
                 for f in self._result().get("top_factors", [])]
 
@@ -431,8 +443,9 @@ class State(rx.State):
     @rx.var
     def plan_footer(self) -> str:
         p = self.plan
-        who = p["reviewed_by"] or "[physician name]"
-        return f"Template {p['id']} v{p['version']} | Reviewed by: {who} | Review date: {p['reviewed_on'] or '[date]'}"
+        if not p["reviewed_by"]:  # a draft: no reviewer yet, so no blank "[physician name]"
+            return f"Template {p['id']} v{p['version']} | Not yet reviewed by a physician"
+        return f"Template {p['id']} v{p['version']} | Reviewed by: {p['reviewed_by']} | Review date: {p['reviewed_on']}"
 
     @rx.var
     def plan_pending(self) -> bool:
@@ -1079,6 +1092,8 @@ class State(rx.State):
             return rx.redirect("/")
         await self._load_readiness()
         await self._load_scan_missing()
+        listed = await self._api("GET", "/assessment", params={"limit": 1})
+        self.has_assessment = bool(listed.ok and listed.data)
         if not self.doc_id:  # pick up the newest document still waiting for review
             docs = await self._api("GET", "/documents")
             if docs.ok and docs.data:
@@ -1255,6 +1270,7 @@ class State(rx.State):
             yield rx.toast.error(reply.message("The assessment could not be run."))
             return
         self.assessment_id = reply.data["assessment_id"]
+        self.has_assessment = True
         self.probs = {r["disease"]: float(r["probability"]) for r in reply.data["results"]}
         self.tiers = {r["disease"]: r["risk_level"] for r in reply.data["results"]}
         yield rx.redirect("/results")
@@ -1271,6 +1287,12 @@ class State(rx.State):
         if self.assessment_id:
             await self._load_assessment(self.assessment_id)
         await self._load_goals()
+
+    @rx.event
+    def open_results(self, assessment_id: int):
+        """Results of one assessment: a saved report's, or 0 for the newest one."""
+        self.assessment_id = assessment_id
+        return rx.redirect("/results")
 
     async def _load_assessment(self, assessment_id: int):
         reply = await self._api("GET", f"/assessment/{assessment_id}")
@@ -1313,7 +1335,7 @@ class State(rx.State):
         levels = {a["assessment_id"]: a["risk_levels"] for a in (runs.data if runs.ok else [])}
         self.reports = [Report(r["report_id"], when_label(r["created_at"]).split(",")[0] + f", {r['created_at'][:4]}",
                                [Chip(f"{code} {tier}", TIER_COLOR.get(tier, "gray")) for code, tier in levels.get(r["assessment_id"], {}).items()],
-                               f"Assessment #{r['assessment_id']}")
+                               f"Assessment #{r['assessment_id']}", r["assessment_id"])
                         for r in reply.data]
 
     @rx.event
