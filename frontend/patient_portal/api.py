@@ -121,3 +121,21 @@ async def call(method: str, path: str, token: str | None = None, *, json: Any = 
     if fingerprint and response.status_code >= 500:
         _recent.pop(fingerprint, None)  # the API keeps a 500 for the key; a retry needs a new one
     return Reply(response.status_code, data, dict(response.headers), response.content)
+
+
+# Fields the API takes for a new family history entry, read once from its OpenAPI schema.
+# The family history screen shows "Which one?" (relative_no) only when the API has that field,
+# so the screen works before and after the backend change. Restart Reflex after an API update.
+_family_fields: set[str] | None = None
+
+
+async def family_fields() -> set[str]:
+    """Property names of FamilyEntryCreate in the API's schema; empty if the API cannot be reached."""
+    global _family_fields
+    if _family_fields is None:
+        reply = await call("GET", "/openapi.json")
+        if not reply.ok or not isinstance(reply.data, dict):
+            return set()  # not cached: try again next time
+        schema = reply.data.get("components", {}).get("schemas", {}).get("FamilyEntryCreate", {})
+        _family_fields = set(schema.get("properties", {}))
+    return _family_fields

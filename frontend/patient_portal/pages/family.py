@@ -40,6 +40,9 @@ def add_form() -> rx.Component:
         rx.grid(
             field("Relative", relative_select(),
                   tip="Blood relatives only. Pick the exact relative: the side of the family and the relative's sex change the score."),
+            rx.cond(State.fam_numbered,
+                     field("Which one?", rx.select(State.relative_no_options, value=State.fam_relative_no, on_change=State.set_fam_relative_no, width="100%"),
+                           tip="If you have more than one, give each their own number (Brother 1, Brother 2), so each person counts once.")),
             field("Condition group", rx.select(State.disease_options, value=State.fam_disease, on_change=State.set_fam_disease, placeholder="Select", width="100%")),
             field("Diagnosis", rx.select(State.diagnosis_options, value=State.fam_diagnosis, on_change=State.set_fam_diagnosis, placeholder="Select diagnosis", width="100%"),
                   tip="Picking a diagnosis also picks its condition group."),

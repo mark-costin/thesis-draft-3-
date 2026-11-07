@@ -53,8 +53,9 @@ def plan_row(i) -> rx.Component:
 
 
 def alert_row(i) -> rx.Component:
-    """Urgent warning signs and the crisis hotline get their own red box, so they stay visible."""
-    return rx.callout.root(rx.callout.icon(rx.icon("siren")), rx.callout.text(rx.text.strong(i["label"], ": "), i["text"]), color_scheme="red", variant="soft", margin_top="12px", width="100%")
+    """Urgent warning signs and the crisis hotline get their own box, so they stay visible. Soft amber,
+    not red (Table 3.8, Non-Alarmist Visual Hierarchy): it asks for action without alarming."""
+    return rx.callout.root(rx.callout.icon(rx.icon("siren")), rx.callout.text(rx.text.strong(i["label"], ": "), i["text"]), color_scheme="amber", variant="soft", margin_top="12px", width="100%")
 
 
 def care_plan_card() -> rx.Component:
@@ -73,7 +74,9 @@ def no_plan() -> rx.Component:
 
 def results_view() -> rx.Component:
     return rx.fragment(
-        rx.cond(State.safety_message != "", callout("red", "stethoscope", State.safety_message, margin_bottom="22px")),
+        rx.cond(State.safety_messages.length() > 0,
+                rx.vstack(rx.foreach(State.safety_messages, lambda m: callout("amber", "stethoscope", m, width="100%")),
+                          spacing="3", width="100%", margin_bottom="22px")),
         rx.grid(rx.foreach(State.risks, tier_card), columns=cols(4), spacing="4", width="100%", margin_bottom="22px"),
         rx.grid(card(title(State.current.short, " risk tier", icon="gauge"), rx.badge(State.current.tier, color_scheme=State.current.color, size="3", variant="soft"),
                      rx.progress(value=State.current.score, color_scheme=State.current.color, margin_y="24px"),
@@ -83,7 +86,7 @@ def results_view() -> rx.Component:
                      rx.vstack(rx.foreach(State.reasons, reason_line), spacing="1", margin_top="8px", align="start"),
                      rx.hstack(rx.hstack(rx.box(width="10px", height="10px", border_radius="3px", background="#2F7D5B"), rx.text("Lowers risk", size="1", color="var(--pp-ink-soft)"), spacing="1", align="center"), rx.hstack(rx.box(width="10px", height="10px", border_radius="3px", background="#B7791F"), rx.text("Raises risk", size="1", color="var(--pp-ink-soft)"), spacing="1", align="center"), justify="between", width="100%", margin_top="8px")),
                 grid_template_columns=rx.breakpoints(initial="1fr", lg=".8fr 1.4fr"), gap="22px", align_items="start", width="100%"),
-        rx.cond(State.consult_message != "", callout("red", "stethoscope", State.consult_message, margin_top="22px")),
+        rx.cond(State.consult_message != "", callout("amber", "stethoscope", State.consult_message, margin_top="22px")),
         rx.heading("Your care plan", size="5", margin_top="30px", margin_bottom="14px"),
         rx.cond(State.has_plan, care_plan_card(), no_plan()),
         rx.vstack(callout("gray", "info", State.disclaimer), spacing="3", margin_top="22px", width="100%"),

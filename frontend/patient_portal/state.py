@@ -145,7 +145,10 @@ DISEASES = [("CVD", "Cardiovascular (CVD)", "Cardiovascular"), ("T2D", "Type 2 D
 DISEASE_LABEL = {"CVD": "Cardiovascular", "T2D": "Type 2 diabetes", "CRD": "Chronic respiratory", "NEURO": "Mental health & neuro"}
 # Family history diagnosis choices, one per condition group. Picking one sets its group, so a
 # diagnosis can never sit in the wrong group (the FHRS scores by group).
-FAMILY_DIAGNOSES = {"Heart attack": "CVD", "Type 2 diabetes": "T2D", "Asthma": "CRD", "Depression": "NEURO"}
+# The words must match backend/fhrs.py disease_of: "Asthma" is asthma, any other CRD text is COPD;
+# "Anxiety" is GAD and "Depression" is depression (PR #55).
+FAMILY_DIAGNOSES = {"Heart attack": "CVD", "Type 2 diabetes": "T2D", "Asthma": "CRD", "COPD": "CRD",
+                    "Depression": "NEURO", "Anxiety": "NEURO"}
 
 # Family history: the API's relative codes (backend/fhrs.py) and the words shown on screen
 RELATIVE_GROUPS = [
@@ -162,6 +165,28 @@ RELATIVE_GROUPS = [
 ]
 RELATIVE_LABEL = {code: label for _, items in RELATIVE_GROUPS for code, label in items}
 RELATIVE_CODE = {label: code for code, label in RELATIVE_LABEL.items()}
+# Relatives a patient can have more than one of get a number (Brother 1, Brother 2), so the FHRS
+# counts two brothers as two people. Parents and grandparents on each side are one person each.
+ONLY_ONE = {"father", "mother", "paternal_grandfather", "paternal_grandmother", "maternal_grandfather", "maternal_grandmother"}
+RELATIVE_NO_MAX = 20                      # the API allows 1 to 20 (24_family_relative_no.sql)
+GREAT_GRANDPARENTS = {"great_grandfather", "great_grandmother"}   # four of each: 1 to 4
+
+
+def relative_name(code: str, number: int | None = None) -> str:
+    """'Brother 2', 'Uncle 2 (father's side)'. Just the relative when there is no number or only one such relative."""
+    label = RELATIVE_LABEL.get(code, code)
+    if not number or code in ONLY_ONE:
+        return label
+    head, sep, side = label.partition(" (")
+    return f"{head} {number}{sep}{side}"
+
+
+def relative_number(code: str, chosen: str) -> int:
+    """The number in a 'Which one?' choice ('Brother 2' -> 2); 1 if nothing was chosen."""
+    for n in range(1, RELATIVE_NO_MAX + 1):
+        if relative_name(code, n) == chosen:
+            return n
+    return 1
 NOT_ENTERED = "was not entered yet"  # in the API's sentence for an input that was not entered (backend/explanations.py)
 ONSET_LABEL = {"severe_early": "Very early", "early": "Early", "typical": "Typical", "late": "Late", "unknown": "Unknown"}
 CONFIRMED = {"Yes": "yes", "No": "no", "Not sure": "not_sure"}
@@ -281,6 +306,8 @@ class State(rx.State):
     fam_relative: str = ""
     fam_disease: str = ""
     fam_diagnosis: str = ""
+    fam_relative_no: str = ""        # "Which one?": e.g. "Brother 2"
+    relative_no_ready: bool = False  # the API takes relative_no (Costin's FHRS fix); until then the choice is hidden
 
     # ---- questionnaires (Screen 5) ----
     q_instrument: str = "PHQ9"
@@ -387,10 +414,11 @@ class State(rx.State):
         return self._result().get("consult_message") or ""
 
     @rx.var
-    def safety_message(self) -> str:
-        """T2D: a glucose value already in the diabetes range (the API decides), whatever the tier.
-        Shown above the results whichever condition is picked, so it is never missed."""
-        return next((r["safety_message"] for r in self.api_results if r.get("safety_message")), "")
+    def safety_messages(self) -> list[str]:
+        """See-a-doctor messages from the API (diabetes-range glucose, high blood pressure, PHQ-9 of
+        10 or more), whatever the tier. All of them are shown above the results, whichever
+        condition is picked, so none is missed."""
+        return [r["safety_message"] for r in self.api_results if r.get("safety_message")]
 
     @rx.var
     def has_plan(self) -> bool:
@@ -985,12 +1013,13 @@ class State(rx.State):
     async def load_family_page(self):
         if not self.is_logged_in:
             return rx.redirect("/")
+        self.relative_no_ready = "relative_no" in await api.family_fields()
         await self._load_family()
 
     async def _load_family(self):
         entries = await self._api("GET", "/family-history")
         if entries.ok:
-            self.family = [FamilyEntry(e["record_id"], RELATIVE_LABEL.get(e["relative"], e["relative"]), e["disease_domain"], e["specific_diagnosis"],
+            self.family = [FamilyEntry(e["record_id"], relative_name(e["relative"], e.get("relative_no")), e["disease_domain"], e["specific_diagnosis"],
                                        _num(e.get("age_at_diagnosis")), ONSET_LABEL.get(e.get("onset_classification", "unknown"), "Unknown"),
                                        CONFIRMED_LABEL.get(e.get("diagnosis_confirmed", "not_sure"), "Not sure"), bool(e.get("shared_environment")))
                            for e in entries.data]
@@ -998,9 +1027,29 @@ class State(rx.State):
         if scores.ok:
             self.bands = {s["disease_domain"]: s["risk_band"] for s in scores.data}
 
+    @rx.var
+    def fam_numbered(self) -> bool:
+        """Show "Which one?": the API takes the number and there can be more than one of this relative."""
+        code = RELATIVE_CODE.get(self.fam_relative)
+        return self.relative_no_ready and bool(code) and code not in ONLY_ONE
+
+    @rx.var
+    def relative_no_options(self) -> list[str]:
+        code = RELATIVE_CODE.get(self.fam_relative)
+        if not code or code in ONLY_ONE:
+            return []
+        top = 4 if code in GREAT_GRANDPARENTS else RELATIVE_NO_MAX
+        return [relative_name(code, n) for n in range(1, top + 1)]
+
     @rx.event
     def set_fam_relative(self, value: str):
         self.fam_relative = value
+        code = RELATIVE_CODE.get(value)
+        self.fam_relative_no = relative_name(code, 1) if code and code not in ONLY_ONE else ""
+
+    @rx.event
+    def set_fam_relative_no(self, value: str):
+        self.fam_relative_no = value
 
     @rx.event
     def set_fam_disease(self, value: str):
@@ -1032,6 +1081,8 @@ class State(rx.State):
                 "shared_environment": form.get("household") in ("on", True, "true")}
         if age is not None:
             body["age_at_diagnosis"] = age
+        if self.relative_no_ready and relative not in ONLY_ONE:
+            body["relative_no"] = relative_number(relative, self.fam_relative_no)
         reply = await self._api("POST", "/family-history", json=body, idempotent=True)
         if not reply.ok:
             return rx.toast.error(reply.message("This relative could not be saved."))

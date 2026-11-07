@@ -248,6 +248,39 @@ def test_risk_is_shown_as_a_percent_never_0_or_100():
     assert risk_percent(0.95) == "95%"
 
 
+def test_relatives_get_a_number_when_there_can_be_more_than_one():
+    from frontend.patient_portal.state import relative_name, relative_number
+    assert relative_name("brother", 2) == "Brother 2"
+    assert relative_name("paternal_uncle", 2) == "Uncle 2 (father's side)"
+    assert relative_name("father", 2) == "Father"  # one father: no number
+    assert relative_name("sister") == "Sister" and relative_name("sister", None) == "Sister"
+    assert relative_number("paternal_uncle", "Uncle 3 (father's side)") == 3
+    assert relative_number("brother", "") == 1
+
+
+def test_the_choices_follow_the_api_limits_and_the_fhrs_words():
+    from backend import fhrs
+    from backend.schemas import FamilyEntryCreate
+    from frontend.patient_portal.state import FAMILY_DIAGNOSES, GREAT_GRANDPARENTS, ONLY_ONE, RELATIVE_NO_MAX
+    if not hasattr(fhrs, "disease_of"):
+        pytest.skip("needs the FHRS fix (PR #55) in this branch")
+    assert ONLY_ONE == fhrs.SINGLE_RELATIVES and GREAT_GRANDPARENTS == fhrs.GREAT_GRANDPARENTS
+    limits = [m.le for m in FamilyEntryCreate.model_fields["relative_no"].metadata if getattr(m, "le", None)]
+    assert limits == [RELATIVE_NO_MAX]
+    labels = {words: fhrs.disease_of(domain, words) for words, domain in FAMILY_DIAGNOSES.items()}
+    assert labels == {"Heart attack": "CVD", "Type 2 diabetes": "T2D", "Asthma": "asthma", "COPD": "COPD",
+                      "Depression": "depression", "Anxiety": "GAD"}
+
+
+@pytest.mark.anyio
+async def test_which_one_shows_only_when_the_api_takes_relative_no(in_process, monkeypatch):
+    from backend.schemas import FamilyEntryCreate
+    monkeypatch.setattr(api, "_family_fields", None)
+    fields = await api.family_fields()
+    assert {"relative", "disease_domain", "specific_diagnosis"} <= fields
+    assert ("relative_no" in fields) == ("relative_no" in FamilyEntryCreate.model_fields)
+
+
 @pytest.mark.anyio
 async def test_the_privacy_notice_screen_requests(in_process):
     from frontend.patient_portal.notice import NOTICE_VERSION
