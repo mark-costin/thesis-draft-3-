@@ -29,6 +29,36 @@ from backend.readiness import MODELS
 TOP_FACTORS = 3
 CONSULT_MESSAGE = ("Your result is in the high range. Please consult a doctor for a check-up. "
                    "This result is a screening estimate, not a diagnosis.")
+# Safety message for T2D, shown whatever the tier. The model never saw diabetes-range glucose in
+# training (the synthetic generator caps FPG and HbA1c before diagnosis), so it can give Low for a
+# value that already meets a diagnostic cut-off. Cut-offs: ADA Standards of Care (FPG 126 mg/dL,
+# 2-hour OGTT 200 mg/dL, HbA1c 6.5%). The physician decides the final values.
+DIABETES_RANGE = {  # model input -> (cut-off, words on screen, unit)
+    "fpg": (126, "fasting blood sugar", "mg/dL"),
+    "ogtt_2h": (200, "2-hour glucose test", "mg/dL"),
+    "hba1c": (6.5, "HbA1c", "%"),
+}
+SAFETY_MESSAGE = ("{values} in the diabetes range. Please see a doctor for a check-up, whatever your risk "
+                  "level here. This is a screening estimate, not a diagnosis.")
+
+
+def safety_message(disease: str, inputs: dict, capped: dict) -> str | None:
+    """'Your fasting blood sugar of 140 mg/dL is in the diabetes range ...', or None.
+    Uses the value the patient entered, also when the model got a capped value."""
+    if disease != "T2D":
+        return None
+    found = []
+    for name, (cut, words, unit) in DIABETES_RANGE.items():
+        value = capped.get(name, {}).get("entered", inputs.get(name))
+        if value is not None and float(value) >= cut:
+            number = f"{float(value):g}"
+            found.append(f"{words} of {number}{unit if unit == '%' else ' ' + unit}")
+    if not found:
+        return None
+    values = "Your " + " and your ".join(found) + (" is" if len(found) == 1 else " are")
+    return SAFETY_MESSAGE.format(values=values)
+
+
 DISCLAIMER = ("This is an educational screening estimate based on the information you entered. "
               "It is not a medical diagnosis. Please consult a healthcare provider for medical advice.")
 
@@ -140,6 +170,7 @@ def view(db: Session, patient_id: int, assessment_id: int) -> dict:
         inputs = assessment.input_snapshot.get(disease, {})
         caps = capped.get(disease, {})
         factors = [{"rank": row.rank, "feature": row.feature_name, "shap_value": float(row.shap_value),
+                    "missing": inputs.get(row.feature_name) is None,  # not entered: the screen shows no bar
                     "sentence": explanations.sentence(row.feature_name, inputs.get(row.feature_name),
                                                       float(row.shap_value), disease,
                                                       entered=caps.get(row.feature_name, {}).get("entered"))}
@@ -153,6 +184,7 @@ def view(db: Session, patient_id: int, assessment_id: int) -> dict:
             "model_version": versions.get(result.model_version_id),
             "consult_recommended": result.risk_level == "High",
             "consult_message": CONSULT_MESSAGE if result.risk_level == "High" else None,
+            "safety_message": safety_message(disease, inputs, caps),
             "top_factors": factors,
             "care_plan": plans.get(disease),
         })

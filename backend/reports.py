@@ -176,6 +176,8 @@ def render_html(snapshot: dict, report_id: int, saved_at: str) -> str:
                      f"(estimated {round(float(result['probability']) * 100, 1)}%)</p>")
         if result.get("consult_message"):
             parts.append(f"<div class='box consult'>{_e(result['consult_message'])}</div>")
+        if result.get("safety_message"):
+            parts.append(f"<div class='box consult'>{_e(result['safety_message'])}</div>")
         if result.get("top_factors"):
             parts.append("<h3>What affected this result the most</h3><ol>"
                          + "".join(f"<li>{_e(f['sentence'])}</li>" for f in result["top_factors"]) + "</ol>")

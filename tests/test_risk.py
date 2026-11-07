@@ -255,3 +255,39 @@ def test_view_and_list_filter_on_patient_id_even_if_rls_shows_someone_else(make_
         with pytest.raises(risk.NotFound):
             risk.view(session, ids[other_email][1], assessment_id)
         assert risk.list_assessments(session, ids[other_email][1], 20) == []
+
+
+def test_the_safety_message_names_each_glucose_value_in_the_diabetes_range():
+    assert risk.safety_message("T2D", {"fpg": 140, "hba1c": 5.6}, {}) == (
+        "Your fasting blood sugar of 140 mg/dL is in the diabetes range. Please see a doctor for a check-up, "
+        "whatever your risk level here. This is a screening estimate, not a diagnosis.")
+    both = risk.safety_message("T2D", {"fpg": 126, "hba1c": 7.2}, {})
+    assert both.startswith("Your fasting blood sugar of 126 mg/dL and your HbA1c of 7.2% are in the diabetes range.")
+    assert risk.safety_message("T2D", {"fpg": 125, "ogtt_2h": 199, "hba1c": 6.4}, {}) is None
+    assert risk.safety_message("T2D", {"fpg": None}, {}) is None
+    assert risk.safety_message("CVD", {"fpg": 200}, {}) is None  # only on the diabetes result
+    # The value the patient entered counts, not the capped value the model got
+    assert "600 mg/dL" in risk.safety_message("T2D", {"ogtt_2h": 300}, {"ogtt_2h": {"entered": 600}})
+
+
+def test_diabetes_range_glucose_gets_the_safety_message_whatever_the_tier(make_patient, models_on):
+    _, headers = make_patient()
+    fill_required(headers)
+    send(headers, "/labs", {"test_code": "FPG", "value": 140, "unit": "mg/dL"})
+    data = client.post("/assessment/run", headers=headers).json()
+    for result in data["results"]:
+        if result["disease"] == "T2D":
+            assert "fasting blood sugar of 140 mg/dL is in the diabetes range" in result["safety_message"]
+        else:
+            assert result["safety_message"] is None
+
+
+def test_inputs_that_were_not_entered_are_marked_missing(make_patient, models_on):
+    _, headers = make_patient()
+    fill_required(headers)
+    data = client.post("/assessment/run", headers=headers).json()
+    factors = [f for r in data["results"] for f in r["top_factors"]]
+    for f in factors:
+        assert f["missing"] == ("was not entered yet" in f["sentence"])
+    t2d = next(r for r in data["results"] if r["disease"] == "T2D")
+    assert t2d["safety_message"] is None  # no glucose value entered
