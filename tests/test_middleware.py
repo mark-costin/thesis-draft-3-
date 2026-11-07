@@ -1,5 +1,6 @@
 """Middleware: CORS, SlowAPI rate limit, idempotency keys."""
 
+import base64
 import uuid
 
 import pytest
@@ -9,7 +10,7 @@ from sqlalchemy import delete, func, select
 from backend.config import settings
 from backend.database import SessionLocal
 from backend.main import app
-from backend.middleware import REPLAY_HEADER, limiter
+from backend.middleware import REPLAY_HEADER, IdempotencyMiddleware, MemoryIdempotencyStore, limiter
 from backend.models import User
 
 client = TestClient(app)
@@ -82,13 +83,39 @@ def test_keys_are_scoped_to_the_caller(emails):
     assert response.status_code == 201 and REPLAY_HEADER not in response.headers
 
 
-def test_error_responses_are_replayed_too(emails):
+def test_error_responses_are_not_replayed(emails):
     k = key()
     bad = register_body(emails()) | {"privacy_consent": False}
     first = client.post("/auth/register", json=bad, headers={"Idempotency-Key": k})
     second = client.post("/auth/register", json=bad, headers={"Idempotency-Key": k})
     assert first.status_code == second.status_code == 422
-    assert second.headers.get(REPLAY_HEADER) == "true"
+    assert REPLAY_HEADER not in second.headers
+
+
+def saved_bodies(store):
+    """Every response body the idempotency store is holding, as readable text."""
+    return [base64.b64decode(value["body"]).decode() for _, value in store._data.values() if value.get("body")]
+
+
+def test_rejected_password_is_not_kept_in_the_store(emails):
+    """A 422 repeats the rejected value, so a saved error would keep the password."""
+    store = MemoryIdempotencyStore()
+    kept = TestClient(IdempotencyMiddleware(app, store=store))
+    weak = register_body(emails()) | {"password": "short1"}
+    assert kept.post("/auth/register", json=weak, headers={"Idempotency-Key": key()}).status_code == 422
+    assert not [body for body in saved_bodies(store) if "short1" in body]
+
+
+def test_rejected_health_value_is_not_kept_in_the_store(emails):
+    store = MemoryIdempotencyStore()
+    kept = TestClient(IdempotencyMiddleware(app, store=store))
+    account = register_body(emails())
+    assert client.post("/auth/register", json=account).status_code == 201
+    login = {"email": account["email"], "password": account["password"]}
+    token = client.post("/auth/login", json=login).json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}", "Idempotency-Key": key()}
+    assert kept.post("/vitals", json={"sbp": 999, "dbp": 80}, headers=headers).status_code == 422
+    assert not [body for body in saved_bodies(store) if '"input":999' in body]
 
 
 @pytest.mark.parametrize("bad_key", ["short", "has spaces in it", "x" * 129, "semi;colon-key"])
