@@ -110,7 +110,8 @@ uv run --group ml jupyter nbconvert --to notebook --execute --inplace train_mode
 For a quick test run of Notebook 1, put `SYNTH_N=5000` in front of its command (5,000 patients
 per seed). Training does not register any model: `ml/artifacts/register_models.sql` is run by hand.
 
-`uv run pytest` runs the app tests in `tests/`. The ML tests run separately:
+`uv run pytest` runs the app tests in `tests/` and the generator's FHRS cases in
+`ml/test_fhrs_cases.py`. The other ML tests run separately:
 
 ```
 uv run --group ml python -m pytest ml/ai_model/test_model_inputs.py ml/investigate/test_auroc_ceiling.py

@@ -92,6 +92,31 @@ def test_higher_term_wins_whichever_diagnosis_comes_first():
     assert fhrs.calculate("CRD", entries[::-1]).calculated_fhrs == 1.0
 
 
+def test_alzheimers_and_dementia_are_not_scored():
+    mother = E("mother", "NEURO", "late", "yes", False, diagnosis="Alzheimer's disease")
+    father = E("father", "NEURO", "typical", "yes", False, diagnosis="Depression")
+    result = fhrs.calculate("NEURO", [mother, father])
+    assert (result.calculated_fhrs, result.risk_band, result.clustering_score, result.affected_relatives) == \
+        (0.5, "Mild", 0.0, 1)
+    only_dementia = fhrs.calculate("NEURO", [E("father", "NEURO", "late", "yes", False, diagnosis="Vascular dementia")])
+    assert (only_dementia.calculated_fhrs, only_dementia.risk_band) == (0.0, "Baseline")
+
+
+def test_unknown_neuro_text_scores_but_adds_no_bonus():
+    assert fhrs.disease_of("NEURO", "Panic disorder") is None
+    entries = [E("father", "NEURO", "typical", "yes", False, diagnosis="Panic disorder"),
+               E("mother", "NEURO", "typical", "yes", False, diagnosis="Depression")]
+    result = fhrs.calculate("NEURO", entries)
+    assert (result.calculated_fhrs, result.clustering_score, result.affected_relatives) == (1.0, 0.0, 2)
+
+
+def test_bipolar_and_depression_share_the_bonus():
+    entries = [E("father", "NEURO", "typical", "yes", False, diagnosis="Major depressive disorder"),
+               E("mother", "NEURO", "typical", "yes", False, diagnosis="Bipolar disorder")]
+    result = fhrs.calculate("NEURO", entries)
+    assert (result.calculated_fhrs, result.clustering_score) == (2.0, 1.0)
+
+
 def test_only_confirmed_relatives_form_a_cluster():
     unconfirmed = [E("father", "T2D", "typical", "no", False), E("mother", "T2D", "typical", "not_sure", False)]
     assert fhrs.calculate("T2D", unconfirmed).clustering_score == 0

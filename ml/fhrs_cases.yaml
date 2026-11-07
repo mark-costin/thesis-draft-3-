@@ -5,7 +5,8 @@
 # One row = one relative with one diagnosis. Two rows with the same relative and relative_no
 # (default 1) are one person with two diagnoses.
 #   diagnosis  what the patient typed (read by the backend)
-#   disease    the generator's label for it: CVD, T2D, asthma, COPD, depression or GAD
+#   disease    the generator's label for it: CVD, T2D, asthma, COPD, depression or GAD;
+#              null = no label, so the generator skips the row
 #   age        age at diagnosis; null = unknown
 #   confirmed  true = confirmed by a doctor
 # exposures: the generator reads these names from the patient. The backend has no such field,
@@ -103,6 +104,14 @@ cases:
       - {relative: mother, diagnosis: Depression, disease: depression, age: 30, confirmed: true}
       - {relative: father, diagnosis: Generalized anxiety disorder, disease: GAD, age: 30, confirmed: true}
     expected: {score: 1.0, band: Mild, clustering: 0.0, people: 2}
+
+  # The Guide: "Alzheimer's disease is not scored, because dementia is outside the study's scope"
+  - name: alzheimers_is_not_scored
+    domain: NEURO
+    relatives:
+      - {relative: mother, diagnosis: Alzheimer's disease, disease: null, age: 70, confirmed: true}
+      - {relative: father, diagnosis: Depression, disease: depression, age: 30, confirmed: true}
+    expected: {score: 0.5, band: Mild, clustering: 0.0, people: 1}
 
   - name: neuro_has_e_1
     domain: NEURO

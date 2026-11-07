@@ -90,6 +90,8 @@ def _by_age(age: int, severe_below: int, early_below: int, typical_below: int) -
 
 
 _ANXIETY = re.compile(r"\b(anxiety|gad)\b", re.IGNORECASE)
+_DEPRESSION = re.compile(r"depress|bipolar", re.IGNORECASE)
+_NOT_SCORED = re.compile(r"alzheimer|dementia", re.IGNORECASE)  # NEURO only (FHRS Guide)
 
 
 def fixed_onset(domain: str, diagnosis: str) -> str | None:
@@ -100,13 +102,19 @@ def fixed_onset(domain: str, diagnosis: str) -> str | None:
     return None
 
 
-def disease_of(domain: str, diagnosis: str) -> str:
+def disease_of(domain: str, diagnosis: str) -> str | None:
     """The disease for the clustering rule, as the generator labels it: CVD, T2D, asthma, COPD,
-    depression or GAD. Every CVD diagnosis is one disease, so a heart attack and a stent match."""
+    depression or GAD. Every CVD diagnosis is one disease, so a heart attack and a stent match.
+    NEURO text that names none of these gives None: the relative still scores, but does not count
+    toward the cluster bonus.
+    Bipolar disorder is treated as the same disease as depression for the cluster bonus
+    (assumption; physician to confirm)."""
     if domain == "CRD":
         return "asthma" if "asthma" in diagnosis.lower() else "COPD"
     if domain == "NEURO":
-        return "GAD" if _ANXIETY.search(diagnosis) else "depression"
+        if _ANXIETY.search(diagnosis):
+            return "GAD"
+        return "depression" if _DEPRESSION.search(diagnosis) else None
     return domain
 
 
@@ -167,16 +175,19 @@ def risk_band(score: float) -> str:
 def calculate(domain: str, entries: list[FamilyEntry]) -> FhrsResult:
     """Each person counts once per disease: if the same (relative, relative_no) has two diagnoses
     in the same domain (e.g. hypertension and stroke), the higher term is used, so nobody is
-    double-counted."""
+    double-counted. NEURO rows for Alzheimer's or dementia are skipped: the Guide does not score them."""
     best_term: dict[tuple[str, int], float] = {}
     confirmed_first_degree: dict[str, set[tuple[str, int]]] = {}
     shared = False
     for e in (e for e in entries if e.domain == domain):
+        if domain == "NEURO" and _NOT_SCORED.search(e.diagnosis):
+            continue
         person = (e.relative, e.relative_no)
         term = RELATIONSHIP_WEIGHT[degree_of(e.relative)] * ONSET_MULTIPLIER[e.onset] * VERIFICATION[e.confirmed]
         best_term[person] = max(term, best_term.get(person, 0.0))
-        if e.confirmed == "yes" and e.relative in FIRST_DEGREE:
-            confirmed_first_degree.setdefault(disease_of(domain, e.diagnosis), set()).add(person)
+        disease = disease_of(domain, e.diagnosis)
+        if disease and e.confirmed == "yes" and e.relative in FIRST_DEGREE:
+            confirmed_first_degree.setdefault(disease, set()).add(person)
         shared = shared or e.shared_environment
 
     clustering = CLUSTER_BONUS if any(len(people) >= 2 for people in confirmed_first_degree.values()) else 0.0
