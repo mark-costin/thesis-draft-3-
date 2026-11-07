@@ -7,7 +7,8 @@ Two compose files:
 | `docker-compose.yml` | PostgreSQL 18, Redis, the API and the OCR worker | You want the whole backend in containers (the way it will run on the server) |
 | `docker-compose.dev.yml` | PostgreSQL 18 and Redis only | You run the API yourself with `uv run uvicorn ...` and only need the database |
 
-The frontend container will be added when the frontend is in the repository.
+`docker-compose.yml` also starts the patient portal (`web`): open http://localhost:3000.
+On the server, `docker-compose.prod.yml` adds Nginx with HTTPS: see `docs/deploy.md`.
 
 ## 1. Before the first start
 
@@ -87,7 +88,12 @@ restore it there, and check that the counts match and an uploaded file still dow
 
 ## Still to do (Sprint 8)
 
-- Frontend container (`docker/Dockerfile.web`) on the `web` network.
-- Nginx with Let's Encrypt HTTPS in front of the API and frontend, then start uvicorn with `--proxy-headers` so the rate limits see the real client IP.
+- Done: the frontend container (`docker/Dockerfile.web`) on the `web` network, and Nginx with
+  Let's Encrypt HTTPS in front of it (`docker-compose.prod.yml`, `docs/deploy.md`). The API is not
+  published at all: only Reflex calls it, from inside Docker.
+- The API's rate limits count requests per IP address. Every request comes from the Reflex
+  container, so all patients share one limit (login 10 per minute). Fine for a demo and the
+  evaluation; for real use, Reflex should pass the browser's address (X-Forwarded-For) and the
+  API should trust it from the web container only.
 - PaddleOCR-VL inside the worker image (docs/ocr.md). It needs an NVIDIA GPU, so it is for Costin's laptop only. `OCR_ENGINE=pdf_text` already works in the image (no GPU); other machines keep `none` or `pdf_text`.
 - Copy the nightly backups off the server automatically.

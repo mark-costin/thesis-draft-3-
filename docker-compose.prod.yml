@@ -1,0 +1,41 @@
+# Server only (DigitalOcean droplet): Nginx in front, HTTPS from Let's Encrypt. See docs/deploy.md.
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Nginx is the single entry point (ports 80 and 443). The API, the portal, PostgreSQL and Redis
+# are not reachable from the internet: only Nginx publishes ports.
+
+services:
+  web:
+    ports: !reset []           # no direct access: everything goes through Nginx
+
+  api:
+    ports: !reset []
+
+  nginx:
+    image: nginx:1.27-alpine
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/portal.conf.template:/etc/nginx/templates/portal.conf.template:ro
+      - letsencrypt:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+    # Reload every 6 hours so a renewed certificate is used
+    command: ["/bin/sh", "-c", "while :; do sleep 6h & wait $${!}; nginx -s reload; done & exec nginx -g 'daemon off;'"]
+    depends_on: [web]
+    networks: [web]
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot:v3.1.0
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    # Renews the certificate when it has less than 30 days left (checked every 12 hours)
+    entrypoint: ["/bin/sh", "-c", "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"]
+    restart: unless-stopped
+
+volumes:
+  letsencrypt:
+  certbot-www:

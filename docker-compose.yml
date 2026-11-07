@@ -1,5 +1,6 @@
-# Full backend in containers: PostgreSQL 18, Redis, the FastAPI API and the OCR worker.
-# The frontend container is added when the frontend is in the repository.
+# The whole system in containers: PostgreSQL 18, Redis, the FastAPI API, the OCR worker and the
+# Reflex patient portal (web). On the server, docker-compose.prod.yml adds Nginx (HTTPS) in front
+# of the portal: see docs/deploy.md.
 #
 #   docker compose up -d --build      start (first run creates the 19 tables)
 #   docker compose ps                 all services should be "healthy" or "running"
@@ -79,6 +80,26 @@ services:
     ports:
       - "127.0.0.1:8000:8000"   # this computer only; Nginx will be in front on the server (Sprint 8)
     networks: [data, web]
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+      args:
+        # The address the browser uses for Reflex's backend: the public https address on the server
+        PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8001}
+    image: thesis-d3-web
+    environment:
+      CDSS_API_URL: http://api:8000      # Reflex calls the API from Python, inside Docker
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    ports:
+      - "127.0.0.1:3000:3000"   # this computer only; on the server Nginx is in front
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [web]             # never on "data": the portal cannot reach the database or Redis
+    restart: unless-stopped
 
   worker:
     <<: *app

@@ -183,8 +183,8 @@ thesis-d3/
 │   ├── setup_windows.ps1          # One-step database setup on Windows
 │   ├── windows_setup.sql          # All scripts in one file, for pgAdmin on Windows
 │   └── README.md                  # Database setup guide
-├── deploy/                        # backup.sh / .ps1 and restore.sh / .ps1 (Docker database + uploads)
-├── docker/                        # Dockerfile.api (API + OCR worker), Dockerfile.db (Postgres + schema)
+├── deploy/                        # backup / restore scripts, server_setup.sh, init_https.sh, nginx/ (see docs/deploy.md)
+├── docker/                        # Dockerfile.api (API + OCR worker), Dockerfile.db (Postgres + schema), Dockerfile.web (portal)
 ├── docs/
 │   ├── docker.md                  # Running the backend in Docker; backup and restore
 │   ├── ocr.md                     # OCR engines and the PaddleOCR-VL GPU install
@@ -232,7 +232,8 @@ thesis-d3/
 ├── .env.example                   # Template for .env (copy and fill in)
 ├── .gitignore
 ├── .python-version
-├── docker-compose.yml             # Full backend in containers (see docs/docker.md)
+├── docker-compose.yml             # The whole system in containers (see docs/docker.md)
+├── docker-compose.prod.yml        # Server only: Nginx + Let's Encrypt in front (see docs/deploy.md)
 ├── docker-compose.dev.yml         # Postgres + Redis only, for running the API with uv
 ├── docs-requirement.md            # Documentation requirements
 ├── pyproject.toml                 # Dependencies (uv)
