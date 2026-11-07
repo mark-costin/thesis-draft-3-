@@ -63,7 +63,9 @@ THIRD_DEGREE = {"paternal_male_cousin", "paternal_female_cousin", "maternal_male
 RELATIVES = FIRST_DEGREE | SECOND_DEGREE | THIRD_DEGREE
 # These roles exist only once, so relative_no stays 1 (family_single_relative_check, 24_family_relative_no.sql)
 SINGLE_RELATIVES = {"father", "mother", "paternal_grandfather", "paternal_grandmother", "maternal_grandfather",
-                    "maternal_grandmother", "great_grandfather", "great_grandmother"}
+                    "maternal_grandmother"}
+# Each person has four of each, so relative_no is 1 to 4 (family_great_grandparent_check, same script)
+GREAT_GRANDPARENTS = {"great_grandfather", "great_grandmother"}
 MALE_RELATIVES = {"father", "brother", "son", "paternal_grandfather", "maternal_grandfather",
                   "paternal_uncle", "maternal_uncle", "half_brother", "grandson", "nephew",
                   "paternal_male_cousin", "maternal_male_cousin", "great_grandfather"}

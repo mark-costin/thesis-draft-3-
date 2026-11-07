@@ -221,6 +221,23 @@ def test_two_brothers_with_the_same_diagnosis(make_patient):
     assert (score["calculated_fhrs"], score["clustering_score"], score["affected_relatives"]) == (2.0, 1.0, 2)
 
 
+def test_two_great_grandmothers_both_count(make_patient):
+    headers = make_patient()
+    great_grandmother = {"relative": "great_grandmother", "disease_domain": "T2D",
+                         "specific_diagnosis": "Type 2 diabetes", "age_at_diagnosis": 55, "diagnosis_confirmed": "yes"}
+    assert add(headers, **great_grandmother).status_code == 201
+    assert add(headers, **great_grandmother, relative_no=2).status_code == 201
+    score = fhrs_by_domain(headers)["T2D"]
+    assert (score["calculated_fhrs"], score["clustering_score"], score["affected_relatives"]) == (0.25, 0.0, 2)
+
+
+@pytest.mark.parametrize("relative", sorted(fhrs.GREAT_GRANDPARENTS))
+def test_great_grandparents_stop_at_four(make_patient, relative):
+    headers = make_patient()
+    assert add(headers, relative=relative, relative_no=4).status_code == 201
+    assert add(headers, relative=relative, relative_no=5).status_code == 422
+
+
 @pytest.mark.parametrize("relative", sorted(fhrs.SINGLE_RELATIVES))
 def test_single_roles_cannot_repeat(make_patient, relative):
     headers = make_patient()
@@ -241,6 +258,17 @@ def test_database_agrees_on_which_roles_repeat(db, two_patients):
         else:
             db.flush()
         db.rollback()
+
+
+@pytest.mark.parametrize("relative", sorted(fhrs.GREAT_GRANDPARENTS))
+def test_database_stops_great_grandparents_at_four(db, two_patients, relative):
+    user_id, patient_id = two_patients["A"]
+    set_request_identity(db, user_id=user_id, patient_id=patient_id)
+    for number in (4, 5):
+        db.add(PatientFamilyHistory(patient_id=patient_id, disease_domain="T2D", specific_diagnosis="x",
+                                    relative=relative, relative_no=number))
+    with pytest.raises(IntegrityError):
+        db.flush()
 
 
 def test_recalculate_all_replaces_stale_scores_only_for_patients_who_have_one(db, two_patients):

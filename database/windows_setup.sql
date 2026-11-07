@@ -1015,7 +1015,10 @@ ALTER TABLE public.patient_family_history
     -- Roles that exist only once (fhrs.SINGLE_RELATIVES; a test checks they match)
     ADD CONSTRAINT family_single_relative_check CHECK (relative_no = 1 OR relative NOT IN (
         'father', 'mother',
-        'paternal_grandfather', 'paternal_grandmother', 'maternal_grandfather', 'maternal_grandmother',
+        'paternal_grandfather', 'paternal_grandmother', 'maternal_grandfather', 'maternal_grandmother'
+    )),
+    -- Each person has four of each (fhrs.GREAT_GRANDPARENTS)
+    ADD CONSTRAINT family_great_grandparent_check CHECK (relative_no <= 4 OR relative NOT IN (
         'great_grandfather', 'great_grandmother'
     )),
     DROP CONSTRAINT family_unique_entry,

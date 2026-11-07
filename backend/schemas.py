@@ -493,6 +493,8 @@ class FamilyEntryCreate(BaseModel):
     def single_role_is_number_1(self):
         if self.relative in fhrs.SINGLE_RELATIVES and self.relative_no != 1:
             raise ValueError(f"{self.relative} exists only once, so relative_no must be 1")
+        if self.relative in fhrs.GREAT_GRANDPARENTS and self.relative_no > 4:
+            raise ValueError(f"there are four of {self.relative}, so relative_no must be 1 to 4")
         return self
 
 
