@@ -1,12 +1,14 @@
 """Shared evaluation protocol for the four risk models (investigation only: writes no model, changes no data).
 
 Candidates (a) grid, (c) logistic and (d) calibration run here. Candidate (b) Optuna runs in #52 on the same
-splits (shared_splits.csv) and is judged by compare_candidates(). Only train and validation are ever read:
-the test split is dropped in load_tasks(), seed 2 is never opened, and Task.check() guards every fit.
+splits (shared_splits.csv) and is judged by compare_candidates(). Both choose settings on repeats 1 and 2 only,
+and compare_candidates() scores repeat 3 only. Only train and validation are ever read: the test split is dropped
+in load_tasks(), seed 2 is never opened, and Task.check() guards every fit.
 
 Tests: test_evaluation_protocol.py
 Splits: uv run --group ml python ml/investigate/evaluation_protocol.py splits
-Report: uv run --group ml python ml/investigate/evaluation_protocol.py run <output folder>"""
+Report: uv run --group ml python ml/investigate/evaluation_protocol.py run <output folder>
+Candidate (a) alone: uv run --group ml python ml/investigate/evaluation_protocol.py grid <output folder>"""
 import contextlib
 import io
 import json
@@ -33,6 +35,8 @@ SPLIT_FILE = Path(__file__).parent / "shared_splits.csv"
 SEED = 20261101
 DISEASES = ["CVD", "T2D", "CRD", "NEURO"]
 REPEATS, FOLDS = 3, 5
+# Rule 4: settings are chosen on repeats 1 and 2 and judged on repeat 3. These are the 0-based `repeat` values.
+TUNE_REPEATS, SCORE_REPEAT = (0, 1), 2
 N_BOOT = 2000
 CUTS = (0.20, 0.50)
 METHODS = ("isotonic", "sigmoid")
@@ -244,24 +248,25 @@ def load_folds():
     return pd.read_csv(SPLIT_FILE)
 
 
-def shared_folds(task, folds):
-    """The 15 steps of the shared CV: (repeat, fold, fit rows, stopping rows, scored rows)."""
+def shared_folds(task, folds, repeats=range(REPEATS)):
+    """The steps of the shared CV, 15 by default: (repeat, fold, fit rows, stopping rows, scored rows).
+    Anything that chooses settings passes TUNE_REPEATS."""
     X, y, pid = task.train
     task.check(task.train)
     f = folds[folds.disease == task.disease].set_index("patient_id").loc[pid]
     take = lambda m: (X[m], y[m], pid[m])  # noqa: E731
-    for r in range(REPEATS):
+    for r in repeats:
         fold, stop = f[f"fold_{r}"].to_numpy(), f[f"stop_{r}"].to_numpy() == 1
         for k in range(FOLDS):
             scored = fold == k
             yield r, k, take(~scored & ~stop), take(~scored & stop), take(scored)
 
 
-def cv_predict(task, folds, fit, methods=()):
+def cv_predict(task, folds, fit, methods=(), repeats=range(REPEATS)):
     """Out-of-fold scores on the shared splits. fit(fit_rows, stop_rows) -> model. With methods, also p_<method>:
     the fold model calibrated on validation, which that fold model never saw."""
     out = []
-    for r, k, fit_rows, stop_rows, (X, y, pid) in shared_folds(task, folds):
+    for r, k, fit_rows, stop_rows, (X, y, pid) in shared_folds(task, folds, repeats):
         model = fit(fit_rows, stop_rows)
         part = pd.DataFrame({"disease": task.disease, "repeat": r, "fold": k, "patient_id": pid, "y": y,
                              "score": model.predict_proba(X)[:, 1], "n_trees": getattr(model, "best_iteration", -1) + 1})
@@ -272,7 +277,8 @@ def cv_predict(task, folds, fit, methods=()):
 
 
 def trees(scores):
-    return int(scores.groupby(["repeat", "fold"]).n_trees.first().mean())
+    """The refit's tree count is a setting too, so repeat 3 has no say in it."""
+    return int(scores[scores.repeat.isin(TUNE_REPEATS)].groupby(["repeat", "fold"]).n_trees.first().mean())
 
 
 def score_candidate(params, tasks=None, folds=None):
@@ -293,24 +299,24 @@ def validation_scores(params, cv_scores, tasks=None):
 
 
 def select_grid(tasks=None, folds=None):
-    """Candidate (a). Returns ({disease: best grid point}, its out-of-fold scores, the whole grid table)."""
+    """Candidate (a), chosen on repeats 1 and 2. Only the pick is fitted on repeat 3, so that repeat cannot sway it.
+    Returns ({disease: best grid point}, its out-of-fold scores on all 3 repeats, the whole grid table)."""
     tasks, folds = tasks or load_tasks(), load_folds() if folds is None else folds
     table, best, scores = [], {}, []
     for d, t in tasks.items():
-        runs = [cv_predict(t, folds, lambda a, b, g=g: t.fit_xgb(a, b, g)) for g in GRID]
+        runs = [cv_predict(t, folds, lambda a, b, g=g: t.fit_xgb(a, b, g), repeats=TUNE_REPEATS) for g in GRID]
         means = [mean_of_folds(s, ap) for s in runs]
-        table += [{"disease": d, **g, "cv_auprc": m, "n_trees": trees(s)} for g, m, s in zip(GRID, means, runs)]
+        table += [{"disease": d, **g, "tune_auprc": m, "n_trees": trees(s)} for g, m, s in zip(GRID, means, runs)]
         best[d] = GRID[int(np.argmax(means))]
-        scores.append(runs[int(np.argmax(means))])
+        scores += [runs[int(np.argmax(means))],
+                   cv_predict(t, folds, lambda a, b: t.fit_xgb(a, b, best[d]), repeats=(SCORE_REPEAT,))]
     return best, pd.concat(scores, ignore_index=True), pd.DataFrame(table)
 
 
 # ---------------------------------------------------------------- decision rule
 def on_shared_splits(scores, folds):
     keys = ["disease", "repeat", "fold", "patient_id"]
-    want = folds.melt(id_vars=["disease", "patient_id"], value_vars=[c for c in folds if c.startswith("fold_")],
-                      var_name="repeat", value_name="fold")
-    want["repeat"] = want.repeat.str.removeprefix("fold_").astype(int)
+    want = folds.assign(repeat=SCORE_REPEAT, fold=folds[f"fold_{SCORE_REPEAT}"])
     same = lambda f: f[keys].sort_values(keys).reset_index(drop=True).astype({"disease": object})  # noqa: E731
     if not same(want).equals(same(scores)):
         raise LeakError("scores are not on the shared splits (other folds, other rows, or a disease missing)")
@@ -322,9 +328,11 @@ def same_rows(a, b, keys):
 
 
 def compare_candidates(a_scores, b_scores, *, b_keeps_constraints=False, n_boot=N_BOOT, seed=SEED, folds=None):
-    """Rule 4. b wins a disease only if the whole 95% CI of (b - a) is above 0: a CI below 0 also "excludes 0",
-    but it means b is worse. Picks b for all four only with 3 or more wins and b_keeps_constraints=True."""
+    """Rule 4, on repeat 3 only: both candidates must have chosen their settings on repeats 1 and 2, which this
+    function cannot see. b wins a disease only if the whole 95% CI of (b - a) is above 0: a CI below 0 also
+    "excludes 0", but it means b is worse. Picks b for all four only with 3 or more wins and b_keeps_constraints=True."""
     folds = load_folds() if folds is None else folds
+    a_scores, b_scores = a_scores[a_scores.repeat == SCORE_REPEAT], b_scores[b_scores.repeat == SCORE_REPEAT]
     on_shared_splits(a_scores, folds)
     on_shared_splits(b_scores, folds)
     same_rows(a_scores, b_scores, ["disease", "repeat", "patient_id"])
@@ -507,13 +515,28 @@ def plots(out, cv, val, dca):
     panels("decision", "Decision curve, out-of-fold on train, mean of 3 repeats", decision, "Threshold probability", "Net benefit")
 
 
+def run_grid(out, tasks=None, folds=None):
+    """Candidate (a) alone: the pick from repeats 1 and 2, and its score on repeat 3."""
+    out.mkdir(parents=True, exist_ok=True)
+    params, scores, grid = select_grid(tasks, folds)
+    grid.to_csv(out / "grid.csv", index=False)
+    pd.Series({d: json.dumps(p) for d, p in params.items()}).to_csv(out / "grid_choice.csv", header=False)
+    rows = []
+    for d, g in scores.groupby("disease", sort=False):
+        held = g[g.repeat == SCORE_REPEAT]
+        lo, hi = ci(boot_means(held, ap, N_BOOT, SEED))
+        rows.append({"disease": d, "tune_auprc": mean_of_folds(g[g.repeat != SCORE_REPEAT], ap), "repeat3_auprc": mean_of_folds(held, ap),
+                     "lo": lo, "hi": hi, "trees": trees(g)})
+    pd.DataFrame(rows).to_csv(out / "grid_repeat3.csv", index=False)
+    return params, scores
+
+
 def run(out):
     out.mkdir(parents=True, exist_ok=True)
     say = lambda *a: print(pd.Timestamp.now().strftime("%H:%M:%S"), *a, flush=True)  # noqa: E731
     tasks, folds = load_tasks(), load_folds()
     say("grid")
-    params, a_scores, grid = select_grid(tasks, folds)
-    grid.to_csv(out / "grid.csv", index=False)
+    params, a_scores = run_grid(out, tasks, folds)
     say("compare (a) with itself:", compare_candidates(a_scores, a_scores, b_keeps_constraints=True, n_boot=20, folds=folds)["reason"])
     perf, dl, cal, cuts, sub, eo, cv, val, dca, gap = [], [], [], [], [], [], {}, {}, {}, []
     for d, t in tasks.items():
@@ -578,7 +601,6 @@ def run(out):
                         ("cuts", pd.DataFrame(cuts)), ("subgroups", pd.concat(sub)), ("equalized_odds", pd.concat(eo)),
                         ("decision", pd.concat(dca.values())), ("oracle", oracle)):
         table.to_csv(out / f"{name}.csv", index=False)
-    pd.Series({d: json.dumps(p) for d, p in params.items()}).to_csv(out / "grid_choice.csv", header=False)
     plots(out, cv, val, dca)
     say("done")
 
@@ -586,5 +608,7 @@ def run(out):
 if __name__ == "__main__":
     if sys.argv[1] == "splits":
         write_folds()
+    elif sys.argv[1] == "grid":
+        run_grid(Path(sys.argv[2]))
     else:
         run(Path(sys.argv[2]))

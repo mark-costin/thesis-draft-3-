@@ -310,7 +310,7 @@ def toy_scores(signal, n=300, seed=0, disease="CVD"):
     del rng
     pid = np.arange(n)
     return pd.concat([pd.DataFrame({"disease": disease, "repeat": r, "fold": (pid + r) % 5, "patient_id": pid,
-                                    "y": y, "score": s}) for r in range(2)], ignore_index=True)
+                                    "y": y, "score": s}) for r in range(ep.REPEATS)], ignore_index=True)
 
 
 def test_mean_of_folds_uses_every_fold():
@@ -375,6 +375,32 @@ def test_clearly_worse_does_not_count_as_excluding_zero():
     assert (r["table"].hi < 0).sum() == 3 and r["wins"] == 0 and r["choice"] == "a"
 
 
+def test_compare_ignores_a_win_outside_repeat_3():
+    # b is far better on repeats 1 and 2, which tuned it, and a copy of a on repeat 3
+    a, b = frames(DISEASES)
+    held = b.repeat == ep.SCORE_REPEAT
+    b.loc[held, "score"] = a.loc[held, "score"]
+    r = ep.compare_candidates(a, b, b_keeps_constraints=True, n_boot=100, folds=folds_for(a))
+    assert r["wins"] == 0 and r["choice"] == "a"
+    assert (r["table"]["diff"] == 0).all()
+
+
+def test_compare_counts_a_win_on_repeat_3():
+    a, b = frames(DISEASES)
+    tuned = b.repeat != ep.SCORE_REPEAT
+    b.loc[tuned, "score"] = a.loc[tuned, "score"]
+    r = ep.compare_candidates(a, b, b_keeps_constraints=True, n_boot=100, folds=folds_for(a))
+    assert r["wins"] == 4 and r["choice"] == "b"
+    want = ep.mean_of_folds(b[(b.disease == "CVD") & ~tuned], ep.ap)
+    assert r["table"].set_index("disease").loc["CVD", "b_auprc"] == pytest.approx(want)
+
+
+def test_compare_refuses_scores_without_repeat_3():
+    a, b = frames(DISEASES[:3])
+    with pytest.raises(ep.LeakError):
+        ep.compare_candidates(a, b[b.repeat != ep.SCORE_REPEAT], n_boot=10, folds=folds_for(a))
+
+
 def test_compare_refuses_other_splits():
     a, b = frames(DISEASES[:3])
     with pytest.raises(ep.LeakError):
@@ -419,3 +445,38 @@ def test_shared_folds_gives_the_15_steps_of_cv_predict():
     got = scores[(scores.repeat == r) & (scores.fold == k)]
     assert list(got.patient_id) == list(scored[2])
     assert np.allclose(got.score, t.fit_xgb(fit, stop, params).predict_proba(scored[0])[:, 1])
+
+
+# ---------- tuning repeats and scoring repeat (Rule 4) ----------
+def test_repeat_3_is_the_scoring_repeat_and_tunes_nothing():
+    assert ep.TUNE_REPEATS == (0, 1) and ep.SCORE_REPEAT == 2
+
+
+def test_shared_folds_can_walk_the_tuning_repeats_only():
+    # the Optuna objective walks these 10 steps, so a trial never sees repeat 3
+    t = toy_task()
+    folds = ep.make_folds(t.train[2], t.train[1]).assign(disease="CVD")
+    steps = list(ep.shared_folds(t, folds, ep.TUNE_REPEATS))
+    assert [(r, k) for r, k, *_ in steps] == [(r, k) for r in ep.TUNE_REPEATS for k in range(ep.FOLDS)]
+
+
+def test_select_grid_fits_only_the_pick_on_repeat_3(monkeypatch):
+    # a grid point that never ran on repeat 3 cannot have been chosen by it
+    grid = [{"max_depth": d, "learning_rate": .1, "min_child_weight": 1} for d in (2, 3)]
+    monkeypatch.setattr(ep, "GRID", grid)
+    t = toy_task()
+    folds = ep.make_folds(t.train[2], t.train[1]).assign(disease="CVD")
+    held = [set(stop[2]) for r, _, _, stop, _ in ep.shared_folds(t, folds) if r == ep.SCORE_REPEAT]
+    seen, real = [], t.fit_xgb
+    monkeypatch.setattr(t, "fit_xgb", lambda fit, stop, g: seen.append((g, set(stop[2]))) or real(fit, stop, g))
+    best, scores, table = ep.select_grid({"CVD": t}, folds)
+    assert [g for g, stop in seen if stop in held] == [best["CVD"]] * ep.FOLDS
+    assert len(seen) == len(grid) * len(ep.TUNE_REPEATS) * ep.FOLDS + ep.FOLDS
+    assert sorted(scores.repeat.unique()) == [0, 1, 2]
+    tuned = scores[scores.repeat.isin(ep.TUNE_REPEATS)]
+    assert table.tune_auprc.max() == pytest.approx(ep.mean_of_folds(tuned, ep.ap))
+
+
+def test_tree_count_comes_from_the_tuning_repeats():
+    f = toy_scores(1.0).assign(n_trees=lambda x: np.where(x.repeat == ep.SCORE_REPEAT, 100, 10))
+    assert ep.trees(f) == 10
