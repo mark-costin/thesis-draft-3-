@@ -79,7 +79,30 @@ class ContactFields(BaseModel):
         return self
 
 
-class PatientDetails(ContactFields):
+class NoticeAcceptance(BaseModel):
+    """The privacy notice the patient accepts: at sign-up, or later when it changes."""
+    model_config = ConfigDict(extra="forbid")
+
+    privacy_consent: bool
+    consent_version: str = Field(max_length=20)
+
+    @field_validator("privacy_consent")
+    @classmethod
+    def check_consent(cls, value: bool) -> bool:
+        if value is not True:
+            raise ValueError("You must accept the privacy notice to continue")
+        return value
+
+    @field_validator("consent_version")
+    @classmethod
+    def check_consent_version(cls, value: str) -> str:
+        # The patient must have seen the current notice, not an old cached one
+        if value != settings.privacy_notice_version:
+            raise ValueError("The privacy notice has changed; please review the current version")
+        return value
+
+
+class PatientDetails(NoticeAcceptance, ContactFields):
     """What a new account needs besides how it signs in: shared by password sign-up and
     Google sign-up, so both follow the same rules (18+, current privacy notice, names)."""
     model_config = ConfigDict(extra="forbid")
@@ -88,8 +111,6 @@ class PatientDetails(ContactFields):
     last_name: str = Field(min_length=1, max_length=100)
     date_of_birth: date
     biological_sex: Literal["Female", "Male"]
-    privacy_consent: bool
-    consent_version: str = Field(max_length=20)
 
     @field_validator("first_name", "last_name", mode="before")
     @classmethod
@@ -100,21 +121,6 @@ class PatientDetails(ContactFields):
     @classmethod
     def check_age(cls, value: date) -> date:
         return check_adult_birth_date(value)
-
-    @field_validator("privacy_consent")
-    @classmethod
-    def check_consent(cls, value: bool) -> bool:
-        if value is not True:
-            raise ValueError("You must accept the privacy notice to register")
-        return value
-
-    @field_validator("consent_version")
-    @classmethod
-    def check_consent_version(cls, value: str) -> str:
-        # The patient must have seen the current notice, not an old cached one
-        if value != settings.privacy_notice_version:
-            raise ValueError("The privacy notice has changed; please review the current version")
-        return value
 
 
 class RegisterRequest(PatientDetails):
@@ -179,6 +185,7 @@ class MeResponse(BaseModel):
     first_name: str
     last_name: str
     consent_version: str
+    consent_required: bool  # the patient accepted an older notice: show the current one
 
 
 class PasswordResetRequest(BaseModel):

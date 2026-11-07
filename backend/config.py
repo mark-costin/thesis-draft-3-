@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     # Version of the privacy notice (RA 10173) shown on the registration screen.
     # Raise it whenever the notice text changes; registration only accepts the current one.
-    privacy_notice_version: str = "1.0"
+    privacy_notice_version: str = "1.1"
 
     # Signs the login tokens (JWT). Required, at least 32 characters, never the placeholder.
     # Generate one with:  uv run python -c "import secrets; print(secrets.token_urlsafe(48))"

@@ -8,7 +8,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from cryptography.fernet import InvalidToken
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -375,6 +375,13 @@ def update_profile(db: Session, user_id: int, patient_id: int, changes: dict) ->
     db.commit()
     db.refresh(patient)
     return user, patient
+
+
+def accept_privacy_notice(db: Session, user_id: int, patient_id: int, version: str) -> None:
+    db.execute(text("SELECT public.accept_privacy_notice(:version)"), {"version": version})
+    audit.log_event(db, "DATA_UPDATED", user_id=user_id, patient_id=patient_id, table="patients",
+                    fields=["consent_version", "consent_at"], consent_version=version)
+    db.commit()
 
 
 

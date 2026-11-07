@@ -19,6 +19,7 @@ from backend.schemas import (
     GoogleSignInRequest,
     LoginRequest,
     MeResponse,
+    NoticeAcceptance,
     PasswordResetConfirm,
     PasswordResetRequest,
     RegisterRequest,
@@ -69,7 +70,16 @@ def me(response: Response, current: CurrentUser = Depends(get_current_user),
     # Filtered on the token's patient_id; RLS is the second layer
     patient = db.scalars(select(Patient).where(Patient.patient_id == current.patient_id)).one()
     return MeResponse(email=user.email, first_name=patient.first_name,
-                      last_name=patient.last_name, consent_version=patient.consent_version)
+                      last_name=patient.last_name, consent_version=patient.consent_version,
+                      consent_required=patient.consent_version != settings.privacy_notice_version)
+
+
+@router.post("/accept-privacy-notice", status_code=status.HTTP_204_NO_CONTENT)
+def accept_privacy_notice(body: NoticeAcceptance, current: CurrentUser = Depends(get_current_user),
+                          db: Session = Depends(get_db)) -> Response:
+    """The patient accepts the current notice after /auth/me said consent_required."""
+    services.accept_privacy_notice(db, current.user_id, current.patient_id, body.consent_version)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

@@ -1007,6 +1007,7 @@ COMMENT ON COLUMN public.documents.ocr_engine IS
 -- Create account and Account settings screens; (2) sign in with Google.
 -- Run on an existing med_db as postgres, then run 99_security.sql again (it grants the app
 -- UPDATE on the new profile columns). New databases run it in order like the other scripts.
+-- Safe to run twice.
 --
 -- RA 10173 (data minimization): the address is kept at barangay level plus an optional street
 -- line, the contact number is one mobile number, and none of it is a model input, an audit
@@ -1023,6 +1024,8 @@ ALTER TABLE public.patients
     ADD COLUMN IF NOT EXISTS street            character varying(150);  -- optional house no. / street
 
 ALTER TABLE public.patients
+    DROP CONSTRAINT IF EXISTS patients_contact_number_check,
+    DROP CONSTRAINT IF EXISTS patients_address_order_check,
     ADD CONSTRAINT patients_contact_number_check
         CHECK (contact_number IS NULL OR contact_number ~ '^(09[0-9]{9}|\+639[0-9]{9})$'),
     -- A barangay needs its city, and a city needs its province (the screens pick them in that order)
@@ -1040,17 +1043,34 @@ ALTER TABLE public.users
     ADD COLUMN IF NOT EXISTS google_sub character varying(255);
 
 ALTER TABLE public.users
+    DROP CONSTRAINT IF EXISTS users_has_a_sign_in_check,
     ADD CONSTRAINT users_has_a_sign_in_check CHECK (password_hash IS NOT NULL OR google_sub IS NOT NULL);
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_users_google_sub ON public.users (google_sub)
     WHERE google_sub IS NOT NULL;
+
+-- ---------------------------------------------------------------------------
+-- 3. Accepting a new privacy notice
+-- ---------------------------------------------------------------------------
+-- med_app has no UPDATE right on the consent columns (99_security.sql). This is the only way it can
+-- change them, and only on the patient of the current request. The old version stays in the audit log.
+CREATE OR REPLACE FUNCTION public.accept_privacy_notice(p_version character varying)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+    UPDATE public.patients
+       SET consent_version = p_version, consent_at = now()
+     WHERE patient_id = public.current_patient_id();
+$$;
 
 -- ============ 99_security.sql ============
 -- 99_security.sql
 -- Purpose: Zero Trust enforcement inside the database. Runs last.
 --   1. Row-Level Security: each request sees only its own patient's rows (deny by default)
 --   2. Least privilege: narrows med_app's default table rights per table
---   3. Function access: med_app may call only log_audit()
+--   3. Function access: med_app may call only log_audit() and accept_privacy_notice()
 --
 -- How the app uses this - at the start of every request transaction:
 --     SET LOCAL app.user_id    = '<user_id from JWT>';
@@ -1139,6 +1159,8 @@ GRANT EXECUTE ON FUNCTION public.prevent_modification() TO med_app;
 
 -- The only way to write audit entries
 GRANT EXECUTE ON FUNCTION public.log_audit(text, integer, integer, jsonb) TO med_app;
+-- The only way to change consent: the current patient's own row (23_contact_and_google.sql)
+GRANT EXECUTE ON FUNCTION public.accept_privacy_notice(character varying) TO med_app;
 
 -- verify_audit_chain() and audit_seal_input() stay owner-only (admin checks).
 -- protect_reviewed_template() (19_care_plan_templates.sql) stays owner-only: it only fires
