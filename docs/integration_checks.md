@@ -3,7 +3,8 @@
 Two parts:
 
 1. **Automatic:** `uv run python -m pytest tests/test_end_to_end.py -v` runs the whole flow
-   through the API, checks the rows each step saves, the audit events, and two patients side by side.
+   through the API, checks the final row counts at the end of the flow (and LDL along the way), the audit
+   events, and two patients side by side. The rows after each screen are checked by hand in part B.
 2. **By hand:** the steps below, with the real app (API + Reflex) in two browsers and DBeaver.
    Write the result (Pass / Fail + note) in the last column and copy it into the Chapter 4 test cases.
 
@@ -18,7 +19,7 @@ Use **Chrome** for patient A and an **Edge (or Chrome Incognito)** window for pa
 | A1 | Create patient A in Chrome, patient B in Edge | Both reach the dashboard with their own first name | |
 | A2 | A: save vitals, lifestyle, one family entry, PHQ-9, one typed lab | Each screen says it is saved | |
 | A3 | B: open Dashboard, Vitals, Family history, Questionnaires, Scan, Reports | All empty: nothing of A's shows | |
-| A4 | A: run an assessment and save the report (needs the models from Phase 0) | Results and the saved report show for A | |
+| A4 | A: run an assessment and save the report. Needs registered models, `RISK_MODELS_ENABLED=true`, and either `SHOW_DRAFT_CARE_PLANS=true` (the report is marked DRAFT) or `database/approve_care_plan_templates_v1_0.sql` run | Results and the saved report show for A | |
 | A5 | B: open Results and Reports | "No assessment yet" / no reports | |
 | A6 | B: type A's report address in the URL bar (`/results`, `/reports`) after logging in | Still only B's own data | |
 | A7 | Log out A in Chrome, press Back | Goes to the login page, no data shown | |
@@ -68,18 +69,19 @@ FROM audit_ledger WHERE patient_id = :pid ORDER BY audit_id;
 SELECT public.verify_audit_chain();   -- must be NULL (the chain is intact)
 ```
 
-Check that these appear after the flow: `REGISTER`, `LOGIN_SUCCESS`, `DATA_CREATED` (each table above),
-`DOCUMENT_UPLOADED`, `DOCUMENT_VERIFIED`, `RISK_ASSESSMENT_RUN`, `REPORT_EXPORTED` (PDF download),
-`DATA_EXPORTED` (Download my data), `LOGOUT`. The `payload` column must hold IDs, table and field names only:
+Check that these appear after the flow: `REGISTER` (`users`, `patients`), `LOGIN_SUCCESS`,
+`DOCUMENT_UPLOADED` (`documents`), `DOCUMENT_VERIFIED` (confirm), `RISK_ASSESSMENT_RUN` (`risk_assessments`,
+`risk_results`, `shap_explanations`), `DATA_CREATED` / `DATA_UPDATED` / `DATA_DELETED` (the other tables; `payload`
+names the table), `REPORT_EXPORTED` (PDF download), `DATA_EXPORTED` (Download my data), `LOGOUT`. The `payload` column must hold IDs, table and field names only:
 no values, names or emails.
 
 ## D. Failure cases
 
 | # | What to do | Expected | Covered by test |
 |---|---|---|---|
-| D1 | Stop the API (Ctrl+C in its terminal), then click Save on Vitals | "Cannot reach the server…"; nothing saved; start the API and Save works | frontend PR: `test_network_and_rate_limit_messages`, `test_the_key_is_kept_for_a_retry_but_not_shared` |
-| D2 | Double-click Save vitals (or Save report) fast | One new row only (check part B) | frontend PR: `test_a_double_click_saves_one_record`; `tests/test_middleware.py` |
-| D3 | PHQ-9 with item 9 above 0, double-click Save | Crisis dialog still shows; one row | frontend PR: `test_a_double_submit_keeps_the_crisis_prompt` |
+| D1 | Stop the API (Ctrl+C in its terminal), then click Save on Vitals | "Cannot reach the server…"; nothing saved; start the API and Save works | Not yet available (frontend PR): `test_network_and_rate_limit_messages`, `test_the_key_is_kept_for_a_retry_but_not_shared` |
+| D2 | Double-click Save vitals (or Save report) fast | One new row only (check part B) | Not yet available (frontend PR): `test_a_double_click_saves_one_record`; `tests/test_middleware.py` |
+| D3 | PHQ-9 with item 9 above 0, double-click Save | Crisis dialog still shows; one row | Not yet available (frontend PR): `test_a_double_submit_keeps_the_crisis_prompt` |
 | D4 | Upload with OCR off (this laptop) | "OCR is not running…" after a few checks; type the values by hand | `test_with_ocr_off_the_upload_stays_pending` |
 | D5 | OCR fails (engine error) | Document "failed" with a safe message; type values by hand | `test_an_engine_error_marks_the_document_failed_with_its_safe_message` |
 | D6 | OCR finds nothing | Goes to review with no values; Reject, then type values | `test_a_report_with_no_values_found_still_goes_to_review` |

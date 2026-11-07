@@ -1,4 +1,4 @@
-"""Sprint 6 integration: the whole patient flow through the API, the rows each step saves,
+"""Sprint 6 integration: the whole patient flow through the API, the final row counts,
 the audit events it writes, and two patients side by side.
 
     log in -> enter data -> upload a lab report -> OCR -> confirm -> assess -> results
@@ -18,7 +18,7 @@ from backend.config import settings
 from backend.database import SessionLocal, set_request_identity
 from backend.models import (
     Document, HealthReport, LabResult, LifestyleRecord, Patient, PatientFamilyHistory, PatientGoal,
-    PatientHealthHistory, QuestionnaireResponse, RiskAssessment, RiskResult, ShapExplanation, User,
+    PatientFhrsStratification, PatientHealthHistory, QuestionnaireResponse, RiskAssessment, RiskResult, ShapExplanation, User,
     VitalsRecord,
 )
 from backend.ocr import engines
@@ -79,7 +79,7 @@ def row_counts(email):
     """Rows the patient has in each table, read as med_app with the patient's own identity."""
     user_id, patient_id = ids_of(email)
     tables = (VitalsRecord, LifestyleRecord, PatientHealthHistory, QuestionnaireResponse, PatientFamilyHistory,
-              Document, LabResult, RiskAssessment, RiskResult, ShapExplanation, PatientGoal, HealthReport)
+              PatientFhrsStratification, Document, LabResult, RiskAssessment, RiskResult, ShapExplanation, PatientGoal, HealthReport)
     with SessionLocal() as session:
         set_request_identity(session, user_id=user_id, patient_id=patient_id)
         return {model.__tablename__: session.scalar(select(func.count()).select_from(model)) for model in tables}
@@ -151,12 +151,14 @@ def test_the_whole_flow_saves_every_screen_to_its_table(make_patient, models_on,
     counts = row_counts(email)
     assert counts == {
         "vitals_records": 1, "lifestyle_records": 1, "patient_health_history": 1,
-        "questionnaire_responses": 3, "patient_family_history": 1, "documents": 1,
+        "questionnaire_responses": 3, "patient_family_history": 1,
+        "patient_fhrs_stratification": len(MODELS),  # one per disease for the one family history save
+        "documents": 1,
         "lab_results": 1,  # the typed LDL was deleted; the confirmed OCR value is the one left
-        "risk_assessments": 1, "risk_results": len(MODELS), "shap_explanations": counts["shap_explanations"],
+        "risk_assessments": 1, "risk_results": len(MODELS),
+        "shap_explanations": sum(len(m.features) for m in models_on.values()),
         "patient_goals": 1, "health_reports": 1,
     }
-    assert counts["shap_explanations"] > 0
     with SessionLocal() as session:
         user_id, patient_id = ids_of(email)
         set_request_identity(session, user_id=user_id, patient_id=patient_id)
@@ -179,9 +181,9 @@ def test_every_step_is_audited_for_the_right_patient(make_patient, models_on, oc
     created = {details.get("table") for event, _, _, details in events if event == "DATA_CREATED"}
     assert {"vitals_records", "lifestyle_records", "questionnaire_responses", "patient_family_history",
             "lab_results", "patient_goals", "health_reports"} <= created, created
-    # Every entry belongs to this patient (or has no patient, like a failed login would)
+    # Every entry belongs to this patient (the OCR job has no user: it runs in the background)
     assert {u for _, u, _, _ in events} <= {user_id, None}
-    assert {p for _, _, p, _ in events} <= {patient_id, None}
+    assert {p for _, _, p, _ in events} == {patient_id}
     # IDs and event names only: no names, emails or diagnoses in the details (numbers are not
     # checked here: an ID can contain any digits; the log tests in PR #38 cover values)
     text = repr([details for *_, details in events])
@@ -213,11 +215,13 @@ def test_two_patients_never_see_each_other(make_patient, models_on, ocr_on):
         ("GET", f"/questionnaires/{others['questionnaire']}", None),
         ("DELETE", f"/questionnaires/{others['questionnaire']}", None),
         ("GET", f"/family-history/{others['family']}", None), ("DELETE", f"/family-history/{others['family']}", None),
+        ("PATCH", f"/family-history/{others['family']}", {"age_at_diagnosis": 50}),
         ("GET", f"/labs/{others['lab']}", None),
         ("PATCH", f"/labs/{others['lab']}", {"test_code": "LDL", "value": 90, "unit": "mg/dL"}),
         ("DELETE", f"/labs/{others['lab']}", None),
         ("GET", f"/documents/{ids['document_id']}", None), ("GET", f"/documents/{ids['document_id']}/file", None),
         ("GET", f"/documents/{ids['document_id']}/review", None),
+        ("POST", f"/documents/{ids['document_id']}/confirm", None),
         ("POST", f"/documents/{ids['document_id']}/reject", None),
         ("DELETE", f"/documents/{ids['document_id']}", None),
         ("GET", f"/assessment/{ids['assessment_id']}", None),
