@@ -22,7 +22,15 @@ def shap_chart() -> rx.Component:
     return rx.recharts.bar_chart(
         rx.recharts.bar(data_key="raises", fill="#B7791F", stack_id="s", radius=4), rx.recharts.bar(data_key="lowers", fill="#2F7D5B", stack_id="s", radius=4),
         rx.recharts.x_axis(type_="number", domain=["auto", "auto"], hide=True), rx.recharts.y_axis(data_key="name", type_="category", width=132, font_size=12),
-        rx.recharts.reference_line(x=0, stroke="#8AA0A6"), rx.recharts.graphing_tooltip(), data=State.reasons, layout="vertical", width="100%", height=210)
+        rx.recharts.reference_line(x=0, stroke="#8AA0A6"), rx.recharts.graphing_tooltip(), data=State.chart_reasons, layout="vertical", width="100%", height=210)
+
+
+def reason_line(r) -> rx.Component:
+    """One sentence per factor. Not entered: grey, with a badge, and no bar in the chart."""
+    return rx.cond(r["missing"],
+                   rx.hstack(rx.badge("Not entered", color_scheme="gray", variant="soft", size="1"),
+                             rx.text(r["sentence"], size="2", color="var(--pp-ink-soft)"), spacing="2", align="center", wrap="wrap"),
+                   rx.text(r["sentence"], size="2"))
 
 
 def callout(color: str, icon: str, text: str, **kw) -> rx.Component:
@@ -65,13 +73,14 @@ def no_plan() -> rx.Component:
 
 def results_view() -> rx.Component:
     return rx.fragment(
+        rx.cond(State.safety_message != "", callout("red", "stethoscope", State.safety_message, margin_bottom="22px")),
         rx.grid(rx.foreach(State.risks, tier_card), columns=cols(4), spacing="4", width="100%", margin_bottom="22px"),
         rx.grid(card(title(State.current.short, " risk tier", icon="gauge"), rx.badge(State.current.tier, color_scheme=State.current.color, size="3", variant="soft"),
                      rx.progress(value=State.current.score, color_scheme=State.current.color, margin_y="24px"),
                      rx.text("Estimated risk: ", State.current.prob, size="2", class_name="pp-num"),
                      hint("Saved with the exact inputs and model version used.")),
                 card(title("Main reasons behind this result", icon="list-checks"), shap_chart(),
-                     rx.vstack(rx.foreach(State.reasons, lambda r: rx.text(r["sentence"], size="2")), spacing="1", margin_top="8px", align="start"),
+                     rx.vstack(rx.foreach(State.reasons, reason_line), spacing="1", margin_top="8px", align="start"),
                      rx.hstack(rx.hstack(rx.box(width="10px", height="10px", border_radius="3px", background="#2F7D5B"), rx.text("Lowers risk", size="1", color="var(--pp-ink-soft)"), spacing="1", align="center"), rx.hstack(rx.box(width="10px", height="10px", border_radius="3px", background="#B7791F"), rx.text("Raises risk", size="1", color="var(--pp-ink-soft)"), spacing="1", align="center"), justify="between", width="100%", margin_top="8px")),
                 grid_template_columns=rx.breakpoints(initial="1fr", lg=".8fr 1.4fr"), gap="22px", align_items="start", width="100%"),
         rx.cond(State.consult_message != "", callout("red", "stethoscope", State.consult_message, margin_top="22px")),

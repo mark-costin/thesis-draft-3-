@@ -4,7 +4,8 @@ from reflex_google_auth import google_oauth_provider
 
 from ..auth_ui import address_fields, contact_input, google_button, name_input, new_password_fields, or_divider
 from ..state import GOOGLE_CLIENT_ID, State  # GOOGLE_CLIENT_ID comes from api.py (root .env)
-from ..ui import card, field, hint, shell
+from ..notice import NOTICE_VERSION
+from ..ui import card, field, hint, privacy_notice_text, shell
 
 
 def section(text: str) -> rx.Component:
@@ -28,7 +29,8 @@ def create_form() -> rx.Component:
             rx.grid(new_password_fields(), columns=rx.breakpoints(initial="1", sm="2"), spacing="4", width="100%", align_items="start"),
             section("Home address"),
             rx.grid(address_fields(), columns=rx.breakpoints(initial="1", sm="2"), spacing="4", width="100%"),
-            rx.box(rx.checkbox("I accept the Privacy Notice under RA 10173. The notice version and time of acceptance are recorded.", checked=State.consent, on_change=State.set_consent),
+            rx.box(privacy_notice_text(), padding="16px 18px", border="1px solid var(--accent-4)", border_radius="12px", width="100%"),
+            rx.box(rx.checkbox(f"I accept the Privacy Notice (version {NOTICE_VERSION}) under RA 10173. The notice version and time of acceptance are recorded.", checked=State.consent, on_change=State.set_consent),
                    padding="16px 18px", background="var(--accent-2)", border="1px solid var(--accent-4)", border_radius="12px", width="100%"),
             rx.button("Create my account", type="submit", size="3", width="100%", loading=State.submitting, disabled=~State.consent),
             or_divider(),

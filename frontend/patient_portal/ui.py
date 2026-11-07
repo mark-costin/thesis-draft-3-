@@ -8,6 +8,7 @@ import reflex as rx
 from reflex_components_core.core.banner import has_connection_errors
 from reflex.style import set_color_mode
 
+from . import notice
 from .insights import Insights
 from .state import State
 
@@ -179,6 +180,35 @@ def topbar(active: str | None) -> rx.Component:
     return rx.hstack(left, nav, right, justify="between", align="center", spacing="5", width="100%", class_name="pp-topbar", padding=pad)
 
 
+def privacy_notice_text() -> rx.Component:
+    """What is new in the privacy notice (notice.py), as a short block."""
+    return rx.vstack(
+        rx.text(f"Privacy Notice, version {notice.NOTICE_VERSION}: what is new", size="2", weight="bold"),
+        rx.text(notice.NEW_TITLE, size="2", weight="medium"),
+        rx.text(notice.NEW_INTRO, size="2"),
+        rx.unordered_list(*[rx.list_item(rx.text(rx.text.strong(name), ": ", text, size="2")) for name, text in notice.NEW_ITEMS],
+                          padding_left="18px", margin="0"),
+        rx.text(rx.text.strong("Why we ask for them: "), notice.WHY, size="2"),
+        rx.text(notice.CLOSING, size="2"),
+        spacing="2", align="start", width="100%")
+
+
+def notice_gate() -> rx.Component:
+    """Shown instead of the page until the patient accepts the current notice (or logs out)."""
+    return rx.center(
+        rx.box(
+            rx.heading("Our Privacy Notice changed", size="6", as_="h1"),
+            hint("Please read what is new and accept it to keep using the app.", margin_top="4px", margin_bottom="16px"),
+            rx.box(privacy_notice_text(), padding="16px 18px", background="var(--accent-2)", border="1px solid var(--accent-4)", border_radius="12px", width="100%"),
+            rx.box(rx.checkbox(f"I accept the Privacy Notice (version {notice.NOTICE_VERSION}) under RA 10173.", checked=State.notice_agree, on_change=State.set_notice_agree),
+                   margin_top="16px"),
+            rx.flex(rx.button("Continue", size="3", on_click=State.accept_notice, disabled=~State.notice_agree),
+                    rx.button("Log out", size="3", variant="outline", on_click=State.logout),
+                    gap="12px", wrap="wrap", margin_top="18px"),
+            class_name="pp-card pp-auth-card", padding=rx.breakpoints(initial="22px 18px", md="28px 32px"), width="100%", max_width="640px"),
+        min_height="100vh", padding="16px", width="100%")
+
+
 def footer() -> rx.Component:
     return rx.center(rx.text("Educational screening tool, not a medical diagnosis. Your records stay on your own server.", size="1", color="var(--pp-ink-soft)", text_align="center"),
                      padding="28px 20px 36px", width="100%")
@@ -201,4 +231,6 @@ def shell(active: str | None, *children) -> rx.Component:
                                         size="2", color="var(--pp-ink-soft)", text_align="center", max_width="360px"),
                                 align="center", spacing="3"),
                       rx.vstack(rx.spinner(size="3"), rx.text("Taking you to sign in...", size="2", color="var(--pp-ink-soft)"), align="center", spacing="3"))
+    # A patient who accepted an older privacy notice sees the new one before any page (notice.py)
+    page_body = rx.cond(State.notice_needed, notice_gate(), page_body)
     return rx.cond(State.is_logged_in, page_body, rx.center(waiting, min_height="100vh", padding="16px"))

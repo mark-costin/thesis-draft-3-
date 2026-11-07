@@ -246,3 +246,22 @@ def test_risk_is_shown_as_a_percent_never_0_or_100():
     assert risk_percent(0.004) == "below 1%" and risk_percent(0.0) == "below 1%"
     assert risk_percent(0.999) == "above 95%" and risk_percent(1.0) == "above 95%"
     assert risk_percent(0.95) == "95%"
+
+
+@pytest.mark.anyio
+async def test_the_privacy_notice_screen_requests(in_process):
+    from frontend.patient_portal.notice import NOTICE_VERSION
+    assert NOTICE_VERSION == settings.privacy_notice_version  # registration only accepts the current one
+    token = await signed_in(in_process)
+    me = await api.call("GET", "/auth/me", token)  # State._load_profile
+    assert me.ok and me.data["consent_required"] is False
+    accept = await api.call("POST", "/auth/accept-privacy-notice", token,  # State.accept_notice
+                            json={"privacy_consent": True, "consent_version": NOTICE_VERSION})
+    assert accept.status == 204
+
+
+def test_the_not_entered_marker_matches_the_api_sentence():
+    from backend.explanations import sentence
+    from frontend.patient_portal.state import NOT_ENTERED
+    assert NOT_ENTERED in sentence("carbs_g_day", None, -0.4, "T2D")  # a blank input: grey, no bar
+    assert NOT_ENTERED not in sentence("carbs_g_day", 320, -0.4, "T2D")

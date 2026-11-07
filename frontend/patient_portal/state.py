@@ -30,7 +30,7 @@ GoogleReply = dict[str, Any]
 
 PH_MOBILE = re.compile(r"^(09|\+639)\d{9}$")  # 09171234567 or +639171234567
 MIN_PASSWORD = 12  # the screens ask for 12; the API's own minimum is 8
-PRIVACY_NOTICE_VERSION = "1.0"  # must equal PRIVACY_NOTICE_VERSION in the API settings
+from .notice import NOTICE_VERSION as PRIVACY_NOTICE_VERSION  # must equal privacy_notice_version in the API settings
 MODEL_VERSION = "sample-0.1"  # TODO (Sprint 5): the backend returns the real model version with each prediction
 
 
@@ -162,6 +162,7 @@ RELATIVE_GROUPS = [
 ]
 RELATIVE_LABEL = {code: label for _, items in RELATIVE_GROUPS for code, label in items}
 RELATIVE_CODE = {label: code for code, label in RELATIVE_LABEL.items()}
+NOT_ENTERED = "was not entered yet"  # in the API's sentence for an input that was not entered (backend/explanations.py)
 ONSET_LABEL = {"severe_early": "Very early", "early": "Early", "typical": "Typical", "late": "Late", "unknown": "Unknown"}
 CONFIRMED = {"Yes": "yes", "No": "no", "Not sure": "not_sure"}
 CONFIRMED_LABEL = {v: k for k, v in CONFIRMED.items()}
@@ -244,6 +245,8 @@ class State(rx.State):
     city: str = ""
     barangay: str = ""
     google_pending: bool = False     # Google said who you are; birth date, sex and consent still needed
+    notice_needed: bool = False      # the patient accepted an older privacy notice: show the current one first
+    notice_agree: bool = False
 
     # ---- dashboard ----
     probs: dict[str, float] = {}     # latest assessment; empty until the first one
@@ -364,14 +367,30 @@ class State(rx.State):
 
     @rx.var
     def reasons(self) -> list[dict[str, Any]]:
-        """Top factors (SHAP) of the selected disease, from the API, with plain-language sentences."""
-        return [{"name": feature_label(f["feature"]), "sentence": f["sentence"],
-                 "raises": max(f["shap_value"], 0.0), "lowers": min(f["shap_value"], 0.0)}
-                for f in self._result().get("top_factors", [])]
+        """Top factors (SHAP) of the selected disease, from the API, with plain-language sentences.
+        An input that was not entered is no reason: the model learned "blank = lower risk", so it
+        gets no bar and no direction, only a grey "Not entered" line."""
+        out = []
+        for f in self._result().get("top_factors", []):
+            missing = bool(f.get("missing", NOT_ENTERED in f["sentence"]))  # older API: no "missing" field
+            value = 0.0 if missing else f["shap_value"]
+            out.append({"name": feature_label(f["feature"]), "sentence": f["sentence"], "missing": missing,
+                        "raises": max(value, 0.0), "lowers": min(value, 0.0)})
+        return out
+
+    @rx.var
+    def chart_reasons(self) -> list[dict[str, Any]]:
+        return [r for r in self.reasons if not r["missing"]]
 
     @rx.var
     def consult_message(self) -> str:
         return self._result().get("consult_message") or ""
+
+    @rx.var
+    def safety_message(self) -> str:
+        """T2D: a glucose value already in the diabetes range (the API decides), whatever the tier.
+        Shown above the results whichever condition is picked, so it is never missed."""
+        return next((r["safety_message"] for r in self.api_results if r.get("safety_message")), "")
 
     @rx.var
     def has_plan(self) -> bool:
@@ -539,6 +558,8 @@ class State(rx.State):
         self.contact, self.street = p.get("contact_number") or "", p.get("street") or ""
         self.province, self.city, self.barangay = p.get("province") or "", p.get("city_municipality") or "", p.get("barangay") or ""
         self.auth_provider = "google" if p.get("sign_in") == "google" else "password"
+        me = await self._api("GET", "/auth/me")  # consent_required: the notice changed since this patient accepted it
+        self.notice_needed = bool(me.ok and isinstance(me.data, dict) and me.data.get("consent_required"))
         return True
 
     def _contact_and_address(self, form: Form) -> dict:
@@ -576,6 +597,21 @@ class State(rx.State):
     @rx.event
     def set_consent(self, value: bool):
         self.consent = value
+
+    @rx.event
+    def set_notice_agree(self, value: bool):
+        self.notice_agree = value
+
+    @rx.event
+    async def accept_notice(self):
+        """The privacy notice changed (version in notice.py): record that the patient accepts the new one."""
+        if not self.notice_agree:
+            return rx.toast.error("Please tick the box to accept the Privacy Notice.")
+        reply = await self._api("POST", "/auth/accept-privacy-notice", json={"privacy_consent": True, "consent_version": PRIVACY_NOTICE_VERSION})
+        if not reply.ok:
+            return rx.toast.error(reply.message("Your answer could not be saved. Please try again."))
+        self.notice_needed, self.notice_agree = False, False
+        return rx.toast.success("Thank you. You can continue.")
 
     @rx.event
     def set_contact(self, value: str):
