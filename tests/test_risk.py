@@ -265,9 +265,30 @@ def test_the_safety_message_names_each_glucose_value_in_the_diabetes_range():
     assert both.startswith("Your fasting blood sugar of 126 mg/dL and your HbA1c of 7.2% are in the diabetes range.")
     assert risk.safety_message("T2D", {"fpg": 125, "ogtt_2h": 199, "hba1c": 6.4}, {}) is None
     assert risk.safety_message("T2D", {"fpg": None}, {}) is None
-    assert risk.safety_message("CVD", {"fpg": 200}, {}) is None  # only on the diabetes result
+    assert risk.safety_message("CRD", {"fpg": 200}, {}) is None  # only on the diabetes result
     # The value the patient entered counts, not the capped value the model got
     assert "600 mg/dL" in risk.safety_message("T2D", {"ogtt_2h": 300}, {"ogtt_2h": {"entered": 600}})
+
+
+def test_high_blood_pressure_gets_a_safety_message_on_the_cvd_result():
+    assert risk.safety_message("CVD", {"sbp": 139, "dbp": 89}, {}) is None
+    high = risk.safety_message("CVD", {"sbp": 160, "dbp": 85}, {})
+    assert high.startswith("Your blood pressure of 160/85 mmHg is in the high blood pressure range.")
+    assert risk.safety_message("CVD", {"sbp": 130, "dbp": 90}, {}).startswith("Your blood pressure of 130/90 mmHg is in the high")
+    severe = risk.safety_message("CVD", {"sbp": 182, "dbp": 100}, {})
+    assert severe.startswith("Your blood pressure of 182/100 mmHg is very high. Please see a doctor today.")
+    assert "emergency room" in severe
+    assert "very high" in risk.safety_message("CVD", {"sbp": 150, "dbp": 120}, {})
+    assert risk.safety_message("CVD", {"sbp": None, "dbp": None}, {}) is None
+    assert risk.safety_message("T2D", {"fpg": 90, "sbp": 200, "dbp": 130}, {}) is None  # BP only on CVD
+
+
+def test_a_phq9_of_10_or_more_gets_a_safety_message_with_the_hotline():
+    assert risk.safety_message("NEURO", {"phq9": 9}, {}) is None
+    message = risk.safety_message("NEURO", {"phq9": 16}, {})
+    assert message.startswith("Your PHQ-9 score of 16 shows symptoms of depression that need care.")
+    assert "NCMH Crisis Hotline at 1553" in message
+    assert risk.safety_message("NEURO", {"phq9": None}, {}) is None
 
 
 def test_diabetes_range_glucose_gets_the_safety_message_whatever_the_tier(make_patient, models_on):
@@ -278,7 +299,7 @@ def test_diabetes_range_glucose_gets_the_safety_message_whatever_the_tier(make_p
     for result in data["results"]:
         if result["disease"] == "T2D":
             assert "fasting blood sugar of 140 mg/dL is in the diabetes range" in result["safety_message"]
-        else:
+        else:  # fill_required: BP 138/88 and PHQ-9 7 are below the cut-offs
             assert result["safety_message"] is None
 
 
