@@ -8,6 +8,8 @@ all_tables.sql
 backend/uploads/*
 !backend/uploads/.gitkeep
 .pytest_cache/
+# Backups hold health data (deploy/backup.sh)
+backups/
 ml/mlruns/
 
 # Trained model files: never committed (pickled code; registered by SHA-256 on each machine)
